@@ -1,0 +1,74 @@
+{
+  "name": "@datasynx/cartography-shadow",
+  "version": "0.1.0",
+  "description": "Shadow daemon for @datasynx/agentic-ai-cartography — continuous system monitoring, task tracking & SOP generation",
+  "type": "module",
+  "bin": {
+    "datasynx-shadow": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm run test && npm run build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "shadow",
+    "daemon",
+    "monitoring",
+    "cartography",
+    "sop",
+    "claude",
+    "ai-agent"
+  ],
+  "author": {
+    "name": "Datasynx AI",
+    "url": "https://github.com/datasynx-ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/datasynx-ai/agentic-ai-shadowing.git"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@datasynx/agentic-ai-cartography": ">=0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@datasynx/agentic-ai-cartography": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "1.0.128",
+    "@anthropic-ai/sdk": "^0.74.0",
+    "better-sqlite3": "^12.6.0",
+    "commander": "^12.1.0",
+    "node-notifier": "^10.0.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "@types/node-notifier": "^8.0.5",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import type {
   Task, TaskStatus, SOP, SOPStatus, Tag, TaskExecution,
-  ExportRecord, GlobalStats,
+  ExportRecord, GlobalStats, SOPVersion,
 } from './types.js';
 
 // ── Schema ───────────────────────────────────────────────────────────────────
@@ -71,10 +71,21 @@ CREATE TABLE IF NOT EXISTS export_sops (
     PRIMARY KEY (export_id, sop_id)
 );
 
+CREATE TABLE IF NOT EXISTS sop_versions (
+    id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    sop_id          TEXT NOT NULL REFERENCES sops(id) ON DELETE CASCADE,
+    version         INTEGER NOT NULL,
+    title           TEXT NOT NULL,
+    content_md      TEXT NOT NULL,
+    changed_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    change_summary  TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_sops_task_id ON sops(task_id);
 CREATE INDEX IF NOT EXISTS idx_sops_status ON sops(status);
 CREATE INDEX IF NOT EXISTS idx_task_executions_sop_id ON task_executions(sop_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+CREATE INDEX IF NOT EXISTS idx_sop_versions_sop_id ON sop_versions(sop_id);
 `;
 
 // ── ShadowingDB ──────────────────────────────────────────────────────────────
@@ -245,7 +256,18 @@ export class ShadowingDB {
     return rows.map(r => this.mapSOP(r));
   }
 
-  updateSOP(id: string, updates: Partial<Pick<SOP, 'title' | 'description' | 'content_md'>>): SOP {
+  updateSOP(id: string, updates: Partial<Pick<SOP, 'title' | 'description' | 'content_md'>>, changeSummary?: string): SOP {
+    // Snapshot current version before updating content
+    if (updates.content_md !== undefined) {
+      const current = this.getSOP(id);
+      if (current) {
+        this.db.prepare(`
+          INSERT INTO sop_versions (sop_id, version, title, content_md, change_summary)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(id, current.version, current.title, current.content_md, changeSummary ?? null);
+      }
+    }
+
     const fields: string[] = [];
     const values: unknown[] = [];
 
@@ -363,6 +385,20 @@ export class ShadowingDB {
 
   getExports(): ExportRecord[] {
     return this.db.prepare('SELECT * FROM exports ORDER BY exported_at DESC').all() as ExportRecord[];
+  }
+
+  // ── Versions ──────────────────────────────────────────────────────────────
+
+  getSOPVersions(sopId: string): SOPVersion[] {
+    return this.db.prepare(
+      'SELECT * FROM sop_versions WHERE sop_id = ? ORDER BY version DESC'
+    ).all(sopId) as SOPVersion[];
+  }
+
+  getSOPVersion(sopId: string, version: number): SOPVersion | null {
+    return (this.db.prepare(
+      'SELECT * FROM sop_versions WHERE sop_id = ? AND version = ?'
+    ).get(sopId, version) as SOPVersion | undefined) ?? null;
   }
 
   // ── Stats ────────────────────────────────────────────────────────────────

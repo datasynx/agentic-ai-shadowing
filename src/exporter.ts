@@ -7,21 +7,27 @@ import { calculateSOPMetrics } from './metrics.js';
 import { getExportsDir } from './config.js';
 
 export class Exporter {
+  private exportBaseDir: string;
+
   constructor(
     private db: ShadowingDB,
     private anonymizer: Anonymizer,
     private config: ShadowingConfig,
-  ) {}
+    exportBaseDir?: string,
+  ) {
+    this.exportBaseDir = exportBaseDir ?? getExportsDir();
+  }
 
   exportSOPs(sopIds: string[]): ExportResult {
     if (sopIds.length === 0) throw new Error('Keine SOPs zum Exportieren ausgewählt.');
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-    const exportDir = join(getExportsDir(), `export_${timestamp}`);
+    const exportDir = join(this.exportBaseDir, `export_${timestamp}`);
     const sopsDir = join(exportDir, 'sops');
     mkdirSync(sopsDir, { recursive: true });
 
     const manifestSOPs: ExportManifestSOP[] = [];
+    const exportedSopIds: string[] = [];
     const allTags = new Set<string>();
     let totalDuration = 0;
     let totalExecutions = 0;
@@ -31,6 +37,8 @@ export class Exporter {
       const sopId = sopIds[i]!;
       const sop = this.db.getSOP(sopId);
       if (!sop) continue;
+
+      exportedSopIds.push(sopId);
 
       const tags = this.db.getTagsForSOP(sopId).map(t => t.name);
       tags.forEach(t => allTags.add(t));
@@ -81,11 +89,11 @@ export class Exporter {
 
     writeFileSync(join(exportDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
 
-    // Log export in DB
+    // Log export in DB (only actually exported SOP IDs)
     this.db.logExport({
       sop_count: manifestSOPs.length,
       export_path: exportDir,
-      sop_ids: sopIds,
+      sop_ids: exportedSopIds,
     });
 
     return {

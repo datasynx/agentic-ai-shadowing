@@ -9,6 +9,7 @@ import { SOPGenerator, buildSOPPreview, countSteps } from './sop-generator.js';
 import { Anonymizer } from './anonymizer.js';
 import { Exporter } from './exporter.js';
 import { calculateSOPMetrics } from './metrics.js';
+import { diffTexts, formatDiff } from './diff.js';
 import {
   ensureConfigDir, getConfigPath, getDbPath,
   loadConfig, saveConfig, getConfigDir,
@@ -361,6 +362,98 @@ program
     db.close();
   });
 
+// ── shadowing history ────────────────────────────────────────────────────────
+
+program
+  .command('history <sop-id>')
+  .description('Versionshistorie einer SOP anzeigen')
+  .action((sopId: string) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const sop = findSOP(db, sopId);
+    if (!sop) { db.close(); return; }
+
+    const versions = db.getSOPVersions(sop.id);
+    process.stderr.write(`\n  Versionshistorie: "${sop.title}" (aktuell: v${sop.version})\n\n`);
+
+    if (versions.length === 0) {
+      process.stderr.write('  Keine älteren Versionen vorhanden.\n\n');
+      db.close();
+      return;
+    }
+
+    for (const v of versions) {
+      const summary = v.change_summary ? ` — ${v.change_summary}` : '';
+      process.stderr.write(`  v${v.version}  ${v.changed_at}  "${v.title}"${summary}\n`);
+    }
+    process.stderr.write(`\n  Nutze "shadowing diff <sop-id> <version>" um Änderungen zu sehen.\n\n`);
+
+    db.close();
+  });
+
+// ── shadowing diff ───────────────────────────────────────────────────────────
+
+program
+  .command('diff <sop-id> [version]')
+  .description('Diff zwischen SOP-Versionen anzeigen')
+  .option('--from <version>', 'Ausgangsversion (default: vorherige)')
+  .option('--to <version>', 'Zielversion (default: aktuell)')
+  .action((sopId: string, versionArg: string | undefined, opts: { from?: string; to?: string }) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const sop = findSOP(db, sopId);
+    if (!sop) { db.close(); return; }
+
+    let oldContent: string;
+    let newContent: string;
+    let oldVersion: number;
+    let newVersion: number;
+
+    if (versionArg) {
+      // Compare specific version to current
+      oldVersion = parseInt(versionArg, 10);
+      newVersion = sop.version;
+      const v = db.getSOPVersion(sop.id, oldVersion);
+      if (!v) {
+        process.stderr.write(`  Version ${oldVersion} nicht gefunden.\n`);
+        db.close();
+        return;
+      }
+      oldContent = v.content_md;
+      newContent = sop.content_md;
+    } else if (opts.from && opts.to) {
+      oldVersion = parseInt(opts.from, 10);
+      newVersion = parseInt(opts.to, 10);
+      const vFrom = db.getSOPVersion(sop.id, oldVersion);
+      const vTo = newVersion === sop.version ? null : db.getSOPVersion(sop.id, newVersion);
+      if (!vFrom) { process.stderr.write(`  Version ${oldVersion} nicht gefunden.\n`); db.close(); return; }
+      oldContent = vFrom.content_md;
+      newContent = vTo ? vTo.content_md : sop.content_md;
+    } else {
+      // Default: previous version vs current
+      const versions = db.getSOPVersions(sop.id);
+      if (versions.length === 0) {
+        process.stderr.write('  Keine älteren Versionen zum Vergleichen.\n');
+        db.close();
+        return;
+      }
+      const prev = versions[0]!;
+      oldVersion = prev.version;
+      newVersion = sop.version;
+      oldContent = prev.content_md;
+      newContent = sop.content_md;
+    }
+
+    process.stderr.write(`\n  Diff: v${oldVersion} → v${newVersion}\n\n`);
+    const diff = diffTexts(oldContent, newContent);
+    process.stderr.write(formatDiff(diff));
+    process.stderr.write('\n');
+
+    db.close();
+  });
+
 // ── shadowing tag ────────────────────────────────────────────────────────────
 
 program
@@ -496,6 +589,35 @@ program
     }
 
     db.close();
+  });
+
+// ── shadowing ui ─────────────────────────────────────────────────────────────
+
+program
+  .command('ui')
+  .description('Web-Dashboard starten')
+  .option('-p, --port <port>', 'Port (default: config.ui_port)')
+  .action(async (opts) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const config = loadConfig();
+    const port = opts.port ? parseInt(opts.port, 10) : config.ui_port;
+
+    const { createUIServer } = await import('./ui-server.js');
+    const server = createUIServer(db, config);
+
+    server.listen(port, () => {
+      process.stderr.write(`\n  Shadowing Dashboard gestartet.\n`);
+      process.stderr.write(`  http://localhost:${port}\n\n`);
+      process.stderr.write('  Strg+C zum Beenden.\n');
+    });
+
+    process.on('SIGINT', () => {
+      server.close();
+      db.close();
+      process.stderr.write('\n  Dashboard beendet.\n');
+    });
   });
 
 // ── shadowing import-graph ───────────────────────────────────────────────────

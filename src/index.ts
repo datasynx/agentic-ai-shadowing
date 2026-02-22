@@ -3,7 +3,7 @@
 // Types
 export type {
   Task, TaskStatus,
-  SOP, SOPStatus,
+  SOP, SOPStatus, SOPVersion,
   Tag, SOPTag,
   TaskExecution,
   ExportRecord,
@@ -37,6 +37,17 @@ export {
 
 // Anonymization
 export { Anonymizer } from './anonymizer.js';
+
+// Diff
+export { diffTexts, formatDiff } from './diff.js';
+export type { DiffLine, DiffResult } from './diff.js';
+
+// Cartography
+export { loadCartographyGraph, buildGraphContext, buildFocusedContext, findRelevantNodes } from './cartography.js';
+export type { CartographyGraph, CartographyNode, CartographyEdge } from './cartography.js';
+
+// UI Server
+export { createUIServer } from './ui-server.js';
 
 // Export
 export { Exporter } from './exporter.js';

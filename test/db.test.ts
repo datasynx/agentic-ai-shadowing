@@ -173,6 +173,60 @@ describe('ShadowingDB — Executions', () => {
   });
 });
 
+describe('ShadowingDB — Versions', () => {
+  it('creates version snapshot on content update', () => {
+    const task = db.createTask('Version Task');
+    const sop = db.createSOP(task.id, { title: 'V1', content_md: 'Original content' });
+
+    db.updateSOP(sop.id, { content_md: 'Updated content' });
+    db.updateSOP(sop.id, { content_md: 'Third version' });
+
+    const versions = db.getSOPVersions(sop.id);
+    expect(versions).toHaveLength(2);
+    expect(versions[0]!.version).toBe(2); // DESC order
+    expect(versions[1]!.version).toBe(1);
+    expect(versions[1]!.content_md).toBe('Original content');
+  });
+
+  it('retrieves specific version', () => {
+    const task = db.createTask('Specific Version');
+    const sop = db.createSOP(task.id, { title: 'SV', content_md: 'v1 content' });
+    db.updateSOP(sop.id, { content_md: 'v2 content' });
+
+    const v1 = db.getSOPVersion(sop.id, 1);
+    expect(v1).not.toBeNull();
+    expect(v1!.content_md).toBe('v1 content');
+  });
+
+  it('stores change summary', () => {
+    const task = db.createTask('Summary Task');
+    const sop = db.createSOP(task.id, { title: 'S', content_md: 'old' });
+    db.updateSOP(sop.id, { content_md: 'new' }, 'Improved clarity');
+
+    const versions = db.getSOPVersions(sop.id);
+    expect(versions[0]!.change_summary).toBe('Improved clarity');
+  });
+
+  it('does not create version on title-only update', () => {
+    const task = db.createTask('Title Task');
+    const sop = db.createSOP(task.id, { title: 'Old Title', content_md: 'Content' });
+    db.updateSOP(sop.id, { title: 'New Title' });
+
+    const versions = db.getSOPVersions(sop.id);
+    expect(versions).toHaveLength(0);
+  });
+
+  it('cascades version delete with SOP', () => {
+    const task = db.createTask('Delete Version');
+    const sop = db.createSOP(task.id, { title: 'DV', content_md: 'v1' });
+    db.updateSOP(sop.id, { content_md: 'v2' });
+
+    db.deleteSOP(sop.id);
+    const versions = db.getSOPVersions(sop.id);
+    expect(versions).toHaveLength(0);
+  });
+});
+
 describe('ShadowingDB — Stats', () => {
   it('returns global statistics', () => {
     const task = db.createTask('Stats Task');

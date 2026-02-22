@@ -69,4 +69,53 @@ describe('Anonymizer', () => {
     expect(result).toContain('admin@test.com');
     expect(result).toContain('10.0.0.1');
   });
+
+  it('redacts German IBAN', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Überweisung an DE89370400440532013000');
+    expect(result).toBe('Überweisung an [IBAN]');
+  });
+
+  it('redacts IBAN with spaces', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('IBAN: DE89 3704 0044 0532 0130 00');
+    expect(result).toBe('IBAN: [IBAN]');
+  });
+
+  it('redacts credit card numbers', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Karte: 4111-1111-1111-1111');
+    expect(result).toBe('Karte: [Kreditkartennummer]');
+  });
+
+  it('redacts credit card numbers with spaces', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Visa: 4111 1111 1111 1111');
+    expect(result).toBe('Visa: [Kreditkartennummer]');
+  });
+
+  it('redacts German Steuer-ID', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Steuer-ID: 12345678901');
+    expect(result).toBe('Steuer-ID: [Steuer-ID]');
+  });
+
+  it('redacts Windows file paths', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Datei unter C:\\Users\\Schmidt\\Documents\\report.xlsx');
+    expect(result).toContain('[user]');
+    expect(result).not.toContain('Schmidt');
+  });
+
+  it('handles multiple PII types in one text', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const text = 'Kontakt: admin@firma.de, Server: 10.0.0.5, IBAN: DE89370400440532013000';
+    const result = anon.anonymize(text);
+    expect(result).not.toContain('admin@firma.de');
+    expect(result).not.toContain('10.0.0.5');
+    expect(result).not.toContain('DE893704');
+    expect(result).toContain('[email@example.com]');
+    expect(result).toContain('[interne-ip]');
+    expect(result).toContain('[IBAN]');
+  });
 });

@@ -59,6 +59,18 @@ export interface TaskExecution {
   executed_at: string;
 }
 
+// ── SOPVersion ───────────────────────────────────────────────────────────────
+
+export interface SOPVersion {
+  id: string;
+  sop_id: string;
+  version: number;
+  title: string;
+  content_md: string;
+  changed_at: string;
+  change_summary: string | null;
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export interface ExportRecord {

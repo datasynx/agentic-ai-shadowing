@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { ShadowingConfig, Task, SOP } from './types.js';
 import type { ShadowingDB } from './db.js';
 import { formatDuration } from './task-manager.js';
+import { loadCartographyGraph, buildFocusedContext } from './cartography.js';
 
 export class SOPGenerator {
   private client: Anthropic;
@@ -50,14 +51,12 @@ Generiere 3-8 relevante Tags (lowercase, ohne #).`;
     if (task.description) userPrompt += `\nBeschreibung / Notizen:\n${task.description}`;
     userPrompt += `\nDauer: ${durationStr}`;
 
-    // Optional cartography context
+    // Cartography context
     if (this.config.sop_generation.include_cartography_context && this.config.cartography_graph_path) {
-      try {
-        const { readFileSync } = await import('node:fs');
-        const graph = readFileSync(this.config.cartography_graph_path, 'utf8');
-        userPrompt += `\n\nVerfügbare Systeme (Cartography-Graph):\n${graph.substring(0, 2000)}`;
-      } catch {
-        // Graph not available — skip
+      const graph = loadCartographyGraph(this.config.cartography_graph_path);
+      if (graph) {
+        const context = buildFocusedContext(graph, task.title, task.description ?? undefined);
+        userPrompt += `\n\n${context}`;
       }
     }
 

@@ -1018,6 +1018,203 @@ program
     process.stderr.write(formatInfraGraph(graph) + '\n\n');
   });
 
+// ── shadowing guide ──────────────────────────────────────────────────────────
+
+program
+  .command('guide')
+  .description('Komplette Anleitung und Workflow-Beschreibung')
+  .option('--topic <topic>', 'Spezifisches Thema: quickstart, tasks, observe, sops, export, privacy, api')
+  .action((opts) => {
+    const topic = opts.topic ?? 'all';
+    const w = process.stderr.write.bind(process.stderr);
+
+    if (topic === 'all' || topic === 'quickstart') {
+      w(`
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║              Agentic AI Shadowing — Benutzerhandbuch               ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+
+  Shadowing beobachtet deine Arbeitsabläufe und generiert daraus
+  automatisch Standard Operating Procedures (SOPs). Vollständig lokal,
+  anonymisiert, unter deiner Kontrolle.
+
+  ── Schnellstart ────────────────────────────────────────────────────
+
+  1. Initialisieren:     shadowing init
+  2. Task starten:       shadowing start
+  3. SOPs ansehen:       shadowing list
+  4. SOP anzeigen:       shadowing show <id>
+  5. SOPs exportieren:   shadowing export --all
+  6. Web-Dashboard:      shadowing ui
+
+`);
+    }
+
+    if (topic === 'all' || topic === 'tasks') {
+      w(`  ── Tasks (manueller Modus) ──────────────────────────────────────────
+
+  "shadowing start" startet einen interaktiven Modus:
+  - Du gibst einen Task-Titel und optionale Beschreibung ein
+  - Während der Arbeit kannst du Notizen hinzufügen
+  - Beim Abschluss wird automatisch eine SOP per Claude AI generiert
+  - Du kannst die SOP akzeptieren, bearbeiten oder neu generieren
+
+  Weitere Task-Befehle:
+    shadowing status          Aktuellen Task und Statistiken anzeigen
+    shadowing stats           Detaillierte Metriken im Terminal
+
+`);
+    }
+
+    if (topic === 'all' || topic === 'observe') {
+      w(`  ── Beobachtungsmodus (automatisch) ──────────────────────────────────
+
+  "shadowing observe" startet die automatische Workflow-Erfassung:
+  - Erfasst aktive Fenster, Shell-Befehle und Dateiänderungen
+  - Nutzt Heartbeat-Deduplikation: gleiche Aktivität wird nicht
+    mehrfach gespeichert, sondern die Dauer verlängert
+  - Erfordert einmalige Zustimmung (Consent)
+
+  Befehle im Observe-Modus:
+    status     Aktuelle Session-Zusammenfassung
+    note       Manuelle Notiz hinzufügen
+    pause      Beobachtung pausieren
+    resume     Beobachtung fortsetzen
+    stop       Session beenden
+
+  Optionen:
+    --interval <ms>    Poll-Intervall (default: 5000ms)
+    --no-shell         Shell-History nicht erfassen
+    --work-hours       Nur 8-18 Uhr erfassen
+
+  Session-Verwaltung:
+    shadowing sessions               Alle Sessions auflisten
+    shadowing timeline [session-id]  Zeitachse einer Session anzeigen
+    shadowing timeline --source shell  Nach Quelle filtern
+
+`);
+    }
+
+    if (topic === 'all' || topic === 'sops') {
+      w(`  ── SOPs verwalten ───────────────────────────────────────────────────
+
+  SOPs durchlaufen einen Status-Workflow:
+    draft → reviewed → approved → exported
+
+  Befehle:
+    shadowing list                    Alle SOPs auflisten
+    shadowing list --status draft     Nach Status filtern
+    shadowing list --tag buchhaltung  Nach Tag filtern
+    shadowing list --search SAP       Freitextsuche
+    shadowing show <id>               SOP im Terminal anzeigen
+    shadowing edit <id>               SOP im Editor bearbeiten
+    shadowing delete <id>             SOP löschen
+    shadowing tag <id> +neu -alt      Tags hinzufügen/entfernen
+    shadowing history <id>            Versionshistorie anzeigen
+    shadowing diff <id>               Diff zur Vorgängerversion
+    shadowing diff <id> 1             Diff zu Version 1
+
+  Tipp: SOP-IDs können abgekürzt werden (erste 4-8 Zeichen reichen).
+
+`);
+    }
+
+    if (topic === 'all' || topic === 'export') {
+      w(`  ── Export ────────────────────────────────────────────────────────────
+
+  Exportiert SOPs als anonymisierte Markdown-Dateien mit Manifest.
+
+    shadowing export           Interaktive Auswahl
+    shadowing export --all     Alle approved SOPs exportieren
+
+  Export-Verzeichnis: ~/.datasynx/shadowing/exports/
+  Struktur:
+    export_YYYY-MM-DD_HH-mm/
+    ├── manifest.json          Metadaten, Tags, Metriken
+    └── sops/
+        ├── sop_001.md
+        └── sop_002.md
+
+  Automatische Anonymisierung:
+  - E-Mail-Adressen, IPs, URLs, Telefonnummern
+  - Dateipfade, IBANs, Kreditkarten, Steuer-IDs
+  - Konfigurierbar über "shadowing config"
+
+`);
+    }
+
+    if (topic === 'all' || topic === 'privacy') {
+      w(`  ── Datenschutz & Privacy ─────────────────────────────────────────────
+
+  Alle Daten bleiben lokal. Keine Cloud-Übertragung (außer Claude API
+  für SOP-Generierung).
+
+  Consent (Zustimmung):
+    shadowing consent                 Status anzeigen
+    shadowing consent --grant all     Zustimmung für alles erteilen
+    shadowing consent --revoke shell  Shell-Erfassung widerrufen
+    shadowing consent --log           Audit-Trail anzeigen
+
+  Ausschlussregeln (was NICHT erfasst wird):
+    shadowing exclude                         Regeln anzeigen
+    shadowing exclude --defaults              Standardregeln laden
+                                              (Passwort-Manager, Banking, etc.)
+    shadowing exclude --add "1Password" --type app
+    shadowing exclude --add "*banking*" --type title_pattern
+    shadowing exclude --add "*.env*" --type path_pattern
+    shadowing exclude --remove <id>
+
+  Daten-Lebenszyklus:
+    0-7 Tage:    Volle Details (Fenstertitel, Befehle, Pfade)
+    7-30 Tage:   Nur App-Namen + Dauer (Details gelöscht)
+    >90 Tage:    Daten komplett gelöscht
+
+`);
+    }
+
+    if (topic === 'all' || topic === 'api') {
+      w(`  ── Web-Dashboard & API ──────────────────────────────────────────────
+
+    shadowing ui               Dashboard starten (default: Port 3847)
+    shadowing ui --port 8080   Anderen Port verwenden
+
+  REST-API-Endpunkte:
+    GET  /api/stats             Globale Statistiken
+    GET  /api/tasks             Task-Liste (?status=active)
+    GET  /api/tasks/active      Aktiver Task
+    GET  /api/sops              SOP-Liste (?status=, ?tag=, ?search=)
+    GET  /api/sops/:id          SOP-Detail mit Metriken + Versionen
+    PUT  /api/sops/:id/status   Status ändern
+    GET  /api/sops/:id/diff     Diff zur Vorgängerversion
+    GET  /api/tags              Alle Tags
+    GET  /api/exports           Export-Historie
+
+`);
+    }
+
+    if (topic === 'all') {
+      w(`  ── Weitere Befehle ──────────────────────────────────────────────────
+
+    shadowing infra [dir]      Infrastruktur-Kontext extrahieren
+                               (package.json, docker-compose, .env, Makefile)
+    shadowing import-graph <p> Cartography-Graph importieren (JSON)
+    shadowing config           Konfiguration im Editor öffnen
+    shadowing reset            Alle Daten löschen (mit Bestätigung)
+
+  ── Hilfe zu einzelnen Themen ────────────────────────────────────────
+
+    shadowing guide --topic quickstart   Schnellstart
+    shadowing guide --topic tasks        Manueller Task-Modus
+    shadowing guide --topic observe      Automatischer Beobachtungsmodus
+    shadowing guide --topic sops         SOP-Verwaltung
+    shadowing guide --topic export       Export & Anonymisierung
+    shadowing guide --topic privacy      Datenschutz & Consent
+    shadowing guide --topic api          Web-Dashboard & REST-API
+
+`);
+    }
+  });
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function findSOP(db: ShadowingDB, idPrefix: string) {

@@ -2,50 +2,41 @@
 
 // Types
 export type {
-  ShadowConfig,
-  ShadowStatus,
-  CartographyDB,
-  DaemonMessage,
-  ClientMessage,
-  PendingPrompt,
-  ActivityEvent,
-  EventRow,
-  TaskRow,
-  WorkflowRow,
-  SessionRow,
-  SOPRow,
-  NodeType,
-  EventType,
+  Task, TaskStatus,
+  SOP, SOPStatus,
+  Tag, SOPTag,
+  TaskExecution,
+  ExportRecord,
+  ShadowingConfig, AnonymizationConfig, SOPGenerationConfig, MetricsWeights,
+  SOPMetrics, GlobalStats,
+  ExportManifest, ExportManifestSOP, ExportResult,
 } from './types.js';
 
+export { TASK_STATUSES, SOP_STATUSES } from './types.js';
+
+// Database
+export { ShadowingDB } from './db.js';
+
+// Config
+export { loadConfig, saveConfig, getDefaultConfig, getConfigDir, getDbPath, ensureConfigDir } from './config.js';
+
+// Task Management
+export { TaskManager, formatDuration } from './task-manager.js';
+
+// SOP Generation
+export { SOPGenerator, buildSOPPreview, countSteps } from './sop-generator.js';
+
+// Metrics
 export {
-  DEFAULT_SHADOW_CONFIG,
-  MIN_POLL_INTERVAL_MS,
-  EVENT_TYPES,
-  NODE_TYPES,
-  EventSchema,
-} from './types.js';
+  calculateSOPMetrics,
+  calculateConsistencyScore,
+  calculateMaturityScore,
+  calculateFreshnessScore,
+  calculateOverallQualityScore,
+} from './metrics.js';
 
-// Daemon
-export {
-  ShadowDaemon,
-  takeSnapshot,
-  forkDaemon,
-  isDaemonRunning,
-  stopDaemon,
-  pauseDaemon,
-  resumeDaemon,
-  startDaemonProcess,
-} from './daemon.js';
+// Anonymization
+export { Anonymizer } from './anonymizer.js';
 
-// IPC
-export { IPCServer, IPCClient, cleanStaleSocket } from './ipc.js';
-
-// Client
-export { ForegroundClient, AttachClient } from './client.js';
-
-// Notifications
-export { NotificationService } from './notify.js';
-
-// Agent
-export { runShadowCycle, generateSOPs, clusterTasks } from './agent.js';
+// Export
+export { Exporter } from './exporter.js';

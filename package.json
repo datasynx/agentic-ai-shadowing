@@ -1,10 +1,10 @@
 {
-  "name": "@datasynx/cartography-shadow",
+  "name": "@datasynx/agentic-ai-shadowing",
   "version": "0.1.0",
-  "description": "Shadow daemon for @datasynx/agentic-ai-cartography — continuous system monitoring, task tracking & SOP generation",
+  "description": "Agentic AI Shadowing — beobachtet Tasks, generiert SOPs, vollständig lokal und anonymisiert",
   "type": "module",
   "bin": {
-    "datasynx-shadow": "./dist/cli.js"
+    "shadowing": "./dist/cli.js"
   },
   "exports": {
     ".": {
@@ -26,14 +26,14 @@
     "prepublishOnly": "npm run lint && npm run test && npm run build"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "keywords": [
-    "shadow",
-    "daemon",
-    "monitoring",
-    "cartography",
+    "shadowing",
     "sop",
+    "standard-operating-procedure",
+    "task-tracking",
+    "knowledge-management",
     "claude",
     "ai-agent"
   ],
@@ -55,17 +55,15 @@
     }
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "1.0.128",
     "@anthropic-ai/sdk": "^0.74.0",
+    "@inquirer/prompts": "^7.0.0",
     "better-sqlite3": "^12.6.0",
     "commander": "^12.1.0",
-    "node-notifier": "^10.0.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.0",
-    "@types/node-notifier": "^8.0.5",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.2",

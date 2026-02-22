@@ -1,193 +1,176 @@
-import { z } from 'zod';
+// ── Task ─────────────────────────────────────────────────────────────────────
 
-// ── NodeType (re-defined locally, originally from @datasynx/agentic-ai-cartography) ──
+export const TASK_STATUSES = ['active', 'paused', 'completed', 'cancelled'] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const NODE_TYPES = [
-  'service', 'database', 'queue', 'cache', 'storage',
-  'api', 'cdn', 'dns', 'loadbalancer', 'gateway',
-  'external', 'unknown',
-] as const;
-
-export type NodeType = (typeof NODE_TYPES)[number];
-
-// ── ShadowConfig ────────────────────────────────────────────────────────────
-
-export interface ShadowConfig {
-  shadowMode: 'foreground' | 'daemon';
-  pollIntervalMs: number;
-  inactivityTimeoutMs: number;
-  promptTimeoutMs: number;
-  trackWindowFocus: boolean;
-  autoSaveNodes: boolean;
-  enableNotifications: boolean;
-  shadowModel: string;
-  socketPath: string;
-  pidFile: string;
-  dbPath: string;
-}
-
-export const MIN_POLL_INTERVAL_MS = 15_000;
-
-export const DEFAULT_SHADOW_CONFIG: ShadowConfig = {
-  shadowMode: 'daemon',
-  pollIntervalMs: 30_000,
-  inactivityTimeoutMs: 300_000,
-  promptTimeoutMs: 60_000,
-  trackWindowFocus: false,
-  autoSaveNodes: false,
-  enableNotifications: true,
-  shadowModel: 'claude-haiku-4-5-20251001',
-  socketPath: `${process.env['HOME'] ?? '/tmp'}/.cartography/daemon.sock`,
-  pidFile: `${process.env['HOME'] ?? '/tmp'}/.cartography/daemon.pid`,
-  dbPath: `${process.env['HOME'] ?? '/tmp'}/.cartography/cartography.db`,
-};
-
-// ── Event Types ─────────────────────────────────────────────────────────────
-
-export const EVENT_TYPES = [
-  'process_start', 'process_end',
-  'connection_open', 'connection_close',
-  'window_focus', 'tool_switch',
-] as const;
-
-export type EventType = (typeof EVENT_TYPES)[number];
-
-export const EventSchema = z.object({
-  eventType: z.enum(EVENT_TYPES),
-  process: z.string(),
-  pid: z.number(),
-  target: z.string().optional(),
-  targetType: z.enum(NODE_TYPES).optional(),
-  protocol: z.string().optional(),
-  port: z.number().optional(),
-});
-
-export type ActivityEvent = z.infer<typeof EventSchema>;
-
-// ── DB Row Types ────────────────────────────────────────────────────────────
-
-export interface EventRow {
+export interface Task {
   id: string;
-  sessionId: string;
-  taskId?: string;
-  timestamp: string;
-  eventType: EventType;
-  process: string;
-  pid: number;
-  target?: string;
-  targetType?: NodeType;
-  port?: number;
-  durationMs?: number;
-}
-
-export interface TaskRow {
-  id: string;
-  sessionId: string;
-  description?: string;
-  startedAt: string;
-  completedAt?: string;
-  steps: string;
-  involvedServices: string;
-  status: 'active' | 'completed' | 'cancelled';
-  isSOPCandidate: boolean;
-}
-
-export interface WorkflowRow {
-  id: string;
-  sessionId: string;
-  name?: string;
-  pattern: string;
-  taskIds: string;
-  occurrences: number;
-  firstSeen: string;
-  lastSeen: string;
-  avgDurationMs: number;
-  involvedServices: string;
-}
-
-export interface SessionRow {
-  id: string;
-  mode: string;
-  startedAt: string;
-  endedAt?: string;
-}
-
-export interface SOPRow {
-  id: string;
-  sessionId: string;
   title: string;
-  description: string;
-  steps: string;
-  involvedSystems: string;
-  estimatedDuration: string;
-  frequency: string;
-  confidence: number;
-  createdAt: string;
+  description: string | null;
+  status: TaskStatus;
+  started_at: string;
+  completed_at: string | null;
+  duration_seconds: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
-// ── IPC Protocol ────────────────────────────────────────────────────────────
+// ── SOP ──────────────────────────────────────────────────────────────────────
 
-export interface PendingPrompt {
-  kind: 'node-approval' | 'task-boundary' | 'task-end';
-  context: Record<string, unknown>;
-  options: string[];
-  defaultAnswer: string;
-  timeoutMs: number;
-  createdAt: string;
+export const SOP_STATUSES = ['draft', 'reviewed', 'approved', 'exported', 'archived'] as const;
+export type SOPStatus = (typeof SOP_STATUSES)[number];
+
+export interface SOP {
+  id: string;
+  task_id: string;
+  title: string;
+  description: string | null;
+  content_md: string;
+  version: number;
+  status: SOPStatus;
+  ai_generated: boolean;
+  reviewed_at: string | null;
+  exported_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-export type DaemonMessage =
-  | { type: 'event'; data: EventRow }
-  | { type: 'prompt'; id: string; prompt: PendingPrompt }
-  | { type: 'status'; data: ShadowStatus }
-  | { type: 'agent-output'; text: string }
-  | { type: 'info'; message: string };
+// ── Tag ──────────────────────────────────────────────────────────────────────
 
-export type ClientMessage =
-  | { type: 'prompt-response'; id: string; answer: string }
-  | { type: 'command'; command: 'new-task' | 'end-task' | 'status' | 'stop' | 'pause' | 'resume' }
-  | { type: 'task-description'; description: string };
-
-// ── ShadowStatus ────────────────────────────────────────────────────────────
-
-export interface ShadowStatus {
-  pid: number;
-  uptime: number;
-  nodeCount: number;
-  eventCount: number;
-  taskCount: number;
-  sopCount: number;
-  pendingPrompts: number;
-  autoSave: boolean;
-  mode: 'foreground' | 'daemon';
-  agentActive: boolean;
-  paused: boolean;
-  cyclesRun: number;
-  cyclesSkipped: number;
+export interface Tag {
+  id: string;
+  name: string;
 }
 
-// ── CartographyDB interface ─────────────────────────────────────────────────
-// Defines the DB methods required by the shadow daemon.
-// At runtime, provide an instance from @datasynx/agentic-ai-cartography or
-// a compatible implementation.
+export interface SOPTag {
+  sop_id: string;
+  tag_id: string;
+  ai_generated: boolean;
+}
 
-export interface CartographyDB {
-  createSession(mode: string, config: ShadowConfig): string;
-  endSession(sessionId: string): void;
-  getLatestSession(mode: string): SessionRow | null;
+// ── TaskExecution ────────────────────────────────────────────────────────────
 
-  saveEvent(sessionId: string, event: ActivityEvent): string;
-  getEvents(sessionId: string): EventRow[];
+export interface TaskExecution {
+  id: string;
+  sop_id: string;
+  duration_seconds: number;
+  complexity_rating: number | null;
+  notes: string | null;
+  executed_at: string;
+}
 
-  startTask(sessionId: string): string;
-  endCurrentTask(sessionId: string): void;
-  updateTaskDescription(sessionId: string, description: string): void;
-  markTaskAsSOPCandidate(taskId: string): void;
-  getTasks(sessionId: string): TaskRow[];
+// ── Export ────────────────────────────────────────────────────────────────────
 
-  getStats(sessionId: string): { nodes: number; events: number; tasks: number };
-  getSOPs(sessionId: string): SOPRow[];
-  insertSOP(sessionId: string, sop: Omit<SOPRow, 'id' | 'sessionId' | 'createdAt'>): string;
+export interface ExportRecord {
+  id: string;
+  exported_at: string;
+  sop_count: number;
+  export_path: string;
+  anonymized: boolean;
+}
 
-  close(): void;
+// ── Config ───────────────────────────────────────────────────────────────────
+
+export interface AnonymizationConfig {
+  custom_replacements: Record<string, string>;
+  redact_emails: boolean;
+  redact_ips: boolean;
+  redact_urls: boolean;
+  redact_phone_numbers: boolean;
+  redact_file_paths: boolean;
+}
+
+export interface SOPGenerationConfig {
+  model: string;
+  max_tokens: number;
+  temperature: number;
+  include_cartography_context: boolean;
+  auto_generate_tags: boolean;
+  sop_language: string;
+}
+
+export interface MetricsWeights {
+  consistency: number;
+  maturity: number;
+  freshness: number;
+}
+
+export interface ShadowingConfig {
+  version: string;
+  language: string;
+  polling_interval_minutes: number;
+  editor: string;
+  ui_port: number;
+  cartography_graph_path: string | null;
+  anonymization: AnonymizationConfig;
+  sop_generation: SOPGenerationConfig;
+  metrics: {
+    quality_score_weights: MetricsWeights;
+  };
+}
+
+// ── Metrics ──────────────────────────────────────────────────────────────────
+
+export interface SOPMetrics {
+  execution_count: number;
+  avg_duration_seconds: number;
+  median_duration_seconds: number;
+  min_duration_seconds: number;
+  max_duration_seconds: number;
+  std_deviation_seconds: number;
+  coefficient_of_variation: number;
+  avg_complexity: number;
+  consistency_score: number;
+  maturity_score: number;
+  freshness_score: number;
+  overall_quality_score: number;
+}
+
+// ── GlobalStats ──────────────────────────────────────────────────────────────
+
+export interface GlobalStats {
+  total_tasks: number;
+  active_tasks: number;
+  completed_tasks: number;
+  total_sops: number;
+  draft_sops: number;
+  reviewed_sops: number;
+  approved_sops: number;
+  exported_sops: number;
+  total_executions: number;
+  total_tags: number;
+  total_exports: number;
+  avg_quality_score: number;
+}
+
+// ── Export Result ─────────────────────────────────────────────────────────────
+
+export interface ExportManifest {
+  version: string;
+  exported_at: string;
+  source: string;
+  sop_count: number;
+  anonymized: boolean;
+  tags_summary: string[];
+  metrics_summary: {
+    avg_completion_time_seconds: number;
+    avg_quality_score: number;
+    total_executions: number;
+  };
+  sops: ExportManifestSOP[];
+}
+
+export interface ExportManifestSOP {
+  file: string;
+  title: string;
+  tags: string[];
+  executions: number;
+  avg_duration_seconds: number;
+  quality_score: number;
+}
+
+export interface ExportResult {
+  export_path: string;
+  sop_count: number;
+  manifest: ExportManifest;
 }

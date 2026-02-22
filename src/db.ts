@@ -2,6 +2,8 @@ import Database from 'better-sqlite3';
 import type {
   Task, TaskStatus, SOP, SOPStatus, Tag, TaskExecution,
   ExportRecord, GlobalStats, SOPVersion,
+  ObservedAction, ActionSource, ObservationSession,
+  ConsentRecord, ExclusionRule,
 } from './types.js';
 
 // ── Schema ───────────────────────────────────────────────────────────────────
@@ -81,11 +83,53 @@ CREATE TABLE IF NOT EXISTS sop_versions (
     change_summary  TEXT
 );
 
+CREATE TABLE IF NOT EXISTS observation_sessions (
+    id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    title           TEXT,
+    status          TEXT NOT NULL DEFAULT 'active'
+                        CHECK (status IN ('active', 'paused', 'completed')),
+    started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    ended_at        TEXT,
+    total_actions   INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS observed_actions (
+    id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    session_id      TEXT NOT NULL REFERENCES observation_sessions(id) ON DELETE CASCADE,
+    source          TEXT NOT NULL CHECK (source IN ('window', 'shell', 'git', 'file', 'manual')),
+    app_name        TEXT,
+    window_title    TEXT,
+    command         TEXT,
+    file_path       TEXT,
+    metadata        TEXT,
+    started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    ended_at        TEXT NOT NULL DEFAULT (datetime('now')),
+    duration_seconds INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS consent_log (
+    id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    action          TEXT NOT NULL CHECK (action IN ('granted', 'revoked')),
+    scope           TEXT NOT NULL,
+    recorded_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS exclusion_rules (
+    id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    rule_type       TEXT NOT NULL CHECK (rule_type IN ('app', 'title_pattern', 'url_pattern', 'path_pattern')),
+    pattern         TEXT NOT NULL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_sops_task_id ON sops(task_id);
 CREATE INDEX IF NOT EXISTS idx_sops_status ON sops(status);
 CREATE INDEX IF NOT EXISTS idx_task_executions_sop_id ON task_executions(sop_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 CREATE INDEX IF NOT EXISTS idx_sop_versions_sop_id ON sop_versions(sop_id);
+CREATE INDEX IF NOT EXISTS idx_observed_actions_session ON observed_actions(session_id);
+CREATE INDEX IF NOT EXISTS idx_observed_actions_source ON observed_actions(source);
+CREATE INDEX IF NOT EXISTS idx_observation_sessions_status ON observation_sessions(status);
 `;
 
 // ── ShadowingDB ──────────────────────────────────────────────────────────────
@@ -399,6 +443,295 @@ export class ShadowingDB {
     return (this.db.prepare(
       'SELECT * FROM sop_versions WHERE sop_id = ? AND version = ?'
     ).get(sopId, version) as SOPVersion | undefined) ?? null;
+  }
+
+  // ── Observation Sessions ─────────────────────────────────────────────────
+
+  startObservationSession(title?: string): ObservationSession {
+    const stmt = this.db.prepare(`
+      INSERT INTO observation_sessions (title)
+      VALUES (?)
+      RETURNING *
+    `);
+    return stmt.get(title ?? null) as ObservationSession;
+  }
+
+  getObservationSession(id: string): ObservationSession | null {
+    return (this.db.prepare(
+      'SELECT * FROM observation_sessions WHERE id = ?'
+    ).get(id) as ObservationSession | undefined) ?? null;
+  }
+
+  getActiveObservationSession(): ObservationSession | null {
+    return (this.db.prepare(
+      "SELECT * FROM observation_sessions WHERE status = 'active' ORDER BY started_at DESC LIMIT 1"
+    ).get() as ObservationSession | undefined) ?? null;
+  }
+
+  listObservationSessions(filter?: { status?: string }): ObservationSession[] {
+    let sql = 'SELECT * FROM observation_sessions';
+    const params: string[] = [];
+    if (filter?.status) {
+      sql += ' WHERE status = ?';
+      params.push(filter.status);
+    }
+    sql += ' ORDER BY started_at DESC';
+    return this.db.prepare(sql).all(...params) as ObservationSession[];
+  }
+
+  completeObservationSession(id: string): ObservationSession {
+    const stmt = this.db.prepare(`
+      UPDATE observation_sessions
+      SET status = 'completed',
+          ended_at = datetime('now'),
+          total_actions = (SELECT COUNT(*) FROM observed_actions WHERE session_id = ?)
+      WHERE id = ?
+      RETURNING *
+    `);
+    const row = stmt.get(id, id) as ObservationSession | undefined;
+    if (!row) throw new Error(`Session ${id} not found`);
+    return row;
+  }
+
+  pauseObservationSession(id: string): ObservationSession {
+    const stmt = this.db.prepare(`
+      UPDATE observation_sessions SET status = 'paused' WHERE id = ? RETURNING *
+    `);
+    const row = stmt.get(id) as ObservationSession | undefined;
+    if (!row) throw new Error(`Session ${id} not found`);
+    return row;
+  }
+
+  resumeObservationSession(id: string): ObservationSession {
+    const stmt = this.db.prepare(`
+      UPDATE observation_sessions SET status = 'active' WHERE id = ? RETURNING *
+    `);
+    const row = stmt.get(id) as ObservationSession | undefined;
+    if (!row) throw new Error(`Session ${id} not found`);
+    return row;
+  }
+
+  // ── Observed Actions ────────────────────────────────────────────────────
+
+  logObservedAction(sessionId: string, data: {
+    source: ActionSource;
+    app_name?: string;
+    window_title?: string;
+    command?: string;
+    file_path?: string;
+    metadata?: Record<string, unknown>;
+    started_at?: string;
+    ended_at?: string;
+    duration_seconds?: number;
+  }): ObservedAction {
+    const stmt = this.db.prepare(`
+      INSERT INTO observed_actions (session_id, source, app_name, window_title, command, file_path, metadata, started_at, ended_at, duration_seconds)
+      VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')), ?)
+      RETURNING *
+    `);
+    return stmt.get(
+      sessionId,
+      data.source,
+      data.app_name ?? null,
+      data.window_title ?? null,
+      data.command ?? null,
+      data.file_path ?? null,
+      data.metadata ? JSON.stringify(data.metadata) : null,
+      data.started_at ?? null,
+      data.ended_at ?? null,
+      data.duration_seconds ?? 0,
+    ) as ObservedAction;
+  }
+
+  /**
+   * Heartbeat update: extend the ended_at and duration of the last action
+   * if it matches the same source + app_name + window_title.
+   * Returns the updated action if merged, or null if a new action is needed.
+   */
+  heartbeatAction(sessionId: string, data: {
+    source: ActionSource;
+    app_name?: string;
+    window_title?: string;
+    pulsetime_seconds: number;
+  }): ObservedAction | null {
+    const last = this.db.prepare(`
+      SELECT * FROM observed_actions
+      WHERE session_id = ?
+      ORDER BY ended_at DESC
+      LIMIT 1
+    `).get(sessionId) as ObservedAction | undefined;
+
+    if (!last) return null;
+
+    // Check if the last action matches and is within pulsetime
+    if (
+      last.source !== data.source ||
+      last.app_name !== (data.app_name ?? null) ||
+      last.window_title !== (data.window_title ?? null)
+    ) {
+      return null;
+    }
+
+    const lastEnd = new Date(last.ended_at + 'Z').getTime();
+    const now = Date.now();
+    const gapSeconds = (now - lastEnd) / 1000;
+
+    if (gapSeconds > data.pulsetime_seconds) {
+      return null; // Gap too large, need new action
+    }
+
+    // Merge: extend the existing action
+    const stmt = this.db.prepare(`
+      UPDATE observed_actions
+      SET ended_at = datetime('now'),
+          duration_seconds = CAST((julianday('now') - julianday(started_at)) * 86400 AS INTEGER)
+      WHERE id = ?
+      RETURNING *
+    `);
+    return stmt.get(last.id) as ObservedAction;
+  }
+
+  getObservedActions(sessionId: string, opts?: {
+    source?: ActionSource;
+    limit?: number;
+    offset?: number;
+  }): ObservedAction[] {
+    let sql = 'SELECT * FROM observed_actions WHERE session_id = ?';
+    const params: (string | number)[] = [sessionId];
+
+    if (opts?.source) {
+      sql += ' AND source = ?';
+      params.push(opts.source);
+    }
+
+    sql += ' ORDER BY started_at DESC';
+
+    if (opts?.limit) {
+      sql += ' LIMIT ?';
+      params.push(opts.limit);
+      if (opts.offset) {
+        sql += ' OFFSET ?';
+        params.push(opts.offset);
+      }
+    }
+
+    return this.db.prepare(sql).all(...params) as ObservedAction[];
+  }
+
+  getActionTimeline(sessionId: string, startTime?: string, endTime?: string): ObservedAction[] {
+    let sql = 'SELECT * FROM observed_actions WHERE session_id = ?';
+    const params: string[] = [sessionId];
+
+    if (startTime) {
+      sql += ' AND started_at >= ?';
+      params.push(startTime);
+    }
+    if (endTime) {
+      sql += ' AND ended_at <= ?';
+      params.push(endTime);
+    }
+
+    sql += ' ORDER BY started_at ASC';
+    return this.db.prepare(sql).all(...params) as ObservedAction[];
+  }
+
+  getActionSummary(sessionId: string): { source: string; count: number; total_seconds: number }[] {
+    return this.db.prepare(`
+      SELECT source, COUNT(*) as count, SUM(duration_seconds) as total_seconds
+      FROM observed_actions
+      WHERE session_id = ?
+      GROUP BY source
+      ORDER BY total_seconds DESC
+    `).all(sessionId) as { source: string; count: number; total_seconds: number }[];
+  }
+
+  // ── Consent ─────────────────────────────────────────────────────────────
+
+  logConsent(action: 'granted' | 'revoked', scope: string): ConsentRecord {
+    const stmt = this.db.prepare(`
+      INSERT INTO consent_log (action, scope)
+      VALUES (?, ?)
+      RETURNING *
+    `);
+    return stmt.get(action, scope) as ConsentRecord;
+  }
+
+  getConsentLog(): ConsentRecord[] {
+    return this.db.prepare(
+      'SELECT * FROM consent_log ORDER BY recorded_at DESC, rowid DESC'
+    ).all() as ConsentRecord[];
+  }
+
+  /**
+   * Returns the effective consent state for a scope.
+   * Looks at the most recent consent entry for the scope.
+   */
+  hasConsent(scope: string): boolean {
+    const row = this.db.prepare(`
+      SELECT action FROM consent_log
+      WHERE scope = ?
+      ORDER BY recorded_at DESC, rowid DESC
+      LIMIT 1
+    `).get(scope) as { action: string } | undefined;
+
+    return row?.action === 'granted';
+  }
+
+  // ── Exclusion Rules ─────────────────────────────────────────────────────
+
+  addExclusionRule(ruleType: ExclusionRule['rule_type'], pattern: string): ExclusionRule {
+    const stmt = this.db.prepare(`
+      INSERT INTO exclusion_rules (rule_type, pattern)
+      VALUES (?, ?)
+      RETURNING *
+    `);
+    return stmt.get(ruleType, pattern) as ExclusionRule;
+  }
+
+  removeExclusionRule(id: string): void {
+    this.db.prepare('DELETE FROM exclusion_rules WHERE id = ?').run(id);
+  }
+
+  listExclusionRules(ruleType?: ExclusionRule['rule_type']): ExclusionRule[] {
+    if (ruleType) {
+      return this.db.prepare(
+        'SELECT * FROM exclusion_rules WHERE rule_type = ? ORDER BY created_at DESC'
+      ).all(ruleType) as ExclusionRule[];
+    }
+    return this.db.prepare(
+      'SELECT * FROM exclusion_rules ORDER BY rule_type, created_at DESC'
+    ).all() as ExclusionRule[];
+  }
+
+  // ── Data Degradation ────────────────────────────────────────────────────
+
+  /**
+   * Delete observed actions older than the given number of days.
+   * Returns the number of deleted rows.
+   */
+  purgeOldActions(olderThanDays: number): number {
+    const result = this.db.prepare(`
+      DELETE FROM observed_actions
+      WHERE started_at <= datetime('now', ? || ' days')
+    `).run(`-${olderThanDays}`);
+    return result.changes;
+  }
+
+  /**
+   * Remove detailed metadata (window_title, command) from actions older than N days,
+   * keeping only aggregate data (source, app_name, duration).
+   */
+  degradeOldActions(olderThanDays: number): number {
+    const result = this.db.prepare(`
+      UPDATE observed_actions
+      SET window_title = NULL,
+          command = NULL,
+          file_path = NULL,
+          metadata = NULL
+      WHERE started_at <= datetime('now', ? || ' days')
+        AND (window_title IS NOT NULL OR command IS NOT NULL OR file_path IS NOT NULL OR metadata IS NOT NULL)
+    `).run(`-${olderThanDays}`);
+    return result.changes;
   }
 
   // ── Stats ────────────────────────────────────────────────────────────────

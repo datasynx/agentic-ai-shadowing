@@ -10,6 +10,11 @@ import { Anonymizer } from './anonymizer.js';
 import { Exporter } from './exporter.js';
 import { calculateSOPMetrics } from './metrics.js';
 import { diffTexts, formatDiff } from './diff.js';
+import { Observer } from './observer.js';
+import { createShellHistoryReader } from './shell-history.js';
+import { PrivacyManager, getDefaultExclusions } from './privacy.js';
+import { buildInfraGraph, formatInfraGraph } from './infra-context.js';
+import type { ExclusionRule } from './types.js';
 import {
   ensureConfigDir, getConfigPath, getDbPath,
   loadConfig, saveConfig, getConfigDir,
@@ -681,6 +686,336 @@ program
     try { if (existsSync(configPath)) unlinkSync(configPath); } catch { /* ok */ }
 
     process.stderr.write('  Alle Daten gelöscht. "shadowing init" zum Neustart.\n');
+  });
+
+// ── shadowing observe ────────────────────────────────────────────────────────
+
+program
+  .command('observe')
+  .description('Beobachtungsmodus starten (automatische Workflow-Erfassung)')
+  .option('--interval <ms>', 'Poll-Intervall in Millisekunden', '5000')
+  .option('--no-shell', 'Shell-History nicht erfassen')
+  .option('--work-hours', 'Nur während Arbeitszeiten erfassen')
+  .action(async (opts) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const privacy = new PrivacyManager(db);
+
+    // Check consent
+    if (!privacy.hasConsent('all')) {
+      const { confirm } = await import('@inquirer/prompts');
+      process.stderr.write('\n  Beobachtungsmodus erfordert Zustimmung zur Datenerfassung.\n');
+      process.stderr.write('  Erfasst werden: aktive Fenster, Shell-Befehle, Dateiänderungen.\n');
+      process.stderr.write('  Alle Daten bleiben lokal. Keine Cloud-Übertragung.\n\n');
+
+      const yes = await confirm({ message: 'Zustimmung zur Beobachtung erteilen?' });
+      if (!yes) {
+        process.stderr.write('  Beobachtung abgebrochen.\n');
+        db.close();
+        return;
+      }
+      privacy.grantConsent('all');
+      process.stderr.write('  Zustimmung erteilt.\n\n');
+    }
+
+    const observer = new Observer(db, {
+      poll_interval_ms: parseInt(opts.interval, 10),
+      capture_shell_history: opts.shell !== false,
+      work_hours_only: opts.workHours ?? false,
+    });
+
+    // Register shell history reader
+    if (opts.shell !== false) {
+      observer.setShellHistoryReader(createShellHistoryReader());
+    }
+
+    const { input } = await import('@inquirer/prompts');
+
+    const session = observer.start();
+    process.stderr.write(`\n  Beobachtung gestartet (Session: ${session.id.substring(0, 8)})\n`);
+    process.stderr.write(`  Intervall: ${opts.interval}ms\n`);
+    process.stderr.write('  Befehle: "stop" = beenden, "pause" = pausieren, "note" = Notiz\n\n');
+
+    let running = true;
+    while (running) {
+      const cmd = await input({ message: '>' }).catch(() => 'stop');
+      const trimmed = cmd.trim().toLowerCase();
+
+      switch (trimmed) {
+        case 'stop':
+        case 'quit':
+        case 'exit': {
+          const completed = observer.stop();
+          if (completed) {
+            process.stderr.write(`  Session beendet. ${completed.total_actions} Aktionen erfasst.\n`);
+          }
+          running = false;
+          break;
+        }
+        case 'pause':
+          observer.pause();
+          process.stderr.write('  Beobachtung pausiert.\n');
+          break;
+        case 'resume':
+          observer.resume();
+          process.stderr.write('  Beobachtung fortgesetzt.\n');
+          break;
+        case 'note': {
+          const note = await input({ message: 'Notiz:' }).catch(() => '');
+          if (note.trim()) {
+            observer.logManualAction(note.trim());
+            process.stderr.write('  Notiz erfasst.\n');
+          }
+          break;
+        }
+        case 'status': {
+          const s = observer.getSession();
+          if (s) {
+            const summary = db.getActionSummary(s.id);
+            process.stderr.write(`  Session: ${s.id.substring(0, 8)} | Status: ${s.status}\n`);
+            for (const item of summary) {
+              process.stderr.write(`    ${item.source}: ${item.count} Aktionen (${formatDuration(item.total_seconds)})\n`);
+            }
+          }
+          break;
+        }
+        default:
+          if (trimmed) {
+            process.stderr.write('  Unbekannter Befehl. Verfügbar: stop, pause, resume, note, status\n');
+          }
+      }
+    }
+
+    // Apply data lifecycle on exit
+    privacy.applyDataLifecycle();
+
+    db.close();
+  });
+
+// ── shadowing timeline ──────────────────────────────────────────────────────
+
+program
+  .command('timeline [session-id]')
+  .description('Zeitachse einer Beobachtungssession anzeigen')
+  .option('--source <source>', 'Filter nach Quelle (window/shell/git/file/manual)')
+  .option('--limit <n>', 'Maximale Anzahl Einträge', '50')
+  .action((sessionId: string | undefined, opts) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    // If no session ID, use the latest session
+    let session = sessionId
+      ? db.getObservationSession(sessionId)
+      : db.listObservationSessions()[0] ?? null;
+
+    if (!session) {
+      // Try prefix match
+      if (sessionId) {
+        const all = db.listObservationSessions();
+        const matches = all.filter(s => s.id.startsWith(sessionId));
+        if (matches.length === 1) session = matches[0]!;
+      }
+
+      if (!session) {
+        process.stderr.write('  Keine Beobachtungssession gefunden.\n');
+        db.close();
+        return;
+      }
+    }
+
+    process.stderr.write(`\n  Session: ${session.id.substring(0, 8)} | ${session.started_at} | ${session.status}\n`);
+
+    const actions = db.getObservedActions(session.id, {
+      source: opts.source,
+      limit: parseInt(opts.limit, 10),
+    });
+
+    if (actions.length === 0) {
+      process.stderr.write('  Keine Aktionen aufgezeichnet.\n\n');
+      db.close();
+      return;
+    }
+
+    // Summary first
+    const summary = db.getActionSummary(session.id);
+    process.stderr.write('\n  Zusammenfassung:\n');
+    for (const item of summary) {
+      process.stderr.write(`    ${item.source.padEnd(8)} ${String(item.count).padStart(4)} Aktionen  ${formatDuration(item.total_seconds)}\n`);
+    }
+
+    process.stderr.write(`\n  Letzte ${actions.length} Aktionen:\n\n`);
+
+    for (const action of actions.reverse()) {
+      const time = action.started_at.substring(11, 19);
+      const dur = action.duration_seconds > 0 ? ` (${formatDuration(action.duration_seconds)})` : '';
+      const source = `[${action.source}]`.padEnd(10);
+      let detail = '';
+
+      if (action.source === 'window') {
+        detail = `${action.app_name ?? '?'}: ${action.window_title ?? ''}`;
+      } else if (action.source === 'shell') {
+        detail = `$ ${action.command ?? ''}`;
+      } else if (action.source === 'file') {
+        detail = action.file_path ?? '';
+      } else if (action.source === 'manual') {
+        detail = action.window_title ?? action.command ?? '';
+      } else {
+        detail = action.window_title ?? action.command ?? action.file_path ?? '';
+      }
+
+      process.stderr.write(`  ${time} ${source} ${detail.substring(0, 70)}${dur}\n`);
+    }
+
+    process.stderr.write('\n');
+    db.close();
+  });
+
+// ── shadowing sessions ──────────────────────────────────────────────────────
+
+program
+  .command('sessions')
+  .description('Beobachtungssessions auflisten')
+  .action(() => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const sessions = db.listObservationSessions();
+
+    if (sessions.length === 0) {
+      process.stderr.write('\n  Keine Beobachtungssessions vorhanden.\n\n');
+      db.close();
+      return;
+    }
+
+    process.stderr.write(`\n  ${sessions.length} Session(s):\n\n`);
+    for (const s of sessions) {
+      const statusIcon = s.status === 'active' ? '[>>]' :
+                         s.status === 'paused' ? '[||]' : '[ok]';
+      process.stderr.write(
+        `  ${s.id.substring(0, 8)}  ${statusIcon}  ${s.started_at}  ${String(s.total_actions).padStart(4)} Aktionen  ${s.title ?? ''}\n`
+      );
+    }
+    process.stderr.write('\n');
+    db.close();
+  });
+
+// ── shadowing consent ───────────────────────────────────────────────────────
+
+program
+  .command('consent')
+  .description('Zustimmungsmanagement für Beobachtung')
+  .option('--grant <scope>', 'Zustimmung erteilen (window/shell/git/file/all)')
+  .option('--revoke <scope>', 'Zustimmung widerrufen')
+  .option('--log', 'Consent-Protokoll anzeigen')
+  .action((opts) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const privacy = new PrivacyManager(db);
+
+    if (opts.grant) {
+      privacy.grantConsent(opts.grant);
+      process.stderr.write(`  Zustimmung erteilt: ${opts.grant}\n`);
+    } else if (opts.revoke) {
+      privacy.revokeConsent(opts.revoke);
+      process.stderr.write(`  Zustimmung widerrufen: ${opts.revoke}\n`);
+    } else if (opts.log) {
+      const log = privacy.getConsentLog();
+      if (log.length === 0) {
+        process.stderr.write('\n  Kein Consent-Protokoll vorhanden.\n\n');
+      } else {
+        process.stderr.write('\n  Consent-Protokoll:\n\n');
+        for (const entry of log) {
+          const icon = entry.action === 'granted' ? '[+]' : '[-]';
+          process.stderr.write(`  ${entry.recorded_at}  ${icon}  ${entry.scope}\n`);
+        }
+        process.stderr.write('\n');
+      }
+    } else {
+      // Show current status
+      const status = privacy.getConsentStatus();
+      process.stderr.write('\n  Aktueller Consent-Status:\n\n');
+      for (const [scope, granted] of Object.entries(status)) {
+        const icon = granted ? '[+]' : '[-]';
+        process.stderr.write(`  ${icon}  ${scope}\n`);
+      }
+      process.stderr.write('\n  Nutze --grant <scope> oder --revoke <scope> zum Ändern.\n\n');
+    }
+
+    db.close();
+  });
+
+// ── shadowing exclude ───────────────────────────────────────────────────────
+
+program
+  .command('exclude')
+  .description('Ausschlussregeln für die Beobachtung verwalten')
+  .option('--add <pattern>', 'Neue Ausschlussregel hinzufügen')
+  .option('--type <type>', 'Regeltyp: app, title_pattern, url_pattern, path_pattern', 'title_pattern')
+  .option('--remove <id>', 'Ausschlussregel entfernen')
+  .option('--defaults', 'Standard-Ausschlussregeln laden')
+  .action((opts) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const privacy = new PrivacyManager(db);
+
+    if (opts.add) {
+      const ruleType = opts.type as ExclusionRule['rule_type'];
+      const rule = privacy.addExclusion(ruleType, opts.add);
+      process.stderr.write(`  Regel hinzugefügt: [${ruleType}] "${opts.add}" (ID: ${rule.id.substring(0, 8)})\n`);
+    } else if (opts.remove) {
+      privacy.removeExclusion(opts.remove);
+      process.stderr.write(`  Regel entfernt.\n`);
+    } else if (opts.defaults) {
+      const defaults = getDefaultExclusions();
+      let added = 0;
+      for (const def of defaults) {
+        privacy.addExclusion(def.rule_type, def.pattern);
+        added++;
+      }
+      process.stderr.write(`  ${added} Standard-Ausschlussregeln geladen.\n`);
+    } else {
+      // List all rules
+      const rules = privacy.listExclusions();
+      if (rules.length === 0) {
+        process.stderr.write('\n  Keine Ausschlussregeln definiert.\n');
+        process.stderr.write('  Nutze --defaults zum Laden der Standardregeln.\n\n');
+      } else {
+        process.stderr.write(`\n  ${rules.length} Ausschlussregel(n):\n\n`);
+        for (const rule of rules) {
+          process.stderr.write(`  ${rule.id.substring(0, 8)}  [${rule.rule_type.padEnd(14)}]  ${rule.pattern}\n`);
+        }
+        process.stderr.write('\n');
+      }
+    }
+
+    db.close();
+  });
+
+// ── shadowing infra ─────────────────────────────────────────────────────────
+
+program
+  .command('infra [dir]')
+  .description('Infrastruktur-Kontext aus Projektverzeichnis extrahieren')
+  .action((dir?: string) => {
+    const projectDir = dir ?? process.cwd();
+
+    if (!existsSync(projectDir)) {
+      process.stderr.write(`  Verzeichnis nicht gefunden: ${projectDir}\n`);
+      return;
+    }
+
+    const graph = buildInfraGraph(projectDir);
+
+    if (graph.nodes.length === 0) {
+      process.stderr.write('\n  Keine Infrastruktur-Informationen gefunden.\n\n');
+      return;
+    }
+
+    process.stderr.write(`\n  Infrastruktur-Kontext (${graph.nodes.length} Knoten, ${graph.edges.length} Kanten):\n\n`);
+    process.stderr.write(formatInfraGraph(graph) + '\n\n');
   });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

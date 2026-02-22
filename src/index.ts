@@ -10,9 +10,13 @@ export type {
   ShadowingConfig, AnonymizationConfig, SOPGenerationConfig, MetricsWeights,
   SOPMetrics, GlobalStats,
   ExportManifest, ExportManifestSOP, ExportResult,
+  ObservedAction, ActionSource, ObservationSession,
+  ConsentRecord, ExclusionRule,
+  InfraNode, InfraEdge, InfraGraph,
+  ObserverConfig,
 } from './types.js';
 
-export { TASK_STATUSES, SOP_STATUSES } from './types.js';
+export { TASK_STATUSES, SOP_STATUSES, ACTION_SOURCES } from './types.js';
 
 // Database
 export { ShadowingDB } from './db.js';
@@ -45,6 +49,20 @@ export type { DiffLine, DiffResult } from './diff.js';
 // Cartography
 export { loadCartographyGraph, buildGraphContext, buildFocusedContext, findRelevantNodes } from './cartography.js';
 export type { CartographyGraph, CartographyNode, CartographyEdge } from './cartography.js';
+
+// Observer
+export { Observer, matchesExclusionRules, matchesPattern, isWithinWorkHours, getDefaultObserverConfig } from './observer.js';
+export type { WindowInfo, ShellCommand } from './observer.js';
+
+// Shell History
+export { detectShell, getHistoryFilePath, parseZshHistory, parseBashHistory, parseFishHistory, createShellHistoryReader } from './shell-history.js';
+export type { ShellType } from './shell-history.js';
+
+// Infrastructure Context
+export { buildInfraGraph, formatInfraGraph, listProjectFiles } from './infra-context.js';
+
+// Privacy
+export { PrivacyManager, getDefaultExclusions } from './privacy.js';
 
 // UI Server
 export { createUIServer } from './ui-server.js';

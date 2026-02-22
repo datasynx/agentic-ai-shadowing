@@ -186,3 +186,80 @@ export interface ExportResult {
   sop_count: number;
   manifest: ExportManifest;
 }
+
+// ── Observation ──────────────────────────────────────────────────────────────
+
+export const ACTION_SOURCES = ['window', 'shell', 'git', 'file', 'manual'] as const;
+export type ActionSource = (typeof ACTION_SOURCES)[number];
+
+export interface ObservedAction {
+  id: string;
+  session_id: string;
+  source: ActionSource;
+  app_name: string | null;
+  window_title: string | null;
+  command: string | null;
+  file_path: string | null;
+  metadata: string | null; // JSON string
+  started_at: string;
+  ended_at: string;
+  duration_seconds: number;
+}
+
+export interface ObservationSession {
+  id: string;
+  title: string | null;
+  status: 'active' | 'paused' | 'completed';
+  started_at: string;
+  ended_at: string | null;
+  total_actions: number;
+  created_at: string;
+}
+
+// ── Privacy ──────────────────────────────────────────────────────────────────
+
+export interface ConsentRecord {
+  id: string;
+  action: 'granted' | 'revoked';
+  scope: string;
+  recorded_at: string;
+}
+
+export interface ExclusionRule {
+  id: string;
+  rule_type: 'app' | 'title_pattern' | 'url_pattern' | 'path_pattern';
+  pattern: string;
+  created_at: string;
+}
+
+// ── Infrastructure Context ───────────────────────────────────────────────────
+
+export interface InfraNode {
+  name: string;
+  type: 'service' | 'database' | 'cache' | 'queue' | 'api' | 'frontend' | 'tool' | 'unknown';
+  source: string; // e.g. "docker-compose.yml", "package.json"
+  metadata: Record<string, unknown>;
+}
+
+export interface InfraEdge {
+  source: string;
+  target: string;
+  relation: string;
+}
+
+export interface InfraGraph {
+  nodes: InfraNode[];
+  edges: InfraEdge[];
+}
+
+// ── Observer Config ──────────────────────────────────────────────────────────
+
+export interface ObserverConfig {
+  poll_interval_ms: number;
+  watch_git: boolean;
+  watch_files: boolean;
+  capture_shell_history: boolean;
+  work_hours_only: boolean;
+  work_hours_start: number; // 0-23
+  work_hours_end: number;   // 0-23
+}

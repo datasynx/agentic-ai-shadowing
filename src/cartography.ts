@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { z } from 'zod';
 
-// ── Cartography Graph Schema ─────────────────────────────────────────────────
+// ── Cartography Graph Schema (internal array format) ─────────────────────────
 
 const NodeSchema = z.object({
   id: z.string(),
@@ -27,7 +27,80 @@ export type CartographyNode = z.infer<typeof NodeSchema>;
 export type CartographyEdge = z.infer<typeof EdgeSchema>;
 export type CartographyGraph = z.infer<typeof GraphSchema>;
 
+// ── JGF (JSON Graph Format) Schema ──────────────────────────────────────────
+
+const JGFNodeSchema = z.object({
+  label: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+const JGFEdgeSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  relation: z.string().optional(),
+  label: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+const JGFGraphSchema = z.object({
+  graph: z.object({
+    type: z.string().optional(),
+    label: z.string().optional(),
+    directed: z.boolean().optional(),
+    nodes: z.record(JGFNodeSchema),
+    edges: z.array(JGFEdgeSchema).optional().default([]),
+    metadata: z.record(z.unknown()).optional(),
+  }),
+});
+
+function convertJGFToCartographyGraph(jgf: z.infer<typeof JGFGraphSchema>): CartographyGraph {
+  const nodes: CartographyNode[] = Object.entries(jgf.graph.nodes).map(([id, node]) => ({
+    id,
+    label: node.label ?? id,
+    type: (node.metadata?.['type'] as string) ?? undefined,
+    metadata: node.metadata,
+  }));
+
+  const edges: CartographyEdge[] = jgf.graph.edges.map(edge => ({
+    source: edge.source,
+    target: edge.target,
+    label: edge.relation ?? edge.label,
+    type: (edge.metadata?.['type'] as string) ?? undefined,
+  }));
+
+  return { nodes, edges, metadata: jgf.graph.metadata };
+}
+
 // ── Load & Parse ─────────────────────────────────────────────────────────────
+
+/**
+ * Load a JGF file (cartography-graph.jgf.json) — tries JGF format first,
+ * falls back to the internal {nodes[], edges[]} format.
+ */
+export function loadJGFFile(path: string): CartographyGraph | null {
+  if (!existsSync(path)) return null;
+
+  try {
+    const raw = readFileSync(path, 'utf8');
+    const data = JSON.parse(raw) as unknown;
+
+    // Try JGF format first
+    const jgfResult = JGFGraphSchema.safeParse(data);
+    if (jgfResult.success) {
+      return convertJGFToCartographyGraph(jgfResult.data);
+    }
+
+    // Fallback to internal {nodes[], edges[]} format
+    const graphResult = GraphSchema.safeParse(data);
+    if (graphResult.success) {
+      return graphResult.data;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export function loadCartographyGraph(path: string): CartographyGraph | null {
   if (!existsSync(path)) return null;

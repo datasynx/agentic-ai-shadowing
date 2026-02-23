@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   loadCartographyGraph,
+  loadJGFFile,
   buildGraphContext,
   buildFocusedContext,
   findRelevantNodes,
@@ -137,5 +138,129 @@ describe('buildFocusedContext', () => {
       'Slack Benachrichtigungen konfigurieren',
     );
     expect(ctx).toContain('Slack');
+  });
+});
+
+// ── JGF Format Tests ─────────────────────────────────────────────────────────
+
+describe('loadJGFFile', () => {
+  const JGF_PATH = join(tmpdir(), `test-jgf-${Date.now()}.json`);
+
+  afterEach(() => {
+    try { unlinkSync(JGF_PATH); } catch { /* ok */ }
+  });
+
+  it('loads and converts a valid JGF file', () => {
+    const jgfData = {
+      graph: {
+        directed: true,
+        nodes: {
+          sap: { label: 'SAP ERP', metadata: { type: 'erp', description: 'Enterprise Resource Planning' } },
+          db: { label: 'PostgreSQL', metadata: { type: 'database' } },
+        },
+        edges: [
+          { source: 'sap', target: 'db', relation: 'stores data' },
+        ],
+      },
+    };
+    writeFileSync(JGF_PATH, JSON.stringify(jgfData), 'utf8');
+
+    const graph = loadJGFFile(JGF_PATH);
+    expect(graph).not.toBeNull();
+    expect(graph!.nodes).toHaveLength(2);
+    expect(graph!.nodes.find(n => n.id === 'sap')!.label).toBe('SAP ERP');
+    expect(graph!.nodes.find(n => n.id === 'sap')!.type).toBe('erp');
+    expect(graph!.nodes.find(n => n.id === 'db')!.label).toBe('PostgreSQL');
+    expect(graph!.edges).toHaveLength(1);
+    expect(graph!.edges[0]!.source).toBe('sap');
+    expect(graph!.edges[0]!.target).toBe('db');
+    expect(graph!.edges[0]!.label).toBe('stores data');
+  });
+
+  it('uses node ID as label when label is missing', () => {
+    const jgfData = {
+      graph: {
+        nodes: {
+          myservice: { metadata: { type: 'api' } },
+        },
+        edges: [],
+      },
+    };
+    writeFileSync(JGF_PATH, JSON.stringify(jgfData), 'utf8');
+
+    const graph = loadJGFFile(JGF_PATH);
+    expect(graph).not.toBeNull();
+    expect(graph!.nodes[0]!.id).toBe('myservice');
+    expect(graph!.nodes[0]!.label).toBe('myservice');
+  });
+
+  it('handles JGF with empty edges', () => {
+    const jgfData = {
+      graph: {
+        nodes: {
+          a: { label: 'Node A' },
+          b: { label: 'Node B' },
+        },
+      },
+    };
+    writeFileSync(JGF_PATH, JSON.stringify(jgfData), 'utf8');
+
+    const graph = loadJGFFile(JGF_PATH);
+    expect(graph).not.toBeNull();
+    expect(graph!.nodes).toHaveLength(2);
+    expect(graph!.edges).toHaveLength(0);
+  });
+
+  it('falls back to internal {nodes, edges} format', () => {
+    writeFileSync(JGF_PATH, JSON.stringify(testGraph), 'utf8');
+
+    const graph = loadJGFFile(JGF_PATH);
+    expect(graph).not.toBeNull();
+    expect(graph!.nodes).toHaveLength(5);
+    expect(graph!.edges).toHaveLength(3);
+  });
+
+  it('returns null for invalid file', () => {
+    writeFileSync(JGF_PATH, 'not json', 'utf8');
+    expect(loadJGFFile(JGF_PATH)).toBeNull();
+  });
+
+  it('returns null for invalid schema', () => {
+    writeFileSync(JGF_PATH, JSON.stringify({ foo: 'bar' }), 'utf8');
+    expect(loadJGFFile(JGF_PATH)).toBeNull();
+  });
+
+  it('returns null for missing file', () => {
+    expect(loadJGFFile('/nonexistent/path.json')).toBeNull();
+  });
+
+  it('converts JGF graph metadata', () => {
+    const jgfData = {
+      graph: {
+        nodes: { a: { label: 'A' } },
+        edges: [],
+        metadata: { version: '2.0', scanned_at: '2026-01-01' },
+      },
+    };
+    writeFileSync(JGF_PATH, JSON.stringify(jgfData), 'utf8');
+
+    const graph = loadJGFFile(JGF_PATH);
+    expect(graph).not.toBeNull();
+    expect(graph!.metadata).toEqual({ version: '2.0', scanned_at: '2026-01-01' });
+  });
+
+  it('prefers relation over label for edge labels in JGF', () => {
+    const jgfData = {
+      graph: {
+        nodes: { a: { label: 'A' }, b: { label: 'B' } },
+        edges: [
+          { source: 'a', target: 'b', relation: 'depends_on', label: 'fallback' },
+        ],
+      },
+    };
+    writeFileSync(JGF_PATH, JSON.stringify(jgfData), 'utf8');
+
+    const graph = loadJGFFile(JGF_PATH);
+    expect(graph!.edges[0]!.label).toBe('depends_on');
   });
 });

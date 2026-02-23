@@ -49,11 +49,6 @@
   "peerDependencies": {
     "@datasynx/agentic-ai-cartography": ">=0.3.0"
   },
-  "peerDependenciesMeta": {
-    "@datasynx/agentic-ai-cartography": {
-      "optional": true
-    }
-  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
     "@inquirer/prompts": "^7.0.0",

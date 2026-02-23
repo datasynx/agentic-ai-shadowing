@@ -47,8 +47,12 @@ export { diffTexts, formatDiff } from './diff.js';
 export type { DiffLine, DiffResult } from './diff.js';
 
 // Cartography
-export { loadCartographyGraph, buildGraphContext, buildFocusedContext, findRelevantNodes } from './cartography.js';
+export { loadCartographyGraph, loadJGFFile, buildGraphContext, buildFocusedContext, findRelevantNodes } from './cartography.js';
 export type { CartographyGraph, CartographyNode, CartographyEdge } from './cartography.js';
+
+// Cartography Check
+export { checkCartographyInstalled, locateJGFFile, ensureCartography } from './cartography-check.js';
+export type { CartographyCheckResult } from './cartography-check.js';
 
 // Observer
 export { Observer, matchesExclusionRules, matchesPattern, isWithinWorkHours, getDefaultObserverConfig } from './observer.js';

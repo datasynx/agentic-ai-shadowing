@@ -14,6 +14,8 @@ import { Observer } from './observer.js';
 import { createShellHistoryReader } from './shell-history.js';
 import { PrivacyManager, getDefaultExclusions } from './privacy.js';
 import { buildInfraGraph, formatInfraGraph } from './infra-context.js';
+import { checkCartographyInstalled, ensureCartography, locateJGFFile } from './cartography-check.js';
+import { loadJGFFile } from './cartography.js';
 import type { ExclusionRule } from './types.js';
 import {
   ensureConfigDir, getConfigPath, getDbPath,
@@ -40,12 +42,30 @@ function openDB(): ShadowingDB {
   return db;
 }
 
+function openDBWithCartographyCheck(): ShadowingDB {
+  ensureCartography();
+  return openDB();
+}
+
 // ── shadowing init ───────────────────────────────────────────────────────────
 
 program
   .command('init')
   .description('Erstmalige Einrichtung (DB + Config anlegen)')
   .action(() => {
+    // Check cartography package is installed
+    const cartoCheck = checkCartographyInstalled();
+    if (!cartoCheck.installed) {
+      process.stderr.write(
+        `Fehler: agentic-ai-cartography ist nicht installiert.\n` +
+        `Shadowing benötigt die Nodes aus agentic-ai-cartography als Grundlage.\n` +
+        `Bitte installieren Sie es mit:\n\n` +
+        `  npm install @datasynx/agentic-ai-cartography\n\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
     ensureConfigDir();
 
     const dbPath = getDbPath();
@@ -55,11 +75,23 @@ program
     db.initialize();
     db.close();
 
-    if (!existsSync(configPath)) {
-      saveConfig(loadConfig());
+    // Load or create config, auto-detect JGF file
+    const config = loadConfig();
+    if (cartoCheck.jgfPath) {
+      config.cartography_graph_path = cartoCheck.jgfPath;
+      process.stderr.write(`  Cartography-Graph gefunden: ${cartoCheck.jgfPath}\n`);
+    } else {
+      process.stderr.write(
+        `  Hinweis: cartography-graph.jgf.json nicht gefunden.\n` +
+        `  Führen Sie zuerst einen Discovery-Run in agentic-ai-cartography aus,\n` +
+        `  dann "shadowing import-graph <pfad>" oder legen Sie die Datei ab in:\n` +
+        `    - ./datasynx-output/cartography-graph.jgf.json\n` +
+        `    - ${getConfigDir()}/cartography-graph.jgf.json\n`,
+      );
     }
+    saveConfig(config);
 
-    process.stderr.write(`Shadowing initialisiert.\n`);
+    process.stderr.write(`\nShadowing initialisiert.\n`);
     process.stderr.write(`  DB:     ${dbPath}\n`);
     process.stderr.write(`  Config: ${configPath}\n`);
     process.stderr.write(`\nStarte mit: shadowing start\n`);
@@ -72,7 +104,7 @@ program
   .description('Interaktiven Shadowing-Modus starten')
   .action(async () => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const config = loadConfig();
     const tm = new TaskManager(db);
@@ -239,7 +271,7 @@ program
   .description('Aktuellen Task und Statistiken anzeigen')
   .action(() => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const tm = new TaskManager(db);
     const active = tm.getActiveTask();
@@ -271,7 +303,7 @@ program
   .option('--search <query>', 'Freitextsuche')
   .action((opts) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sops = db.listSOPs({
       status: opts.status,
@@ -308,7 +340,7 @@ program
   .description('Eine SOP im Terminal anzeigen')
   .action((sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -336,7 +368,7 @@ program
   .description('SOP im Standard-Editor öffnen')
   .action((sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -353,7 +385,7 @@ program
   .description('SOP unwiderruflich löschen')
   .action(async (sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -374,7 +406,7 @@ program
   .description('Versionshistorie einer SOP anzeigen')
   .action((sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -406,7 +438,7 @@ program
   .option('--to <version>', 'Zielversion (default: aktuell)')
   .action((sopId: string, versionArg: string | undefined, opts: { from?: string; to?: string }) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -466,7 +498,7 @@ program
   .description('Tags hinzufügen (+tag) oder entfernen (-tag)')
   .action((sopId: string, tags: string[]) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -497,7 +529,7 @@ program
   .description('Metriken-Dashboard im Terminal')
   .action(() => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const stats = db.getGlobalStats();
     const config = loadConfig();
@@ -542,7 +574,7 @@ program
   .option('--all', 'Alle approved SOPs exportieren')
   .action(async (opts) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const config = loadConfig();
     const anonymizer = new Anonymizer(config.anonymization);
@@ -604,7 +636,7 @@ program
   .option('-p, --port <port>', 'Port (default: config.ui_port)')
   .action(async (opts) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const config = loadConfig();
     const port = opts.port ? parseInt(opts.port, 10) : config.ui_port;
@@ -629,10 +661,22 @@ program
 
 program
   .command('import-graph <path>')
-  .description('Cartography-Graph importieren')
+  .description('Cartography-Graph (JGF) importieren')
   .action((path: string) => {
+    // Check cartography package is installed
+    try { ensureCartography(); } catch { return; }
+
     if (!existsSync(path)) {
       process.stderr.write(`  Datei nicht gefunden: ${path}\n`);
+      process.exitCode = 1;
+      return;
+    }
+
+    // Validate the file is a valid JGF or CartographyGraph
+    const graph = loadJGFFile(path);
+    if (!graph) {
+      process.stderr.write(`  Datei konnte nicht als Cartography-Graph geladen werden: ${path}\n`);
+      process.stderr.write(`  Erwartet: cartography-graph.jgf.json (JGF-Format)\n`);
       process.exitCode = 1;
       return;
     }
@@ -641,6 +685,7 @@ program
     config.cartography_graph_path = path;
     saveConfig(config);
     process.stderr.write(`  Cartography-Graph importiert: ${path}\n`);
+    process.stderr.write(`  ${graph.nodes.length} Knoten, ${graph.edges.length} Kanten geladen.\n`);
   });
 
 // ── shadowing config ─────────────────────────────────────────────────────────
@@ -698,7 +743,7 @@ program
   .option('--work-hours', 'Nur während Arbeitszeiten erfassen')
   .action(async (opts) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const privacy = new PrivacyManager(db);
 
@@ -802,7 +847,7 @@ program
   .option('--limit <n>', 'Maximale Anzahl Einträge', '50')
   .action((sessionId: string | undefined, opts) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     // If no session ID, use the latest session
     let session = sessionId
@@ -878,7 +923,7 @@ program
   .description('Beobachtungssessions auflisten')
   .action(() => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const sessions = db.listObservationSessions();
 
@@ -910,7 +955,7 @@ program
   .option('--log', 'Consent-Protokoll anzeigen')
   .action((opts) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const privacy = new PrivacyManager(db);
 
@@ -957,7 +1002,7 @@ program
   .option('--defaults', 'Standard-Ausschlussregeln laden')
   .action((opts) => {
     let db: ShadowingDB;
-    try { db = openDB(); } catch { return; }
+    try { db = openDBWithCartographyCheck(); } catch { return; }
 
     const privacy = new PrivacyManager(db);
 

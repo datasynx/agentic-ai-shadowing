@@ -1,16 +1,16 @@
-# Cartography Shadow
+# Agentic AI Shadowing
 
-Shadow Daemon für @datasynx/agentic-ai-cartography. Kontinuierliches System-Monitoring via Claude Haiku.
+Beobachtet Tasks von Mitarbeitern, generiert SOPs (Standard Operating Procedures) — vollständig lokal und anonymisiert.
 
 ## Tech Stack
 
-TypeScript 5.7+ strict, ESM only, Node 18+
-@anthropic-ai/claude-code + @anthropic-ai/sdk + better-sqlite3 + commander + zod + node-notifier
+TypeScript 5.7+ strict, ESM only, Node 20+
+@anthropic-ai/sdk + better-sqlite3 + commander + @inquirer/prompts + zod
 Build: tsup | Test: vitest | Dev: tsx
 
 ## Coding Rules
 
-Named exports, 2-Space, kein `any`, ISO 8601 UTC, IDs: "{type}:{id}"
+Named exports, 2-Space, kein `any`, ISO 8601 UTC, IDs: hex(randomblob(8))
 Terminal auf stderr, process.exitCode statt exit(), .js Extensions
 
 ## Commands
@@ -24,8 +24,8 @@ npm run lint  # tsc --noEmit
 
 ## Spec
 
-@docs/SHADOW_SPEC.md
+@docs/PRODUCT_SPEC.md
 
 ## Tasks
 
-@docs/tasks.md
+@plan.md

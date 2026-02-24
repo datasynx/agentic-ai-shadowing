@@ -2,50 +2,89 @@
 
 // Types
 export type {
-  ShadowConfig,
-  ShadowStatus,
-  CartographyDB,
-  DaemonMessage,
-  ClientMessage,
-  PendingPrompt,
-  ActivityEvent,
-  EventRow,
-  TaskRow,
-  WorkflowRow,
-  SessionRow,
-  SOPRow,
-  NodeType,
-  EventType,
+  Task, TaskStatus,
+  SOP, SOPStatus, SOPVersion,
+  Tag, SOPTag,
+  TaskExecution,
+  ExportRecord,
+  ShadowingConfig, AnonymizationConfig, SOPGenerationConfig, MetricsWeights,
+  SOPMetrics, GlobalStats,
+  ExportManifest, ExportManifestSOP, ExportResult,
+  ObservedAction, ActionSource, ObservationSession,
+  ConsentRecord, ExclusionRule,
+  InfraNode, InfraEdge, InfraGraph,
+  ObserverConfig,
 } from './types.js';
 
+export { TASK_STATUSES, SOP_STATUSES, ACTION_SOURCES } from './types.js';
+
+// Database
+export { ShadowingDB } from './db.js';
+
+// Config
+export { loadConfig, saveConfig, getDefaultConfig, getConfigDir, getDbPath, ensureConfigDir, ConfigSchema } from './config.js';
+
+// Task Management
+export { TaskManager, formatDuration } from './task-manager.js';
+
+// SOP Generation
+export { SOPGenerator, SOPGenerationError, buildSOPPreview, countSteps } from './sop-generator.js';
+
+// Metrics
 export {
-  DEFAULT_SHADOW_CONFIG,
-  MIN_POLL_INTERVAL_MS,
-  EVENT_TYPES,
-  NODE_TYPES,
-  EventSchema,
-} from './types.js';
+  calculateSOPMetrics,
+  calculateConsistencyScore,
+  calculateMaturityScore,
+  calculateFreshnessScore,
+  calculateOverallQualityScore,
+} from './metrics.js';
 
-// Daemon
-export {
-  ShadowDaemon,
-  takeSnapshot,
-  forkDaemon,
-  isDaemonRunning,
-  stopDaemon,
-  pauseDaemon,
-  resumeDaemon,
-  startDaemonProcess,
-} from './daemon.js';
+// Anonymization
+export { Anonymizer } from './anonymizer.js';
 
-// IPC
-export { IPCServer, IPCClient, cleanStaleSocket } from './ipc.js';
+// Diff
+export { diffTexts, formatDiff } from './diff.js';
+export type { DiffLine, DiffResult } from './diff.js';
 
-// Client
-export { ForegroundClient, AttachClient } from './client.js';
+// Cartography
+export { loadCartographyGraph, loadJGFFile, buildGraphContext, buildFocusedContext, findRelevantNodes } from './cartography.js';
+export type { CartographyGraph, CartographyNode, CartographyEdge } from './cartography.js';
 
-// Notifications
-export { NotificationService } from './notify.js';
+// Cartography Check
+export { checkCartographyInstalled, locateJGFFile, ensureCartography } from './cartography-check.js';
+export type { CartographyCheckResult } from './cartography-check.js';
 
-// Agent
-export { runShadowCycle, generateSOPs, clusterTasks } from './agent.js';
+// Observer
+export { Observer, matchesExclusionRules, matchesPattern, isWithinWorkHours, getDefaultObserverConfig } from './observer.js';
+export type { WindowInfo, ShellCommand } from './observer.js';
+
+// Shell History
+export { detectShell, getHistoryFilePath, parseZshHistory, parseBashHistory, parseFishHistory, parsePowerShellHistory, createShellHistoryReader } from './shell-history.js';
+export type { ShellType } from './shell-history.js';
+
+// Infrastructure Context
+export { buildInfraGraph, formatInfraGraph, listProjectFiles } from './infra-context.js';
+
+// Privacy
+export { PrivacyManager, getDefaultExclusions } from './privacy.js';
+
+// UI Server
+export { createUIServer } from './ui-server.js';
+
+// Export
+export { Exporter } from './exporter.js';
+
+// MCP Server (Claude Code Integration)
+export { MCPServer, startMCPServer } from './mcp-server.js';
+
+// Hook Handler (Claude Code Hooks)
+export { processHookEvent, classifyToolAction, buildActionDescription, isGitCommand, runHookHandler } from './hook-handler.js';
+export type { HookEvent } from './hook-handler.js';
+
+// Window Detector
+export { createWindowDetector, detectActiveWindow, detectPlatform, parseWindowsPSOutput } from './window-detector.js';
+export type { DetectorPlatform } from './window-detector.js';
+
+// Session Analyzer (Agentic Core)
+export { SessionAnalyzer, clusterBySilence, summarizeActionGroup } from './session-analyzer.js';
+export type { ActionCluster, AnalysisResult } from './session-analyzer.js';

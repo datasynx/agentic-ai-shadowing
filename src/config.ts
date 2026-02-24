@@ -1,6 +1,49 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import type { ShadowingConfig } from './types.js';
+
+// ── Config Schema (Zod) ─────────────────────────────────────────────────────
+
+const AnonymizationSchema = z.object({
+  custom_replacements: z.record(z.string()).default({}),
+  redact_emails: z.boolean().default(true),
+  redact_ips: z.boolean().default(true),
+  redact_urls: z.boolean().default(true),
+  redact_phone_numbers: z.boolean().default(true),
+  redact_file_paths: z.boolean().default(true),
+}).default({});
+
+const SOPGenerationSchema = z.object({
+  model: z.string().min(1).default('claude-sonnet-4-20250514'),
+  max_tokens: z.number().int().positive().max(16384).default(4096),
+  temperature: z.number().min(0).max(1).default(0.3),
+  include_cartography_context: z.boolean().default(true),
+  auto_generate_tags: z.boolean().default(true),
+  sop_language: z.enum(['de', 'en']).default('de'),
+}).default({});
+
+const MetricsWeightsSchema = z.object({
+  consistency: z.number().min(0).max(1).default(0.35),
+  maturity: z.number().min(0).max(1).default(0.35),
+  freshness: z.number().min(0).max(1).default(0.30),
+}).default({});
+
+export const ConfigSchema = z.object({
+  version: z.string().default('1.0.0'),
+  language: z.enum(['de', 'en']).default('de'),
+  polling_interval_minutes: z.number().int().positive().default(15),
+  editor: z.string().min(1).default(process.env['EDITOR'] ?? 'code'),
+  ui_port: z.number().int().min(1024).max(65535).default(3847),
+  cartography_graph_path: z.string().nullable().default(null),
+  anonymization: AnonymizationSchema,
+  sop_generation: SOPGenerationSchema,
+  metrics: z.object({
+    quality_score_weights: MetricsWeightsSchema,
+  }).default({}),
+});
+
+export type ValidatedConfig = z.infer<typeof ConfigSchema>;
 
 export function getConfigDir(): string {
   const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '/tmp';
@@ -74,7 +117,17 @@ export function loadConfig(): ShadowingConfig {
 
   try {
     const raw = readFileSync(configPath, 'utf8');
-    const loaded = JSON.parse(raw) as Partial<ShadowingConfig>;
+    const data = JSON.parse(raw) as unknown;
+    const result = ConfigSchema.safeParse(data);
+    if (result.success) {
+      return result.data as ShadowingConfig;
+    }
+    // Validation failed — log warning and fall back to merge with defaults
+    process.stderr.write(
+      `  Warnung: Config-Validierung fehlgeschlagen: ${result.error.issues.map(i => i.message).join(', ')}\n` +
+      `  Verwende Defaults für ungültige Felder.\n`,
+    );
+    const loaded = data as Partial<ShadowingConfig>;
     return {
       ...defaults,
       ...loaded,

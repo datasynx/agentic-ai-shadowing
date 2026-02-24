@@ -22,13 +22,13 @@ export { TASK_STATUSES, SOP_STATUSES, ACTION_SOURCES } from './types.js';
 export { ShadowingDB } from './db.js';
 
 // Config
-export { loadConfig, saveConfig, getDefaultConfig, getConfigDir, getDbPath, ensureConfigDir } from './config.js';
+export { loadConfig, saveConfig, getDefaultConfig, getConfigDir, getDbPath, ensureConfigDir, ConfigSchema } from './config.js';
 
 // Task Management
 export { TaskManager, formatDuration } from './task-manager.js';
 
 // SOP Generation
-export { SOPGenerator, buildSOPPreview, countSteps } from './sop-generator.js';
+export { SOPGenerator, SOPGenerationError, buildSOPPreview, countSteps } from './sop-generator.js';
 
 // Metrics
 export {

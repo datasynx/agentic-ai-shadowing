@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { ShadowingDB } from './db.js';
 import { TaskManager, formatDuration } from './task-manager.js';
-import { SOPGenerator, buildSOPPreview, countSteps } from './sop-generator.js';
+import { SOPGenerator, SOPGenerationError, buildSOPPreview, countSteps } from './sop-generator.js';
 import { Anonymizer } from './anonymizer.js';
 import { Exporter } from './exporter.js';
 import { calculateSOPMetrics } from './metrics.js';
@@ -224,7 +224,30 @@ program
               process.stderr.write('  SOP verworfen.\n');
             }
           } catch (err) {
-            process.stderr.write(`  Fehler bei SOP-Generierung: ${err}\n`);
+            if (err instanceof SOPGenerationError) {
+              switch (err.code) {
+                case 'missing_api_key':
+                  process.stderr.write(`  ${err.message}`);
+                  break;
+                case 'auth_failed':
+                  process.stderr.write(`  Authentifizierung fehlgeschlagen: ${err.message}\n`);
+                  break;
+                case 'rate_limited':
+                  process.stderr.write(`  API-Limit erreicht: ${err.message}\n`);
+                  process.stderr.write('  Tipp: Versuche es in einigen Minuten erneut mit "shadowing edit <sop-id>".\n');
+                  break;
+                case 'api_error':
+                  process.stderr.write(`  Claude API Fehler: ${err.message}\n`);
+                  break;
+                case 'parse_error':
+                  process.stderr.write(`  Parsing-Fehler: ${err.message}\n`);
+                  break;
+                default:
+                  process.stderr.write(`  Fehler bei SOP-Generierung: ${err.message}\n`);
+              }
+            } else {
+              process.stderr.write(`  Unerwarteter Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+            }
             process.stderr.write('  Task wurde trotzdem als abgeschlossen markiert.\n');
           }
           break;
@@ -1430,7 +1453,7 @@ function editSOPInEditorSync(db: ShadowingDB, sopId: string, editor: string): vo
   if (!sop) return;
 
   const tmpFile = join(tmpdir(), `shadowing-sop-${sopId}.md`);
-  writeFileSync(tmpFile, sop.content_md, 'utf8');
+  writeFileSync(tmpFile, sop.content_md, { encoding: 'utf8', mode: 0o600 });
 
   try {
     execSync(`${editor} "${tmpFile}"`, { stdio: 'inherit' });

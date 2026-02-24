@@ -43,9 +43,11 @@ describe('ShadowingDB — Tasks', () => {
   });
 
   it('lists tasks with filter', () => {
-    db.createTask('Active');
+    const t1 = db.createTask('Active');
+    db.pauseTask(t1.id); // must pause first to allow second active task creation
     const t2 = db.createTask('Paused');
     db.pauseTask(t2.id);
+    db.resumeTask(t1.id); // resume first task back to active
 
     const active = db.listTasks({ status: 'active' });
     expect(active).toHaveLength(1);

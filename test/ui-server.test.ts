@@ -66,9 +66,11 @@ describe('UI Server — API', () => {
   });
 
   it('GET /api/tasks?status=active filters tasks', async () => {
-    db.createTask('Active');
+    const t1 = db.createTask('Active');
+    db.pauseTask(t1.id);
     const t2 = db.createTask('Paused');
     db.pauseTask(t2.id);
+    db.resumeTask(t1.id);
 
     const { data } = await get('/api/tasks?status=paused');
     expect(data).toHaveLength(1);

@@ -130,6 +130,14 @@ CREATE INDEX IF NOT EXISTS idx_sop_versions_sop_id ON sop_versions(sop_id);
 CREATE INDEX IF NOT EXISTS idx_observed_actions_session ON observed_actions(session_id);
 CREATE INDEX IF NOT EXISTS idx_observed_actions_source ON observed_actions(source);
 CREATE INDEX IF NOT EXISTS idx_observation_sessions_status ON observation_sessions(status);
+
+-- Enforce at most one active task at any time
+CREATE UNIQUE INDEX IF NOT EXISTS idx_single_active_task
+  ON tasks(status) WHERE status = 'active';
+
+-- Enforce at most one active observation session at any time
+CREATE UNIQUE INDEX IF NOT EXISTS idx_single_active_observation
+  ON observation_sessions(status) WHERE status = 'active';
 `;
 
 // ── ShadowingDB ──────────────────────────────────────────────────────────────

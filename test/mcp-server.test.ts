@@ -100,7 +100,8 @@ describe('MCPServer — Task Tools', () => {
   });
 
   it('list_tasks returns tasks', () => {
-    db.createTask('Task A');
+    const t1 = db.createTask('Task A');
+    db.completeTask(t1.id);
     db.createTask('Task B');
     const result = server.handleToolCall('shadowing_list_tasks', {});
     const data = JSON.parse(result.content[0]!.text);
@@ -109,8 +110,10 @@ describe('MCPServer — Task Tools', () => {
 
   it('list_tasks filters by status', () => {
     const t = db.createTask('Active');
+    db.pauseTask(t.id);
     const t2 = db.createTask('Paused');
     db.pauseTask(t2.id);
+    db.resumeTask(t.id);
 
     const result = server.handleToolCall('shadowing_list_tasks', { status: 'paused' });
     const data = JSON.parse(result.content[0]!.text);

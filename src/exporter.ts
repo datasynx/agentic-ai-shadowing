@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ShadowingDB } from './db.js';
 import type { Anonymizer } from './anonymizer.js';
@@ -23,7 +23,8 @@ export class Exporter {
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
     const exportDir = join(this.exportBaseDir, `export_${timestamp}`);
-    const sopsDir = join(exportDir, 'sops');
+    const tmpDir = join(this.exportBaseDir, `.export_${timestamp}.tmp`);
+    const sopsDir = join(tmpDir, 'sops');
     mkdirSync(sopsDir, { recursive: true });
 
     const manifestSOPs: ExportManifestSOP[] = [];
@@ -87,7 +88,10 @@ export class Exporter {
       sops: manifestSOPs,
     };
 
-    writeFileSync(join(exportDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+    writeFileSync(join(tmpDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+
+    // Atomic rename: tmp → final (prevents partial exports)
+    renameSync(tmpDir, exportDir);
 
     // Log export in DB (only actually exported SOP IDs)
     this.db.logExport({

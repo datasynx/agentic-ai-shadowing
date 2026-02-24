@@ -4,6 +4,18 @@ import type { ShadowingDB } from './db.js';
 import { formatDuration } from './task-manager.js';
 import { loadJGFFile, loadCartographyGraph, buildFocusedContext } from './cartography.js';
 
+export class SOPGenerationError extends Error {
+  constructor(
+    message: string,
+    public readonly code: 'missing_api_key' | 'auth_failed' | 'rate_limited' | 'api_error' | 'parse_error' | 'unknown',
+    public readonly retryable: boolean,
+    public readonly statusCode?: number,
+  ) {
+    super(message);
+    this.name = 'SOPGenerationError';
+  }
+}
+
 export class SOPGenerator {
   private client: Anthropic;
 
@@ -11,6 +23,15 @@ export class SOPGenerator {
     private config: ShadowingConfig,
     private db: ShadowingDB,
   ) {
+    if (!process.env['ANTHROPIC_API_KEY']) {
+      throw new SOPGenerationError(
+        'ANTHROPIC_API_KEY ist nicht gesetzt.\n' +
+        'Exportiere deinen API-Key:\n\n' +
+        '  export ANTHROPIC_API_KEY=sk-ant-...\n',
+        'missing_api_key',
+        false,
+      );
+    }
     this.client = new Anthropic();
   }
 
@@ -61,20 +82,53 @@ Generiere 3-8 relevante Tags (lowercase, ohne #).`;
       }
     }
 
-    const response = await this.client.messages.create({
-      model: this.config.sop_generation.model,
-      max_tokens: this.config.sop_generation.max_tokens,
-      temperature: this.config.sop_generation.temperature,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    });
+    let text: string;
+    try {
+      const response = await this.client.messages.create({
+        model: this.config.sop_generation.model,
+        max_tokens: this.config.sop_generation.max_tokens,
+        temperature: this.config.sop_generation.temperature,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      });
 
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map(block => block.text)
-      .join('');
+      text = response.content
+        .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+        .map(block => block.text)
+        .join('');
+    } catch (err) {
+      if (err instanceof Anthropic.AuthenticationError) {
+        throw new SOPGenerationError(
+          'API-Authentifizierung fehlgeschlagen. Prüfe deinen ANTHROPIC_API_KEY.',
+          'auth_failed', false, 401,
+        );
+      }
+      if (err instanceof Anthropic.RateLimitError) {
+        throw new SOPGenerationError(
+          'API-Rate-Limit erreicht. Versuche es in einigen Minuten erneut.',
+          'rate_limited', true, 429,
+        );
+      }
+      if (err instanceof Anthropic.APIError) {
+        throw new SOPGenerationError(
+          `Claude API Fehler (${err.status}): ${err.message}`,
+          'api_error', err.status >= 500, err.status,
+        );
+      }
+      throw new SOPGenerationError(
+        `Unerwarteter Fehler: ${err instanceof Error ? err.message : String(err)}`,
+        'unknown', false,
+      );
+    }
 
-    return this.parseResponse(text, task.title);
+    try {
+      return this.parseResponse(text, task.title);
+    } catch (err) {
+      throw new SOPGenerationError(
+        `Fehler beim Parsen der API-Antwort: ${err instanceof Error ? err.message : String(err)}`,
+        'parse_error', false,
+      );
+    }
   }
 
   async regenerateSOP(sopId: string): Promise<SOP> {

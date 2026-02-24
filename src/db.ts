@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     started_at      TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at    TEXT,
     duration_seconds INTEGER,
+    paused_at       TEXT,
+    paused_total_seconds INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -153,6 +155,21 @@ export class ShadowingDB {
 
   initialize(): void {
     this.db.exec(SCHEMA);
+    this.migrate();
+  }
+
+  /** Apply incremental migrations for existing databases. */
+  private migrate(): void {
+    // Migration 1: Add pause tracking columns to tasks
+    const cols = this.db.pragma('table_info(tasks)') as Array<{ name: string }>;
+    const colNames = new Set(cols.map(c => c.name));
+
+    if (!colNames.has('paused_at')) {
+      this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_at TEXT`);
+    }
+    if (!colNames.has('paused_total_seconds')) {
+      this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_total_seconds INTEGER NOT NULL DEFAULT 0`);
+    }
   }
 
   close(): void {
@@ -211,11 +228,18 @@ export class ShadowingDB {
   }
 
   completeTask(id: string): Task {
+    // Duration = wall-clock time - total paused time (including current pause if paused)
     const stmt = this.db.prepare(`
       UPDATE tasks
       SET status = 'completed',
           completed_at = datetime('now'),
-          duration_seconds = CAST((julianday('now') - julianday(started_at)) * 86400 AS INTEGER),
+          duration_seconds = CAST((julianday('now') - julianday(started_at)) * 86400 AS INTEGER)
+            - paused_total_seconds
+            - CASE WHEN paused_at IS NOT NULL
+                THEN CAST((julianday('now') - julianday(paused_at)) * 86400 AS INTEGER)
+                ELSE 0
+              END,
+          paused_at = NULL,
           updated_at = datetime('now')
       WHERE id = ?
       RETURNING *
@@ -226,11 +250,37 @@ export class ShadowingDB {
   }
 
   pauseTask(id: string): Task {
-    return this.updateTask(id, { status: 'paused' });
+    const stmt = this.db.prepare(`
+      UPDATE tasks
+      SET status = 'paused',
+          paused_at = datetime('now'),
+          updated_at = datetime('now')
+      WHERE id = ?
+      RETURNING *
+    `);
+    const row = stmt.get(id) as RawTask | undefined;
+    if (!row) throw new Error(`Task ${id} not found`);
+    return this.mapTask(row);
   }
 
   resumeTask(id: string): Task {
-    return this.updateTask(id, { status: 'active' });
+    // Add the pause gap to paused_total_seconds, then clear paused_at
+    const stmt = this.db.prepare(`
+      UPDATE tasks
+      SET status = 'active',
+          paused_total_seconds = paused_total_seconds +
+            CASE WHEN paused_at IS NOT NULL
+              THEN CAST((julianday('now') - julianday(paused_at)) * 86400 AS INTEGER)
+              ELSE 0
+            END,
+          paused_at = NULL,
+          updated_at = datetime('now')
+      WHERE id = ?
+      RETURNING *
+    `);
+    const row = stmt.get(id) as RawTask | undefined;
+    if (!row) throw new Error(`Task ${id} not found`);
+    return this.mapTask(row);
   }
 
   cancelTask(id: string): Task {
@@ -805,6 +855,8 @@ interface RawTask {
   started_at: string;
   completed_at: string | null;
   duration_seconds: number | null;
+  paused_at: string | null;
+  paused_total_seconds: number;
   created_at: string;
   updated_at: string;
 }

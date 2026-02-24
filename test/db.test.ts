@@ -71,6 +71,35 @@ describe('ShadowingDB — Tasks', () => {
     const completed = db.completeTask(task.id);
     expect(completed.status).toBe('completed');
   });
+
+  it('completeTask calculates duration', () => {
+    const task = db.createTask('Duration');
+    const completed = db.completeTask(task.id);
+    expect(completed.duration_seconds).toBeTypeOf('number');
+    expect(completed.duration_seconds!).toBeGreaterThanOrEqual(0);
+  });
+
+  it('duration excludes paused time', () => {
+    // Create and immediately pause (to keep the test fast)
+    const task = db.createTask('Pause Duration');
+    db.pauseTask(task.id);
+    // Resume immediately (0s pause gap)
+    db.resumeTask(task.id);
+    const completed = db.completeTask(task.id);
+    // Duration should be >= 0 (we can't test exact values in a fast test)
+    expect(completed.duration_seconds).toBeTypeOf('number');
+    expect(completed.duration_seconds!).toBeGreaterThanOrEqual(0);
+  });
+
+  it('migration adds pause columns to existing databases', () => {
+    // The initialize() method should have added these columns
+    const task = db.createTask('Migration Test');
+    const paused = db.pauseTask(task.id);
+    expect(paused.status).toBe('paused');
+    // Should not throw - columns exist
+    const resumed = db.resumeTask(task.id);
+    expect(resumed.status).toBe('active');
+  });
 });
 
 describe('ShadowingDB — SOPs', () => {

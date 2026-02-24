@@ -121,6 +121,39 @@ describe('Anonymizer', () => {
     expect(result).not.toContain('Mitarbeiter');
   });
 
+  it('redacts phone numbers (German format)', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Anruf bei +49 170 1234567');
+    expect(result).toContain('[Telefonnummer]');
+    expect(result).not.toContain('1234567');
+  });
+
+  it('redacts phone numbers (local format)', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Büro: (089) 1234-5678');
+    expect(result).toContain('[Telefonnummer]');
+    expect(result).not.toContain('1234');
+  });
+
+  it('redacts IPv6 addresses', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Server: 2001:0db8:85a3:0000:0000:8a2e:0370:7334');
+    expect(result).toContain('[interne-ip-v6]');
+    expect(result).not.toContain('2001:0db8');
+  });
+
+  it('redacts SV-Nummer', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('SV-Nr.: 12 345678 A 123');
+    expect(result).toBe('SV-Nr.: [SV-Nummer]');
+  });
+
+  it('redacts Steuer-ID with hyphen variant', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('SteuerID: 12345678901');
+    expect(result).toBe('Steuer-ID: [Steuer-ID]');
+  });
+
   it('handles multiple PII types in one text', () => {
     const anon = new Anonymizer(defaultConfig);
     const text = 'Kontakt: admin@firma.de, Server: 10.0.0.5, IBAN: DE89370400440532013000';

@@ -484,7 +484,7 @@ export function startMCPServer(): void {
 
   rl.on('close', () => {
     db.close();
-    process.exit(0);
+    process.exitCode = 0;
   });
 
   process.stderr.write('shadowing-mcp: Server gestartet (stdio)\n');

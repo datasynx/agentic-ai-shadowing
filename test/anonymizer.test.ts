@@ -100,11 +100,25 @@ describe('Anonymizer', () => {
     expect(result).toBe('Steuer-ID: [Steuer-ID]');
   });
 
-  it('redacts Windows file paths', () => {
+  it('redacts Windows file paths on C: drive', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Datei unter C:\\Users\\Schmidt\\Documents\\report.xlsx');
     expect(result).toContain('[user]');
     expect(result).not.toContain('Schmidt');
+  });
+
+  it('redacts Windows file paths on D: drive', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Datei unter D:\\Users\\Admin\\Desktop\\secrets.txt');
+    expect(result).toContain('[user]');
+    expect(result).not.toContain('Admin');
+  });
+
+  it('redacts Windows file paths on any drive letter', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('Pfad: E:\\Users\\Mitarbeiter\\Daten\\export.csv');
+    expect(result).toContain('[user]');
+    expect(result).not.toContain('Mitarbeiter');
   });
 
   it('handles multiple PII types in one text', () => {

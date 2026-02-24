@@ -59,7 +59,7 @@ export { Observer, matchesExclusionRules, matchesPattern, isWithinWorkHours, get
 export type { WindowInfo, ShellCommand } from './observer.js';
 
 // Shell History
-export { detectShell, getHistoryFilePath, parseZshHistory, parseBashHistory, parseFishHistory, createShellHistoryReader } from './shell-history.js';
+export { detectShell, getHistoryFilePath, parseZshHistory, parseBashHistory, parseFishHistory, parsePowerShellHistory, createShellHistoryReader } from './shell-history.js';
 export type { ShellType } from './shell-history.js';
 
 // Infrastructure Context
@@ -82,7 +82,7 @@ export { processHookEvent, classifyToolAction, buildActionDescription, isGitComm
 export type { HookEvent } from './hook-handler.js';
 
 // Window Detector
-export { createWindowDetector, detectActiveWindow, detectPlatform } from './window-detector.js';
+export { createWindowDetector, detectActiveWindow, detectPlatform, parseWindowsPSOutput } from './window-detector.js';
 export type { DetectorPlatform } from './window-detector.js';
 
 // Session Analyzer (Agentic Core)

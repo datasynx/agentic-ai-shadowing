@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseZshHistory, parseBashHistory, parseFishHistory, detectShell } from '../src/shell-history.js';
+import { parseZshHistory, parseBashHistory, parseFishHistory, parsePowerShellHistory, detectShell } from '../src/shell-history.js';
 
 describe('Shell History — Zsh Parser', () => {
   it('parses extended zsh history format', () => {
@@ -126,10 +126,80 @@ describe('Shell History — Fish Parser', () => {
   });
 });
 
+describe('Shell History — PowerShell Parser', () => {
+  it('parses simple PowerShell history', () => {
+    const content = `Get-Process
+cd C:\\Users\\john\\Documents
+npm install express
+git status`;
+
+    const commands = parsePowerShellHistory(content);
+    expect(commands).toHaveLength(4);
+    expect(commands[0]!.command).toBe('Get-Process');
+    expect(commands[1]!.command).toBe('cd C:\\Users\\john\\Documents');
+    expect(commands[2]!.command).toBe('npm install express');
+    expect(commands[3]!.command).toBe('git status');
+  });
+
+  it('generates timestamp at read time', () => {
+    const content = `echo hello`;
+    const commands = parsePowerShellHistory(content);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]!.timestamp).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+  });
+
+  it('handles empty content', () => {
+    expect(parsePowerShellHistory('')).toHaveLength(0);
+  });
+
+  it('skips empty lines', () => {
+    const content = `Get-Process
+
+npm install
+
+git status`;
+    const commands = parsePowerShellHistory(content);
+    expect(commands).toHaveLength(3);
+  });
+
+  it('skips backtick continuation markers', () => {
+    const content = `if ($true) {
+\`
+Write-Host "hello"
+\`
+}`;
+    const commands = parsePowerShellHistory(content);
+    // Backtick lines should be skipped
+    const backtickOnly = commands.filter(c => c.command === '`');
+    expect(backtickOnly).toHaveLength(0);
+  });
+
+  it('handles PowerShell-specific commands', () => {
+    const content = `Get-ChildItem -Recurse | Where-Object { $_.Extension -eq ".log" }
+Invoke-WebRequest -Uri "https://api.example.com"
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`;
+
+    const commands = parsePowerShellHistory(content);
+    expect(commands).toHaveLength(3);
+    expect(commands[0]!.command).toContain('Get-ChildItem');
+    expect(commands[1]!.command).toContain('Invoke-WebRequest');
+    expect(commands[2]!.command).toContain('Set-ExecutionPolicy');
+  });
+
+  it('all commands share the same timestamp batch', () => {
+    const content = `cmd1\ncmd2\ncmd3`;
+    const commands = parsePowerShellHistory(content);
+    expect(commands).toHaveLength(3);
+    // All should have the same timestamp (assigned at read time)
+    expect(commands[0]!.timestamp).toBe(commands[1]!.timestamp);
+    expect(commands[1]!.timestamp).toBe(commands[2]!.timestamp);
+  });
+});
+
 describe('detectShell', () => {
   it('detects shell from SHELL env var', () => {
     const result = detectShell();
     // Should return some value (varies by environment)
-    expect(['zsh', 'bash', 'fish', 'unknown']).toContain(result);
+    expect(['zsh', 'bash', 'fish', 'powershell', 'unknown']).toContain(result);
   });
 });

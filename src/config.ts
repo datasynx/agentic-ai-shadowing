@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { z } from 'zod';
 import type { ShadowingConfig } from './types.js';
 
@@ -46,7 +47,7 @@ export const ConfigSchema = z.object({
 export type ValidatedConfig = z.infer<typeof ConfigSchema>;
 
 export function getConfigDir(): string {
-  const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '/tmp';
+  const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? tmpdir();
   return join(home, '.datasynx', 'shadowing');
 }
 

@@ -726,7 +726,7 @@ program
       saveConfig(loadConfig());
     }
     const config = loadConfig();
-    const editor = config.editor || process.env['EDITOR'] || 'vi';
+    const editor = config.editor || process.env['EDITOR'] || (process.platform === 'win32' ? 'notepad' : 'vi');
 
     try {
       execSync(`${editor} "${configPath}"`, { stdio: 'inherit' });

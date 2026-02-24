@@ -78,7 +78,7 @@ export class Anonymizer {
 
   private redactFilePaths(text: string): string {
     return text.replace(
-      /(?:\/Users\/|\/home\/|C:\\Users\\)[^\s"')>]+/g,
+      /(?:\/Users\/|\/home\/|[A-Z]:\\Users\\)[^\s"')>]+/g,
       (match) => {
         const parts = match.split(/[/\\]/);
         const userIdx = parts.findIndex(p => p === 'Users' || p === 'home');

@@ -1,16 +1,30 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { platform } from 'node:os';
 import type { ShellCommand } from './observer.js';
 
 // ── Shell Type Detection ─────────────────────────────────────────────────────
 
-export type ShellType = 'zsh' | 'bash' | 'fish' | 'unknown';
+export type ShellType = 'zsh' | 'bash' | 'fish' | 'powershell' | 'unknown';
 
 export function detectShell(): ShellType {
   const shell = process.env['SHELL'] ?? '';
+
+  // Unix shells (Linux/macOS, also Git Bash on Windows via MSYSTEM)
   if (shell.includes('zsh')) return 'zsh';
   if (shell.includes('bash')) return 'bash';
   if (shell.includes('fish')) return 'fish';
+
+  // Windows: check for Git Bash / MSYS2 environment
+  if (process.env['MSYSTEM']) {
+    return 'bash'; // Git Bash uses bash
+  }
+
+  // Windows: default to PowerShell (available on all Win10/11)
+  if (platform() === 'win32') {
+    return 'powershell';
+  }
+
   return 'unknown';
 }
 
@@ -34,6 +48,17 @@ export function getHistoryFilePath(shellType?: ShellType): string | null {
     case 'fish': {
       const histFile = join(home, '.local', 'share', 'fish', 'fish_history');
       return existsSync(histFile) ? histFile : null;
+    }
+    case 'powershell': {
+      // PSReadLine history: %APPDATA%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+      // Available on Windows 10 (1607+) and Windows 11 out of the box
+      const appData = process.env['APPDATA'];
+      if (appData) {
+        const histFile = join(appData, 'Microsoft', 'Windows', 'PowerShell',
+          'PSReadLine', 'ConsoleHost_history.txt');
+        if (existsSync(histFile)) return histFile;
+      }
+      return null;
     }
     default:
       return null;
@@ -157,6 +182,36 @@ export function parseFishHistory(content: string): ShellCommand[] {
   return commands;
 }
 
+// ── PowerShell History Parser ────────────────────────────────────────────────
+
+/**
+ * Parse PowerShell PSReadLine history.
+ * Format: one command per line, NO timestamps.
+ *
+ * Since PowerShell does not store timestamps in the history file,
+ * each command is assigned the current time when read. The incremental
+ * reader ensures we only process newly appended commands.
+ */
+export function parsePowerShellHistory(content: string): ShellCommand[] {
+  const commands: ShellCommand[] = [];
+  const now = new Date().toISOString().replace('Z', '').replace('T', ' ').substring(0, 19);
+
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Skip backtick-continuation markers from multi-line commands
+    if (trimmed === '`') continue;
+
+    commands.push({
+      command: trimmed,
+      timestamp: now,
+    });
+  }
+
+  return commands;
+}
+
 // ── Shell History Reader ─────────────────────────────────────────────────────
 
 /**
@@ -203,6 +258,7 @@ export function createShellHistoryReader(shellType?: ShellType): () => Promise<S
     const parser = type === 'zsh' ? parseZshHistory :
                    type === 'bash' ? parseBashHistory :
                    type === 'fish' ? parseFishHistory :
+                   type === 'powershell' ? parsePowerShellHistory :
                    null;
 
     if (!parser) return [];

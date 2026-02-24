@@ -41,10 +41,22 @@ export class Anonymizer {
   }
 
   private redactIPs(text: string): string {
-    // IPv4
+    // IPv4 — strict: each octet must be 0-255 to avoid matching version numbers
     let result = text.replace(
-      /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
-      '[interne-ip]',
+      /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g,
+      (match) => {
+        // Skip common version-like patterns (e.g., 1.2.3.4 where first octet < 10)
+        const octets = match.split('.').map(Number);
+        // Private/internal ranges: 10.x, 172.16-31.x, 192.168.x, 127.x, 169.254.x
+        const isPrivate = octets[0] === 10 ||
+          (octets[0] === 172 && octets[1]! >= 16 && octets[1]! <= 31) ||
+          (octets[0] === 192 && octets[1] === 168) ||
+          octets[0] === 127 ||
+          (octets[0] === 169 && octets[1] === 254);
+        // Public IPs with first octet >= 10 are also likely real IPs
+        if (isPrivate || octets[0]! >= 10) return '[interne-ip]';
+        return match; // Likely a version number (e.g. 1.2.3.4)
+      },
     );
     // IPv6 (simplified: 2+ hex groups with colons)
     result = result.replace(
@@ -101,11 +113,33 @@ export class Anonymizer {
   }
 
   private redactCreditCards(text: string): string {
-    // Visa, Mastercard, Amex patterns (4 groups of 4 digits, with separators)
+    // Visa, Mastercard, Amex patterns — validated with Luhn checksum
     return text.replace(
       /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
-      '[Kreditkartennummer]',
+      (match) => {
+        const digits = match.replace(/[\s-]/g, '');
+        // Must start with known issuer prefix: 4 (Visa), 5 (MC), 3 (Amex/Diners)
+        if (!/^[345]/.test(digits)) return match;
+        // Luhn checksum validation
+        if (!this.validateLuhn(digits)) return match;
+        return '[Kreditkartennummer]';
+      },
     );
+  }
+
+  private validateLuhn(digits: string): boolean {
+    let sum = 0;
+    let alternate = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let n = parseInt(digits[i]!, 10);
+      if (alternate) {
+        n *= 2;
+        if (n > 9) n -= 9;
+      }
+      sum += n;
+      alternate = !alternate;
+    }
+    return sum % 10 === 0;
   }
 
   private redactGermanIDs(text: string): string {

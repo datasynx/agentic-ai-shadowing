@@ -11,6 +11,7 @@
  */
 
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { platform } from 'node:os';
 import type { WindowInfo } from './observer.js';
 
@@ -55,6 +56,9 @@ function detectWindowLinux(): WindowInfo | null {
       encoding: 'utf8',
     }).trim();
 
+    // Validate windowId is numeric to prevent command injection
+    if (!/^\d+$/.test(windowId)) return null;
+
     // Get WM_CLASS (application name) via xprop
     let appName = 'unknown';
     try {
@@ -74,11 +78,9 @@ function detectWindowLinux(): WindowInfo | null {
           timeout: 2000,
           encoding: 'utf8',
         }).trim();
-        if (pid) {
-          const comm = execSync(`cat /proc/${pid}/comm`, {
-            timeout: 1000,
-            encoding: 'utf8',
-          }).trim();
+        // Validate PID is numeric to prevent command injection
+        if (pid && /^\d+$/.test(pid)) {
+          const comm = readFileSync(`/proc/${pid}/comm`, 'utf8').trim();
           if (comm) appName = comm;
         }
       } catch {

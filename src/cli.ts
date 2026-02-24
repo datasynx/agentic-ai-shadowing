@@ -164,126 +164,130 @@ program
         ],
       });
 
-      switch (action) {
-        case 'complete': {
-          const complexity = await select({
-            message: 'Wie komplex war dieser Task? (1-5)',
-            choices: [
-              { value: 1, name: '1 - Sehr einfach' },
-              { value: 2, name: '2 - Einfach' },
-              { value: 3, name: '3 - Mittel' },
-              { value: 4, name: '4 - Komplex' },
-              { value: 5, name: '5 - Sehr komplex' },
-            ],
-          });
-
-          const { task, duration } = tm.completeTask(complexity);
-          process.stderr.write(`\n  Task abgeschlossen. Dauer: ${duration}\n`);
-          process.stderr.write('  SOP wird generiert...\n\n');
-
-          try {
-            const result = await gen.generateSOP(task);
-            const sop = db.createSOP(task.id, {
-              title: result.title,
-              description: result.description,
-              content_md: result.content_md,
-              tags: result.tags,
-            });
-
-            // Log execution
-            if (task.duration_seconds) {
-              db.logExecution(sop.id, {
-                duration_seconds: task.duration_seconds,
-                complexity_rating: complexity,
-              });
-            }
-
-            const steps = countSteps(result.content_md);
-            process.stderr.write(`  SOP generiert!\n`);
-            process.stderr.write(buildSOPPreview(result.title, result.tags, steps) + '\n\n');
-
-            const sopAction = await select({
-              message: 'SOP-Aktion:',
+      try {
+        switch (action) {
+          case 'complete': {
+            const complexity = await select({
+              message: 'Wie komplex war dieser Task? (1-5)',
               choices: [
-                { value: 'accept', name: 'SOP akzeptieren' },
-                { value: 'edit', name: 'SOP bearbeiten (öffnet Editor)' },
-                { value: 'regenerate', name: 'SOP neu generieren' },
-                { value: 'discard', name: 'SOP verwerfen' },
+                { value: 1, name: '1 - Sehr einfach' },
+                { value: 2, name: '2 - Einfach' },
+                { value: 3, name: '3 - Mittel' },
+                { value: 4, name: '4 - Komplex' },
+                { value: 5, name: '5 - Sehr komplex' },
               ],
             });
 
-            if (sopAction === 'accept') {
-              db.updateSOPStatus(sop.id, 'reviewed');
-              process.stderr.write('  SOP akzeptiert und als "reviewed" markiert.\n');
-            } else if (sopAction === 'edit') {
-              await editSOPInEditor(db, sop.id, config.editor);
-            } else if (sopAction === 'regenerate') {
-              process.stderr.write('  SOP wird neu generiert...\n');
-              await gen.regenerateSOP(sop.id);
-              process.stderr.write('  Neue Version erstellt.\n');
-            } else if (sopAction === 'discard') {
-              db.deleteSOP(sop.id);
-              process.stderr.write('  SOP verworfen.\n');
-            }
-          } catch (err) {
-            if (err instanceof SOPGenerationError) {
-              switch (err.code) {
-                case 'missing_api_key':
-                  process.stderr.write(`  ${err.message}`);
-                  break;
-                case 'auth_failed':
-                  process.stderr.write(`  Authentifizierung fehlgeschlagen: ${err.message}\n`);
-                  break;
-                case 'rate_limited':
-                  process.stderr.write(`  API-Limit erreicht: ${err.message}\n`);
-                  process.stderr.write('  Tipp: Versuche es in einigen Minuten erneut mit "shadowing edit <sop-id>".\n');
-                  break;
-                case 'api_error':
-                  process.stderr.write(`  Claude API Fehler: ${err.message}\n`);
-                  break;
-                case 'parse_error':
-                  process.stderr.write(`  Parsing-Fehler: ${err.message}\n`);
-                  break;
-                default:
-                  process.stderr.write(`  Fehler bei SOP-Generierung: ${err.message}\n`);
+            const { task, duration } = tm.completeTask(complexity);
+            process.stderr.write(`\n  Task abgeschlossen. Dauer: ${duration}\n`);
+            process.stderr.write('  SOP wird generiert...\n\n');
+
+            try {
+              const result = await gen.generateSOP(task);
+              const sop = db.createSOP(task.id, {
+                title: result.title,
+                description: result.description,
+                content_md: result.content_md,
+                tags: result.tags,
+              });
+
+              // Log execution
+              if (task.duration_seconds) {
+                db.logExecution(sop.id, {
+                  duration_seconds: task.duration_seconds,
+                  complexity_rating: complexity,
+                });
               }
-            } else {
-              process.stderr.write(`  Unerwarteter Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+
+              const steps = countSteps(result.content_md);
+              process.stderr.write(`  SOP generiert!\n`);
+              process.stderr.write(buildSOPPreview(result.title, result.tags, steps) + '\n\n');
+
+              const sopAction = await select({
+                message: 'SOP-Aktion:',
+                choices: [
+                  { value: 'accept', name: 'SOP akzeptieren' },
+                  { value: 'edit', name: 'SOP bearbeiten (öffnet Editor)' },
+                  { value: 'regenerate', name: 'SOP neu generieren' },
+                  { value: 'discard', name: 'SOP verwerfen' },
+                ],
+              });
+
+              if (sopAction === 'accept') {
+                db.updateSOPStatus(sop.id, 'reviewed');
+                process.stderr.write('  SOP akzeptiert und als "reviewed" markiert.\n');
+              } else if (sopAction === 'edit') {
+                await editSOPInEditor(db, sop.id, config.editor);
+              } else if (sopAction === 'regenerate') {
+                process.stderr.write('  SOP wird neu generiert...\n');
+                await gen.regenerateSOP(sop.id);
+                process.stderr.write('  Neue Version erstellt.\n');
+              } else if (sopAction === 'discard') {
+                db.deleteSOP(sop.id);
+                process.stderr.write('  SOP verworfen.\n');
+              }
+            } catch (err) {
+              if (err instanceof SOPGenerationError) {
+                switch (err.code) {
+                  case 'missing_api_key':
+                    process.stderr.write(`  ${err.message}`);
+                    break;
+                  case 'auth_failed':
+                    process.stderr.write(`  Authentifizierung fehlgeschlagen: ${err.message}\n`);
+                    break;
+                  case 'rate_limited':
+                    process.stderr.write(`  API-Limit erreicht: ${err.message}\n`);
+                    process.stderr.write('  Tipp: Versuche es in einigen Minuten erneut mit "shadowing edit <sop-id>".\n');
+                    break;
+                  case 'api_error':
+                    process.stderr.write(`  Claude API Fehler: ${err.message}\n`);
+                    break;
+                  case 'parse_error':
+                    process.stderr.write(`  Parsing-Fehler: ${err.message}\n`);
+                    break;
+                  default:
+                    process.stderr.write(`  Fehler bei SOP-Generierung: ${err.message}\n`);
+                }
+              } else {
+                process.stderr.write(`  Unerwarteter Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+              }
+              process.stderr.write('  Task wurde trotzdem als abgeschlossen markiert.\n');
             }
-            process.stderr.write('  Task wurde trotzdem als abgeschlossen markiert.\n');
+            break;
           }
-          break;
-        }
 
-        case 'pause':
-          tm.pauseTask();
-          process.stderr.write('  Task pausiert.\n');
-          break;
+          case 'pause':
+            tm.pauseTask();
+            process.stderr.write('  Task pausiert.\n');
+            break;
 
-        case 'cancel':
-          tm.cancelTask();
-          process.stderr.write('  Task abgebrochen.\n');
-          break;
+          case 'cancel':
+            tm.cancelTask();
+            process.stderr.write('  Task abgebrochen.\n');
+            break;
 
-        case 'note': {
-          const note = await input({ message: 'Notiz:' });
-          if (note.trim()) {
-            tm.addNote(note.trim());
-            process.stderr.write('  Notiz hinzugefügt.\n');
+          case 'note': {
+            const note = await input({ message: 'Notiz:' });
+            if (note.trim()) {
+              tm.addNote(note.trim());
+              process.stderr.write('  Notiz hinzugefügt.\n');
+            }
+            break;
           }
-          break;
-        }
 
-        case 'new': {
-          // Complete current task first
-          const { duration } = tm.completeTask();
-          process.stderr.write(`  Task abgeschlossen (${duration}). Starte neuen Task...\n`);
-          break;
-        }
+          case 'new': {
+            // Complete current task first
+            const { duration } = tm.completeTask();
+            process.stderr.write(`  Task abgeschlossen (${duration}). Starte neuen Task...\n`);
+            break;
+          }
 
-        case 'quit':
-          running = false;
-          break;
+          case 'quit':
+            running = false;
+            break;
+        }
+      } catch (err) {
+        process.stderr.write(`  Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
       }
     }
 

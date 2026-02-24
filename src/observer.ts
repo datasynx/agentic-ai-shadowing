@@ -131,13 +131,17 @@ export class Observer {
    * Resume a paused observer.
    */
   resume(): void {
-    if (this.session) {
-      this.session = this.db.resumeObservationSession(this.session.id);
-      this.pollTimer = setInterval(() => {
-        void this.poll();
-      }, this.config.poll_interval_ms);
-      void this.poll();
+    if (!this.session) return;
+    // Prevent double-resume: clear existing timer to avoid multiple polling loops
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
     }
+    this.session = this.db.resumeObservationSession(this.session.id);
+    this.pollTimer = setInterval(() => {
+      void this.poll();
+    }, this.config.poll_interval_ms);
+    void this.poll();
   }
 
   /**

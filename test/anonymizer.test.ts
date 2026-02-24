@@ -165,4 +165,36 @@ describe('Anonymizer', () => {
     expect(result).toContain('[interne-ip]');
     expect(result).toContain('[IBAN]');
   });
+
+  it('does not redact version numbers as IPs', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const text = 'Software version 1.2.3.4 requires update';
+    const result = anon.anonymize(text);
+    // First octet < 10 → likely version number, should be preserved
+    expect(result).toContain('1.2.3.4');
+  });
+
+  it('redacts private IPs (10.x, 192.168.x, 172.16.x)', () => {
+    const anon = new Anonymizer(defaultConfig);
+    expect(anon.anonymize('Server: 10.0.0.1')).toContain('[interne-ip]');
+    expect(anon.anonymize('Gateway: 192.168.1.1')).toContain('[interne-ip]');
+    expect(anon.anonymize('VPN: 172.16.0.1')).toContain('[interne-ip]');
+  });
+
+  it('credit card: does not redact year sequences (Luhn-invalid)', () => {
+    // Test with phone redaction disabled to isolate CC behavior
+    const anon = new Anonymizer({ ...defaultConfig, redact_phone_numbers: false });
+    const text = 'Years 2024 2025 2026 2027 showing growth';
+    const result = anon.anonymize(text);
+    // Year sequences fail Luhn check and don't start with 3/4/5 → preserved
+    expect(result).toContain('2024 2025 2026 2027');
+  });
+
+  it('credit card: redacts valid Visa number (Luhn-valid)', () => {
+    const anon = new Anonymizer(defaultConfig);
+    // 4111 1111 1111 1111 is a standard Visa test number (Luhn-valid)
+    const text = 'Card: 4111 1111 1111 1111';
+    const result = anon.anonymize(text);
+    expect(result).toContain('[Kreditkartennummer]');
+  });
 });

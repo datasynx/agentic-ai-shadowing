@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
 import { platform } from 'node:os';
 import type { ShellCommand } from './observer.js';
@@ -243,14 +243,15 @@ export function createShellHistoryReader(shellType?: ShellType): () => Promise<S
       return [];
     }
 
-    // Read only the new portion of the file
-    const fd = await import('node:fs').then(fs =>
-      fs.openSync(histPath, 'r')
-    );
-    const buffer = Buffer.alloc(currentSize - lastSize);
-    const { readSync, closeSync } = await import('node:fs');
-    readSync(fd, buffer, 0, buffer.length, lastSize);
-    closeSync(fd);
+    // Read only the new portion of the file (with try-finally to prevent FD leaks)
+    const fd = openSync(histPath, 'r');
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.alloc(currentSize - lastSize);
+      readSync(fd, buffer, 0, buffer.length, lastSize);
+    } finally {
+      closeSync(fd);
+    }
 
     const newContent = buffer.toString('utf8');
     lastSize = currentSize;

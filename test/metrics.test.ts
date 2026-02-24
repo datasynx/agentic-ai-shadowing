@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateConsistencyScore,
   calculateMaturityScore,
+  calculateFreshnessScore,
   calculateOverallQualityScore,
 } from '../src/metrics.js';
 import type { SOP } from '../src/types.js';
@@ -61,6 +62,62 @@ describe('calculateMaturityScore', () => {
     const noReview = calculateMaturityScore(baseSOP, 0, false, 0, false, false);
     const withReview = calculateMaturityScore(baseSOP, 0, true, 0, false, false);
     expect(withReview - noReview).toBe(30);
+  });
+});
+
+describe('calculateFreshnessScore', () => {
+  const now = new Date().toISOString();
+
+  const baseSOP: SOP = {
+    id: 'fresh', task_id: 'task', title: 'Fresh',
+    description: null, content_md: '', version: 1,
+    status: 'draft', ai_generated: true,
+    reviewed_at: null, exported_at: null,
+    created_at: now, updated_at: now,
+  };
+
+  it('returns ~100 for just-updated unreviewed SOP', () => {
+    const score = calculateFreshnessScore(baseSOP, 0);
+    expect(score).toBeGreaterThan(98);
+  });
+
+  it('returns ~100 for just-reviewed SOP', () => {
+    const sop = { ...baseSOP, reviewed_at: now };
+    const score = calculateFreshnessScore(sop, 0);
+    expect(score).toBeGreaterThan(98);
+  });
+
+  it('decays for old unreviewed SOP', () => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const sop = { ...baseSOP, updated_at: thirtyDaysAgo };
+    const score = calculateFreshnessScore(sop, 0);
+    // 100 - 30 * 2 = 40
+    expect(score).toBeCloseTo(40, 0);
+  });
+
+  it('high-frequency SOPs decay faster', () => {
+    const tenDaysAgo = new Date(Date.now() - 10 * 86400000).toISOString();
+    const sop = { ...baseSOP, reviewed_at: tenDaysAgo };
+    const lowFreq = calculateFreshnessScore(sop, 2);   // factor 0.5
+    const highFreq = calculateFreshnessScore(sop, 15);  // factor 1.5
+    expect(lowFreq).toBeGreaterThan(highFreq);
+  });
+
+  it('returns 0 for very old SOP', () => {
+    const yearAgo = new Date(Date.now() - 365 * 86400000).toISOString();
+    const sop = { ...baseSOP, updated_at: yearAgo };
+    const score = calculateFreshnessScore(sop, 0);
+    expect(score).toBe(0);
+  });
+
+  it('clamps between 0 and 100', () => {
+    const score1 = calculateFreshnessScore(baseSOP, 0);
+    expect(score1).toBeGreaterThanOrEqual(0);
+    expect(score1).toBeLessThanOrEqual(100);
+
+    const oldSOP = { ...baseSOP, updated_at: new Date(0).toISOString() };
+    const score2 = calculateFreshnessScore(oldSOP, 100);
+    expect(score2).toBe(0);
   });
 });
 

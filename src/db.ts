@@ -165,10 +165,10 @@ export class ShadowingDB {
     const colNames = new Set(cols.map(c => c.name));
 
     if (!colNames.has('paused_at')) {
-      this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_at TEXT`);
+      try { this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_at TEXT`); } catch { /* column may already exist */ }
     }
     if (!colNames.has('paused_total_seconds')) {
-      this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_total_seconds INTEGER NOT NULL DEFAULT 0`);
+      try { this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_total_seconds INTEGER NOT NULL DEFAULT 0`); } catch { /* column may already exist */ }
     }
   }
 
@@ -228,15 +228,20 @@ export class ShadowingDB {
   }
 
   completeTask(id: string): Task {
+    const current = this.getTask(id);
+    if (!current) throw new Error(`Task ${id} not found`);
+    if (current.status === 'completed') throw new Error(`Task ${id} is already completed`);
+    if (current.status === 'cancelled') throw new Error(`Task ${id} is cancelled`);
+
     // Duration = wall-clock time - total paused time (including current pause if paused)
     const stmt = this.db.prepare(`
       UPDATE tasks
       SET status = 'completed',
           completed_at = datetime('now'),
-          duration_seconds = CAST((julianday('now') - julianday(started_at)) * 86400 AS INTEGER)
+          duration_seconds = ROUND((julianday('now') - julianday(started_at)) * 86400)
             - paused_total_seconds
             - CASE WHEN paused_at IS NOT NULL
-                THEN CAST((julianday('now') - julianday(paused_at)) * 86400 AS INTEGER)
+                THEN ROUND((julianday('now') - julianday(paused_at)) * 86400)
                 ELSE 0
               END,
           paused_at = NULL,
@@ -250,6 +255,10 @@ export class ShadowingDB {
   }
 
   pauseTask(id: string): Task {
+    const current = this.getTask(id);
+    if (!current) throw new Error(`Task ${id} not found`);
+    if (current.status !== 'active') throw new Error(`Task ${id} is not active (status: ${current.status})`);
+
     const stmt = this.db.prepare(`
       UPDATE tasks
       SET status = 'paused',
@@ -264,13 +273,17 @@ export class ShadowingDB {
   }
 
   resumeTask(id: string): Task {
+    const current = this.getTask(id);
+    if (!current) throw new Error(`Task ${id} not found`);
+    if (current.status !== 'paused') throw new Error(`Task ${id} is not paused (status: ${current.status})`);
+
     // Add the pause gap to paused_total_seconds, then clear paused_at
     const stmt = this.db.prepare(`
       UPDATE tasks
       SET status = 'active',
           paused_total_seconds = paused_total_seconds +
             CASE WHEN paused_at IS NOT NULL
-              THEN CAST((julianday('now') - julianday(paused_at)) * 86400 AS INTEGER)
+              THEN ROUND((julianday('now') - julianday(paused_at)) * 86400)
               ELSE 0
             END,
           paused_at = NULL,
@@ -410,8 +423,9 @@ export class ShadowingDB {
     const existing = this.db.prepare('SELECT * FROM tags WHERE name = ? COLLATE NOCASE').get(name) as Tag | undefined;
     if (existing) return existing;
 
-    const stmt = this.db.prepare('INSERT INTO tags (name) VALUES (?) RETURNING *');
-    return stmt.get(name) as Tag;
+    // Use INSERT OR IGNORE to handle concurrent inserts safely
+    this.db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)').run(name);
+    return this.db.prepare('SELECT * FROM tags WHERE name = ? COLLATE NOCASE').get(name) as Tag;
   }
 
   addTagToSOP(sopId: string, tagName: string, aiGenerated = true): void {
@@ -469,20 +483,23 @@ export class ShadowingDB {
   // ── Exports ──────────────────────────────────────────────────────────────
 
   logExport(data: { sop_count: number; export_path: string; sop_ids: string[] }): ExportRecord {
-    const exportRow = this.db.prepare(`
-      INSERT INTO exports (sop_count, export_path)
-      VALUES (?, ?)
-      RETURNING *
-    `).get(data.sop_count, data.export_path) as ExportRecord;
+    const txn = this.db.transaction(() => {
+      const exportRow = this.db.prepare(`
+        INSERT INTO exports (sop_count, export_path)
+        VALUES (?, ?)
+        RETURNING *
+      `).get(data.sop_count, data.export_path) as ExportRecord;
 
-    const insertLink = this.db.prepare(
-      'INSERT INTO export_sops (export_id, sop_id) VALUES (?, ?)'
-    );
-    for (const sopId of data.sop_ids) {
-      insertLink.run(exportRow.id, sopId);
-    }
+      const insertLink = this.db.prepare(
+        'INSERT INTO export_sops (export_id, sop_id) VALUES (?, ?)'
+      );
+      for (const sopId of data.sop_ids) {
+        insertLink.run(exportRow.id, sopId);
+      }
 
-    return exportRow;
+      return exportRow;
+    });
+    return txn();
   }
 
   getExports(): ExportRecord[] {

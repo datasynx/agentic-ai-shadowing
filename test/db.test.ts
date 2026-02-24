@@ -100,6 +100,38 @@ describe('ShadowingDB — Tasks', () => {
     const resumed = db.resumeTask(task.id);
     expect(resumed.status).toBe('active');
   });
+
+  it('pauseTask rejects non-active task', () => {
+    const task = db.createTask('State Check');
+    db.pauseTask(task.id);
+    // Pause already-paused → error
+    expect(() => db.pauseTask(task.id)).toThrow('not active');
+  });
+
+  it('resumeTask rejects non-paused task', () => {
+    const task = db.createTask('Resume Check');
+    // Resume active task → error
+    expect(() => db.resumeTask(task.id)).toThrow('not paused');
+  });
+
+  it('completeTask rejects already-completed task', () => {
+    const task = db.createTask('Complete Check');
+    db.completeTask(task.id);
+    // Complete again → error
+    expect(() => db.completeTask(task.id)).toThrow('already completed');
+  });
+
+  it('completeTask rejects cancelled task', () => {
+    const task = db.createTask('Cancel Check');
+    db.cancelTask(task.id);
+    expect(() => db.completeTask(task.id)).toThrow('cancelled');
+  });
+
+  it('resumeTask rejects completed task', () => {
+    const task = db.createTask('Resume Completed');
+    db.completeTask(task.id);
+    expect(() => db.resumeTask(task.id)).toThrow('not paused');
+  });
 });
 
 describe('ShadowingDB — SOPs', () => {

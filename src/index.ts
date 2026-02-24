@@ -80,3 +80,11 @@ export { MCPServer, startMCPServer } from './mcp-server.js';
 // Hook Handler (Claude Code Hooks)
 export { processHookEvent, classifyToolAction, buildActionDescription, isGitCommand, runHookHandler } from './hook-handler.js';
 export type { HookEvent } from './hook-handler.js';
+
+// Window Detector
+export { createWindowDetector, detectActiveWindow, detectPlatform } from './window-detector.js';
+export type { DetectorPlatform } from './window-detector.js';
+
+// Session Analyzer (Agentic Core)
+export { SessionAnalyzer, clusterBySilence, summarizeActionGroup } from './session-analyzer.js';
+export type { ActionCluster, AnalysisResult } from './session-analyzer.js';

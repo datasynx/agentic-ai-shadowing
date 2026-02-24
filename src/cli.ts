@@ -12,6 +12,8 @@ import { calculateSOPMetrics } from './metrics.js';
 import { diffTexts, formatDiff } from './diff.js';
 import { Observer } from './observer.js';
 import { createShellHistoryReader } from './shell-history.js';
+import { createWindowDetector } from './window-detector.js';
+import { SessionAnalyzer } from './session-analyzer.js';
 import { PrivacyManager, getDefaultExclusions } from './privacy.js';
 import { buildInfraGraph, formatInfraGraph } from './infra-context.js';
 import { checkCartographyInstalled, ensureCartography, locateJGFFile } from './cartography-check.js';
@@ -766,6 +768,8 @@ program
   .option('--interval <ms>', 'Poll-Intervall in Millisekunden', '5000')
   .option('--no-shell', 'Shell-History nicht erfassen')
   .option('--work-hours', 'Nur während Arbeitszeiten erfassen')
+  .option('--auto-sop', 'Nach Beobachtung automatisch Tasks erkennen und SOPs generieren')
+  .option('--no-window', 'Fenster-Erkennung deaktivieren')
   .action(async (opts) => {
     let db: ShadowingDB;
     try { db = openDBWithCartographyCheck(); } catch { return; }
@@ -800,6 +804,15 @@ program
       observer.setShellHistoryReader(createShellHistoryReader());
     }
 
+    // Register window detector (Linux X11 / macOS)
+    if (opts.window !== false) {
+      const detector = createWindowDetector();
+      if (detector) {
+        observer.setWindowDetector(detector);
+        process.stderr.write('  Fenster-Erkennung aktiv.\n');
+      }
+    }
+
     const { input } = await import('@inquirer/prompts');
 
     const session = observer.start();
@@ -819,6 +832,28 @@ program
           const completed = observer.stop();
           if (completed) {
             process.stderr.write(`  Session beendet. ${completed.total_actions} Aktionen erfasst.\n`);
+
+            // Auto-SOP: analyze session and generate tasks + SOPs
+            if (opts.autoSop && completed.total_actions > 0) {
+              process.stderr.write('\n  Analysiere Beobachtungen...\n');
+              try {
+                const config = loadConfig();
+                const analyzer = new SessionAnalyzer(config, db);
+                const result = await analyzer.analyzeSession(completed.id);
+                process.stderr.write(`  ${result.summary}\n`);
+                for (const sop of result.sops_generated) {
+                  process.stderr.write(`    SOP: ${sop.title}\n`);
+                }
+              } catch (err) {
+                if (err instanceof SOPGenerationError) {
+                  process.stderr.write(`  SOP-Analyse fehlgeschlagen: ${err.message}\n`);
+                } else {
+                  process.stderr.write(`  Analyse-Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+                }
+              }
+            } else if (!opts.autoSop && completed.total_actions > 0) {
+              process.stderr.write('  Tipp: Verwende --auto-sop oder "shadowing analyze" für automatische SOP-Generierung.\n');
+            }
           }
           running = false;
           break;
@@ -967,6 +1002,98 @@ program
       );
     }
     process.stderr.write('\n');
+    db.close();
+  });
+
+// ── shadowing analyze ──────────────────────────────────────────────────────
+
+program
+  .command('analyze [session-id]')
+  .description('Beobachtungssession analysieren → Tasks erkennen → SOPs generieren')
+  .option('--silence <seconds>', 'Schwellenwert für Aktivitätsblöcke in Sekunden', '300')
+  .action(async (sessionId: string | undefined, opts) => {
+    let db: ShadowingDB;
+    try { db = openDBWithCartographyCheck(); } catch { return; }
+
+    // Find session
+    let targetSessionId = sessionId;
+    if (!targetSessionId) {
+      // Use latest completed session
+      const sessions = db.listObservationSessions();
+      const completed = sessions.find(s => s.status === 'completed');
+      if (completed) {
+        targetSessionId = completed.id;
+      } else {
+        process.stderr.write('\n  Keine abgeschlossene Beobachtungssession gefunden.\n');
+        process.stderr.write('  Starte zuerst eine Beobachtung mit: shadowing observe\n\n');
+        db.close();
+        return;
+      }
+    } else {
+      // Prefix match
+      const all = db.listObservationSessions();
+      const matches = all.filter(s => s.id.startsWith(targetSessionId!));
+      if (matches.length === 1) {
+        targetSessionId = matches[0]!.id;
+      } else if (matches.length === 0) {
+        process.stderr.write(`\n  Session "${sessionId}" nicht gefunden.\n\n`);
+        db.close();
+        return;
+      }
+    }
+
+    const session = db.getObservationSession(targetSessionId);
+    if (!session) {
+      process.stderr.write(`\n  Session "${targetSessionId}" nicht gefunden.\n\n`);
+      db.close();
+      return;
+    }
+
+    const actions = db.getActionTimeline(targetSessionId);
+    if (actions.length === 0) {
+      process.stderr.write(`\n  Session ${targetSessionId.substring(0, 8)} enthält keine Aktionen.\n\n`);
+      db.close();
+      return;
+    }
+
+    process.stderr.write(`\n  Analysiere Session ${targetSessionId.substring(0, 8)} (${actions.length} Aktionen)...\n`);
+
+    try {
+      const config = loadConfig();
+      const analyzer = new SessionAnalyzer(config, db);
+      const result = await analyzer.analyzeSession(targetSessionId);
+
+      process.stderr.write(`\n  ${result.summary}\n\n`);
+
+      if (result.clusters.length > 0) {
+        process.stderr.write('  Erkannte Tasks:\n');
+        for (const cluster of result.clusters) {
+          process.stderr.write(`    ● ${cluster.title} (${formatDuration(cluster.duration_seconds)}, Komplexität: ${cluster.complexity}/5)\n`);
+          process.stderr.write(`      ${cluster.description}\n`);
+        }
+        process.stderr.write('\n');
+      }
+
+      if (result.sops_generated.length > 0) {
+        process.stderr.write('  Generierte SOPs:\n');
+        for (const sop of result.sops_generated) {
+          process.stderr.write(`    ● ${sop.title} (${sop.sop_id.substring(0, 8)})\n`);
+        }
+        process.stderr.write('\n');
+        process.stderr.write('  Tipp: "shadowing list" zeigt alle SOPs. "shadowing show <id>" zeigt Details.\n\n');
+      }
+    } catch (err) {
+      if (err instanceof SOPGenerationError) {
+        process.stderr.write(`\n  Analyse fehlgeschlagen: ${err.message}\n`);
+        if (err.code === 'missing_api_key') {
+          process.stderr.write('  Setze ANTHROPIC_API_KEY für die KI-basierte Analyse.\n');
+        }
+      } else {
+        process.stderr.write(`\n  Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+      }
+      process.stderr.write('\n');
+    }
+
     db.close();
   });
 
@@ -1155,11 +1282,19 @@ program
   Optionen:
     --interval <ms>    Poll-Intervall (default: 5000ms)
     --no-shell         Shell-History nicht erfassen
+    --no-window        Fenster-Erkennung deaktivieren
     --work-hours       Nur 8-18 Uhr erfassen
+    --auto-sop         Nach Beobachtung automatisch Tasks + SOPs erstellen
+
+  Automatische Analyse:
+    Wenn --auto-sop aktiv ist, werden nach "stop" die Aktionen
+    per KI in logische Tasks gruppiert und SOPs generiert.
+    Alternativ: "shadowing analyze [session-id]" für manuelle Analyse.
 
   Session-Verwaltung:
     shadowing sessions               Alle Sessions auflisten
     shadowing timeline [session-id]  Zeitachse einer Session anzeigen
+    shadowing analyze [session-id]   Session analysieren → Tasks + SOPs
     shadowing timeline --source shell  Nach Quelle filtern
 
 `);

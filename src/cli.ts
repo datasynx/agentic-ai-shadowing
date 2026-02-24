@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { existsSync, unlinkSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
@@ -16,6 +16,8 @@ import { PrivacyManager, getDefaultExclusions } from './privacy.js';
 import { buildInfraGraph, formatInfraGraph } from './infra-context.js';
 import { checkCartographyInstalled, ensureCartography, locateJGFFile } from './cartography-check.js';
 import { loadJGFFile } from './cartography.js';
+import { startMCPServer } from './mcp-server.js';
+import { runHookHandler } from './hook-handler.js';
 import type { ExclusionRule } from './types.js';
 import {
   ensureConfigDir, getConfigPath, getDbPath,
@@ -1237,6 +1239,50 @@ program
 `);
     }
 
+    if (topic === 'all' || topic === 'claude-code') {
+      w(`  ── Claude Code Integration ──────────────────────────────────────────
+
+  Shadowing integriert sich nahtlos mit Claude Code über zwei Mechanismen:
+
+  1. MCP-Server (Model Context Protocol)
+     Claude Code kann Shadowing-Tools direkt aufrufen:
+
+     Verfügbare MCP-Tools (17):
+       shadowing_start_task       Task starten
+       shadowing_complete_task    Task abschließen (SOP generieren)
+       shadowing_pause_task       Task pausieren
+       shadowing_resume_task      Task fortsetzen
+       shadowing_get_status       Status abfragen
+       shadowing_list_sops        SOPs auflisten
+       shadowing_get_sop          SOP-Detail abrufen
+       shadowing_update_sop       SOP bearbeiten
+       shadowing_approve_sop      SOP genehmigen
+       shadowing_add_tags         Tags hinzufügen
+       shadowing_log_observation  Aktion erfassen
+       shadowing_start_observation  Session starten
+       shadowing_stop_observation   Session beenden
+       shadowing_get_stats        Statistiken
+       shadowing_export_sops      SOPs exportieren
+       shadowing_list_tasks       Tasks auflisten
+       shadowing_get_timeline     Timeline abrufen
+
+  2. Hooks (automatische Erfassung)
+     Claude Code Hooks loggen Tool-Aufrufe automatisch:
+       PostToolUse → Jeder Tool-Aufruf wird als ObservedAction erfasst
+       Stop        → Session-Ende wird protokolliert
+
+  Einrichtung:
+    shadowing setup-hooks              Alles automatisch konfigurieren
+    shadowing setup-hooks --project-dir /pfad/zum/projekt
+
+  Manuell starten:
+    shadowing mcp                      MCP-Server starten (stdio)
+
+  Die Konfiguration wird in .claude/settings.json gespeichert.
+
+`);
+    }
+
     if (topic === 'all') {
       w(`  ── Weitere Befehle ──────────────────────────────────────────────────
 
@@ -1255,9 +1301,104 @@ program
     shadowing guide --topic export       Export & Anonymisierung
     shadowing guide --topic privacy      Datenschutz & Consent
     shadowing guide --topic api          Web-Dashboard & REST-API
+    shadowing guide --topic claude-code  Claude Code Integration
 
 `);
     }
+  });
+
+// ── shadowing mcp ───────────────────────────────────────────────────────────
+
+program
+  .command('mcp')
+  .description('MCP-Server starten (stdio-Transport für Claude Code)')
+  .action(() => {
+    startMCPServer();
+  });
+
+// ── shadowing hook ──────────────────────────────────────────────────────────
+
+program
+  .command('hook')
+  .description('Claude Code Hook-Events verarbeiten (intern)')
+  .option('--event <type>', 'Event-Typ (PostToolUse, Stop, SessionStart)')
+  .action(async (opts: { event?: string }) => {
+    await runHookHandler(opts.event);
+  });
+
+// ── shadowing setup-hooks ───────────────────────────────────────────────────
+
+program
+  .command('setup-hooks')
+  .description('Claude Code Hooks + MCP-Server konfigurieren')
+  .option('--project-dir <path>', 'Projektverzeichnis (default: cwd)')
+  .action((opts: { projectDir?: string }) => {
+    const projectDir = opts.projectDir ?? process.cwd();
+    const claudeDir = join(projectDir, '.claude');
+    const settingsPath = join(claudeDir, 'settings.json');
+
+    // Read existing settings
+    let settings: Record<string, unknown> = {};
+    if (existsSync(settingsPath)) {
+      try {
+        settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
+      } catch {
+        settings = {};
+      }
+    } else {
+      mkdirSync(claudeDir, { recursive: true });
+    }
+
+    // Add hooks configuration
+    const hooks: Record<string, unknown[]> = (settings['hooks'] as Record<string, unknown[]>) ?? {};
+
+    const hookCommand = 'npx shadowing hook';
+
+    // PostToolUse hook — captures all tool usage
+    if (!hooks['PostToolUse']) hooks['PostToolUse'] = [];
+    const postToolHooks = hooks['PostToolUse'] as Array<{ matcher?: string; command?: string }>;
+    if (!postToolHooks.some(h => h.command?.includes('shadowing hook'))) {
+      postToolHooks.push({
+        matcher: '*',
+        command: hookCommand,
+      });
+    }
+
+    // Stop hook — marks session end
+    if (!hooks['Stop']) hooks['Stop'] = [];
+    const stopHooks = hooks['Stop'] as Array<{ matcher?: string; command?: string }>;
+    if (!stopHooks.some(h => h.command?.includes('shadowing hook'))) {
+      stopHooks.push({
+        matcher: '',
+        command: `${hookCommand} --event stop`,
+      });
+    }
+
+    settings['hooks'] = hooks;
+
+    // Add MCP server configuration
+    const mcpServers: Record<string, unknown> = (settings['mcpServers'] as Record<string, unknown>) ?? {};
+    mcpServers['shadowing'] = {
+      command: 'npx',
+      args: ['shadowing', 'mcp'],
+      type: 'stdio',
+    };
+    settings['mcpServers'] = mcpServers;
+
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+
+    process.stderr.write(`\nClaude Code Integration konfiguriert.\n\n`);
+    process.stderr.write(`  Hooks:\n`);
+    process.stderr.write(`    PostToolUse → shadowing hook (alle Tool-Aufrufe loggen)\n`);
+    process.stderr.write(`    Stop        → shadowing hook --event stop (Session beenden)\n\n`);
+    process.stderr.write(`  MCP-Server:\n`);
+    process.stderr.write(`    shadowing   → npx shadowing mcp (17 Shadowing-Tools)\n\n`);
+    process.stderr.write(`  Konfigurationsdatei: ${settingsPath}\n\n`);
+    process.stderr.write(`  Claude Code kann jetzt:\n`);
+    process.stderr.write(`    - Tasks starten/beenden via MCP-Tools\n`);
+    process.stderr.write(`    - SOPs lesen, bearbeiten und exportieren\n`);
+    process.stderr.write(`    - Workflow-Aktionen automatisch erfassen\n`);
+    process.stderr.write(`    - Observation-Sessions verwalten\n\n`);
   });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

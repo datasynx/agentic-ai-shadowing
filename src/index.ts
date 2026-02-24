@@ -73,3 +73,10 @@ export { createUIServer } from './ui-server.js';
 
 // Export
 export { Exporter } from './exporter.js';
+
+// MCP Server (Claude Code Integration)
+export { MCPServer, startMCPServer } from './mcp-server.js';
+
+// Hook Handler (Claude Code Hooks)
+export { processHookEvent, classifyToolAction, buildActionDescription, isGitCommand, runHookHandler } from './hook-handler.js';
+export type { HookEvent } from './hook-handler.js';

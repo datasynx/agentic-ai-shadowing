@@ -16,7 +16,7 @@ import { createWindowDetector } from './window-detector.js';
 import { SessionAnalyzer } from './session-analyzer.js';
 import { PrivacyManager, getDefaultExclusions } from './privacy.js';
 import { buildInfraGraph, formatInfraGraph } from './infra-context.js';
-import { checkCartographyInstalled, ensureCartography, locateJGFFile } from './cartography-check.js';
+import { checkCartographyInstalled, locateJGFFile } from './cartography-check.js';
 import { loadJGFFile } from './cartography.js';
 import { startMCPServer } from './mcp-server.js';
 import { runHookHandler } from './hook-handler.js';
@@ -46,10 +46,6 @@ function openDB(): ShadowingDB {
   return db;
 }
 
-function openDBWithCartographyCheck(): ShadowingDB {
-  ensureCartography();
-  return openDB();
-}
 
 // ── shadowing init ───────────────────────────────────────────────────────────
 
@@ -57,17 +53,14 @@ program
   .command('init')
   .description('Erstmalige Einrichtung (DB + Config anlegen)')
   .action(() => {
-    // Check cartography package is installed
+    // Check cartography package (optional — just informational)
     const cartoCheck = checkCartographyInstalled();
     if (!cartoCheck.installed) {
       process.stderr.write(
-        `Fehler: agentic-ai-cartography ist nicht installiert.\n` +
-        `Shadowing benötigt die Nodes aus agentic-ai-cartography als Grundlage.\n` +
-        `Bitte installieren Sie es mit:\n\n` +
+        `Hinweis: agentic-ai-cartography ist nicht installiert.\n` +
+        `Für Cartography-Kontext in SOPs können Sie es optional installieren:\n\n` +
         `  npm install @datasynx/agentic-ai-cartography\n\n`,
       );
-      process.exitCode = 1;
-      return;
     }
 
     ensureConfigDir();
@@ -108,7 +101,7 @@ program
   .description('Interaktiven Shadowing-Modus starten')
   .action(async () => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const config = loadConfig();
     const tm = new TaskManager(db);
@@ -302,7 +295,7 @@ program
   .description('Aktuellen Task und Statistiken anzeigen')
   .action(() => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const tm = new TaskManager(db);
     const active = tm.getActiveTask();
@@ -334,7 +327,7 @@ program
   .option('--search <query>', 'Freitextsuche')
   .action((opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sops = db.listSOPs({
       status: opts.status,
@@ -371,7 +364,7 @@ program
   .description('Eine SOP im Terminal anzeigen')
   .action((sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -399,7 +392,7 @@ program
   .description('SOP im Standard-Editor öffnen')
   .action((sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -416,7 +409,7 @@ program
   .description('SOP unwiderruflich löschen')
   .action(async (sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -437,7 +430,7 @@ program
   .description('Versionshistorie einer SOP anzeigen')
   .action((sopId: string) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -469,7 +462,7 @@ program
   .option('--to <version>', 'Zielversion (default: aktuell)')
   .action((sopId: string, versionArg: string | undefined, opts: { from?: string; to?: string }) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -529,7 +522,7 @@ program
   .description('Tags hinzufügen (+tag) oder entfernen (-tag)')
   .action((sopId: string, tags: string[]) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sop = findSOP(db, sopId);
     if (!sop) { db.close(); return; }
@@ -560,7 +553,7 @@ program
   .description('Metriken-Dashboard im Terminal')
   .action(() => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const stats = db.getGlobalStats();
     const config = loadConfig();
@@ -605,7 +598,7 @@ program
   .option('--all', 'Alle approved SOPs exportieren')
   .action(async (opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const config = loadConfig();
     const anonymizer = new Anonymizer(config.anonymization);
@@ -667,7 +660,7 @@ program
   .option('-p, --port <port>', 'Port (default: config.ui_port)')
   .action(async (opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const config = loadConfig();
     const port = opts.port ? parseInt(opts.port, 10) : config.ui_port;
@@ -694,9 +687,6 @@ program
   .command('import-graph <path>')
   .description('Cartography-Graph (JGF) importieren')
   .action((path: string) => {
-    // Check cartography package is installed
-    try { ensureCartography(); } catch { return; }
-
     if (!existsSync(path)) {
       process.stderr.write(`  Datei nicht gefunden: ${path}\n`);
       process.exitCode = 1;
@@ -776,7 +766,7 @@ program
   .option('--no-window', 'Fenster-Erkennung deaktivieren')
   .action(async (opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const privacy = new PrivacyManager(db);
 
@@ -911,7 +901,7 @@ program
   .option('--limit <n>', 'Maximale Anzahl Einträge', '50')
   .action((sessionId: string | undefined, opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     // If no session ID, use the latest session
     let session = sessionId
@@ -987,7 +977,7 @@ program
   .description('Beobachtungssessions auflisten')
   .action(() => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const sessions = db.listObservationSessions();
 
@@ -1017,7 +1007,7 @@ program
   .option('--silence <seconds>', 'Schwellenwert für Aktivitätsblöcke in Sekunden', '300')
   .action(async (sessionId: string | undefined, opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     // Find session
     let targetSessionId = sessionId;
@@ -1111,7 +1101,7 @@ program
   .option('--log', 'Consent-Protokoll anzeigen')
   .action((opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const privacy = new PrivacyManager(db);
 
@@ -1158,7 +1148,7 @@ program
   .option('--defaults', 'Standard-Ausschlussregeln laden')
   .action((opts) => {
     let db: ShadowingDB;
-    try { db = openDBWithCartographyCheck(); } catch { return; }
+    try { db = openDB(); } catch { return; }
 
     const privacy = new PrivacyManager(db);
 

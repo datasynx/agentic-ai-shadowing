@@ -25,8 +25,8 @@ export class SOPGenerator {
   ) {
     if (!process.env['ANTHROPIC_API_KEY']) {
       throw new SOPGenerationError(
-        'ANTHROPIC_API_KEY ist nicht gesetzt.\n' +
-        'Exportiere deinen API-Key:\n\n' +
+        'ANTHROPIC_API_KEY is not set.\n' +
+        'Export your API key:\n\n' +
         '  export ANTHROPIC_API_KEY=sk-ant-...\n',
         'missing_api_key',
         false,
@@ -38,39 +38,39 @@ export class SOPGenerator {
   async generateSOP(task: Task): Promise<{ title: string; description: string; content_md: string; tags: string[] }> {
     const lang = this.config.sop_generation.sop_language === 'de' ? 'Deutsch' : 'English';
 
-    const systemPrompt = `Du bist ein SOP-Analyst. Der Mitarbeiter hat gerade einen Task abgeschlossen.
-Erstelle eine präzise, wiederverwendbare Standard Operating Procedure (SOP) in ${lang}.
+    const systemPrompt = `You are an SOP analyst. The employee has just completed a task.
+Create a precise, reusable Standard Operating Procedure (SOP) in ${lang}.
 
-REGELN:
-1. Schreibe die SOP in Markdown mit folgender Struktur:
-   # [SOP-Titel]
-   ## Ziel
-   ## Voraussetzungen
-   ## Schritte
-   ### Schritt 1: [Bezeichnung]
+RULES:
+1. Write the SOP in Markdown with the following structure:
+   # [SOP Title]
+   ## Objective
+   ## Prerequisites
+   ## Steps
+   ### Step 1: [Description]
    ...
-   ## Erwartetes Ergebnis
-   ## Hinweise
-   ## Verknüpfte Systeme
+   ## Expected Result
+   ## Notes
+   ## Related Systems
 
-2. Nummeriere alle Schritte eindeutig
-3. Halte die Sprache klar und aktionsorientiert
-4. Enthält KEINE personenbezogenen Daten
-5. Enthält KEINE firmeninternen Geheimnisse — nur Prozessschritte
+2. Number all steps uniquely
+3. Keep the language clear and action-oriented
+4. Do NOT include any personally identifiable information
+5. Do NOT include any company secrets — only process steps
 
-Am Ende der Antwort, füge einen JSON-Block mit Tags hinzu:
+At the end of the response, add a JSON block with tags:
 \`\`\`json
 {"tags": ["tag1", "tag2", ...]}
 \`\`\`
 
-Tag-Kategorien: Abteilung/Funktion, Tool/System, Prozessart, Frequenz, Komplexität.
-Generiere 3-8 relevante Tags (lowercase, ohne #).`;
+Tag categories: Department/Function, Tool/System, Process type, Frequency, Complexity.
+Generate 3-8 relevant tags (lowercase, without #).`;
 
-    const durationStr = task.duration_seconds ? formatDuration(task.duration_seconds) : 'unbekannt';
+    const durationStr = task.duration_seconds ? formatDuration(task.duration_seconds) : 'unknown';
 
-    let userPrompt = `Task-Titel: ${task.title}`;
-    if (task.description) userPrompt += `\nBeschreibung / Notizen:\n${task.description}`;
-    userPrompt += `\nDauer: ${durationStr}`;
+    let userPrompt = `Task title: ${task.title}`;
+    if (task.description) userPrompt += `\nDescription / Notes:\n${task.description}`;
+    userPrompt += `\nDuration: ${durationStr}`;
 
     // Cartography context (JGF format preferred)
     if (this.config.sop_generation.include_cartography_context && this.config.cartography_graph_path) {
@@ -99,24 +99,24 @@ Generiere 3-8 relevante Tags (lowercase, ohne #).`;
     } catch (err) {
       if (err instanceof Anthropic.AuthenticationError) {
         throw new SOPGenerationError(
-          'API-Authentifizierung fehlgeschlagen. Prüfe deinen ANTHROPIC_API_KEY.',
+          'API authentication failed. Check your ANTHROPIC_API_KEY.',
           'auth_failed', false, 401,
         );
       }
       if (err instanceof Anthropic.RateLimitError) {
         throw new SOPGenerationError(
-          'API-Rate-Limit erreicht. Versuche es in einigen Minuten erneut.',
+          'API rate limit reached. Try again in a few minutes.',
           'rate_limited', true, 429,
         );
       }
       if (err instanceof Anthropic.APIError) {
         throw new SOPGenerationError(
-          `Claude API Fehler (${err.status}): ${err.message}`,
+          `Claude API error (${err.status}): ${err.message}`,
           'api_error', err.status >= 500, err.status,
         );
       }
       throw new SOPGenerationError(
-        `Unerwarteter Fehler: ${err instanceof Error ? err.message : String(err)}`,
+        `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
         'unknown', false,
       );
     }
@@ -125,7 +125,7 @@ Generiere 3-8 relevante Tags (lowercase, ohne #).`;
       return this.parseResponse(text, task.title);
     } catch (err) {
       throw new SOPGenerationError(
-        `Fehler beim Parsen der API-Antwort: ${err instanceof Error ? err.message : String(err)}`,
+        `Error parsing the API response: ${err instanceof Error ? err.message : String(err)}`,
         'parse_error', false,
       );
     }
@@ -133,10 +133,10 @@ Generiere 3-8 relevante Tags (lowercase, ohne #).`;
 
   async regenerateSOP(sopId: string): Promise<SOP> {
     const sop = this.db.getSOP(sopId);
-    if (!sop) throw new Error(`SOP ${sopId} nicht gefunden.`);
+    if (!sop) throw new Error(`SOP ${sopId} not found.`);
 
     const task = this.db.getTask(sop.task_id);
-    if (!task) throw new Error(`Task ${sop.task_id} nicht gefunden.`);
+    if (!task) throw new Error(`Task ${sop.task_id} not found.`);
 
     const result = await this.generateSOP(task);
 
@@ -173,8 +173,8 @@ Generiere 3-8 relevante Tags (lowercase, ohne #).`;
     const titleMatch = content_md.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1]!.trim() : fallbackTitle;
 
-    // Extract description from "## Ziel" section
-    const goalMatch = content_md.match(/##\s+Ziel\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    // Extract description from "## Objective" section
+    const goalMatch = content_md.match(/##\s+(?:Ziel|Objective)\s*\n([\s\S]*?)(?=\n##|\n$)/);
     const description = goalMatch ? goalMatch[1]!.trim() : '';
 
     return { title, description, content_md, tags };
@@ -183,10 +183,10 @@ Generiere 3-8 relevante Tags (lowercase, ohne #).`;
 
 export function buildSOPPreview(title: string, tags: string[], stepCount: number): string {
   const tagStr = tags.map(t => `#${t}`).join(' ');
-  return `  Titel: "${title}"\n  Schritte: ${stepCount}\n  Tags: ${tagStr || '(keine)'}`;
+  return `  Title: "${title}"\n  Steps: ${stepCount}\n  Tags: ${tagStr || '(none)'}`;
 }
 
 export function countSteps(contentMd: string): number {
-  const matches = contentMd.match(/^###\s+Schritt\s+\d/gm);
+  const matches = contentMd.match(/^###\s+(?:Schritt|Step)\s+\d/gm);
   return matches ? matches.length : 0;
 }

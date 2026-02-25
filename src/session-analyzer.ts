@@ -111,7 +111,7 @@ export class SessionAnalyzer {
   ) {
     if (!process.env['ANTHROPIC_API_KEY']) {
       throw new SOPGenerationError(
-        'ANTHROPIC_API_KEY ist nicht gesetzt.',
+        'ANTHROPIC_API_KEY is not set.',
         'missing_api_key', false,
       );
     }
@@ -128,7 +128,7 @@ export class SessionAnalyzer {
    */
   async analyzeSession(sessionId: string): Promise<AnalysisResult> {
     const session = this.db.getObservationSession(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} nicht gefunden.`);
+    if (!session) throw new Error(`Session ${sessionId} not found.`);
 
     // Load all actions chronologically
     const actions = this.db.getActionTimeline(sessionId);
@@ -138,7 +138,7 @@ export class SessionAnalyzer {
         clusters: [],
         tasks_created: [],
         sops_generated: [],
-        summary: 'Keine Aktionen in der Session.',
+        summary: 'No actions in the session.',
       };
     }
 
@@ -152,7 +152,7 @@ export class SessionAnalyzer {
       const durationSec = Math.floor(
         (new Date(last.ended_at).getTime() - new Date(first.started_at).getTime()) / 1000,
       );
-      return `--- Aktivitätsblock ${i + 1} (${durationSec}s, ${group.length} Aktionen) ---\n${summarizeActionGroup(group)}`;
+      return `--- Activity block ${i + 1} (${durationSec}s, ${group.length} actions) ---\n${summarizeActionGroup(group)}`;
     });
 
     const fullSummary = groupSummaries.join('\n\n');
@@ -202,7 +202,7 @@ export class SessionAnalyzer {
       clusters,
       tasks_created,
       sops_generated,
-      summary: `${clusters.length} Task(s) erkannt, ${sops_generated.length} SOP(s) generiert.`,
+      summary: `${clusters.length} task(s) identified, ${sops_generated.length} SOP(s) generated.`,
     };
   }
 
@@ -215,35 +215,35 @@ export class SessionAnalyzer {
   ): Promise<ActionCluster[]> {
     const lang = this.config.sop_generation.sop_language === 'de' ? 'Deutsch' : 'English';
 
-    const systemPrompt = `Du bist ein Workflow-Analyst. Du erhältst eine Liste von beobachteten Aktionen
-eines Mitarbeiters (Shell-Befehle, aktive Fenster, Dateioperationen, Git-Aktionen).
+    const systemPrompt = `You are a workflow analyst. You receive a list of observed actions
+from an employee (shell commands, active windows, file operations, Git actions).
 
-Deine Aufgabe:
-1. Erkenne logisch zusammengehörende Arbeitsabläufe (Tasks)
-2. Fasse jeden Task in einem kurzen, beschreibenden Titel zusammen
-3. Beschreibe was der Mitarbeiter gemacht hat
-4. Bewerte die Komplexität (1=trivial, 5=sehr komplex)
+Your task:
+1. Identify logically related workflows (tasks)
+2. Summarize each task with a short, descriptive title
+3. Describe what the employee did
+4. Rate the complexity (1=trivial, 5=very complex)
 
-REGELN:
-- Antworte in ${lang}
-- Fasse ähnliche Aktionen zu einem Task zusammen (z.B. mehrere git-Befehle = ein Deployment-Task)
-- Ignoriere triviale Aktionen (ls, cd, clear) wenn sie nicht Teil eines größeren Workflows sind
-- Ein Task sollte mindestens 2-3 zusammenhängende Aktionen haben
-- Titel sollen prozessbeschreibend sein, z.B. "SAP-Datenexport durchführen", "Code-Review und Merge"
+RULES:
+- Respond in ${lang}
+- Group similar actions into one task (e.g., multiple git commands = one deployment task)
+- Ignore trivial actions (ls, cd, clear) if they are not part of a larger workflow
+- A task should have at least 2-3 related actions
+- Titles should be process-descriptive, e.g., "Perform SAP data export", "Code review and merge"
 
-Antworte NUR mit einem JSON-Array:
+Respond ONLY with a JSON array:
 \`\`\`json
 [
   {
-    "title": "Task-Titel",
-    "description": "Was wurde gemacht und warum",
+    "title": "Task title",
+    "description": "What was done and why",
     "action_blocks": [0, 1],
     "complexity": 3
   }
 ]
 \`\`\`
 
-"action_blocks" ist ein Array der Aktivitätsblock-Nummern (0-basiert) die zu diesem Task gehören.`;
+"action_blocks" is an array of activity block numbers (0-based) that belong to this task.`;
 
     try {
       const response = await this.client.messages.create({
@@ -262,10 +262,10 @@ Antworte NUR mit einem JSON-Array:
       return this.parseTaskIdentification(text, rawGroups);
     } catch (err) {
       if (err instanceof Anthropic.RateLimitError) {
-        throw new SOPGenerationError('API-Rate-Limit erreicht.', 'rate_limited', true, 429);
+        throw new SOPGenerationError('API rate limit reached.', 'rate_limited', true, 429);
       }
       if (err instanceof Anthropic.AuthenticationError) {
-        throw new SOPGenerationError('API-Key ungültig.', 'auth_failed', false, 401);
+        throw new SOPGenerationError('API key invalid.', 'auth_failed', false, 401);
       }
       throw err;
     }
@@ -331,39 +331,39 @@ Antworte NUR mit einem JSON-Array:
     const lang = this.config.sop_generation.sop_language === 'de' ? 'Deutsch' : 'English';
     const actionSummary = summarizeActionGroup(cluster.actions);
 
-    const systemPrompt = `Du bist ein SOP-Analyst. Erstelle eine Standard Operating Procedure (SOP) in ${lang}.
+    const systemPrompt = `You are an SOP analyst. Create a Standard Operating Procedure (SOP) in ${lang}.
 
-Du erhältst:
-1. Einen erkannten Task-Titel und -Beschreibung
-2. Die tatsächlich beobachteten Aktionen (Shell-Befehle, Fenster, Dateien)
+You receive:
+1. A detected task title and description
+2. The actually observed actions (shell commands, windows, files)
 
-Erstelle eine SOP die den BEOBACHTETEN Workflow in wiederverwendbare Schritte überführt.
+Create an SOP that converts the OBSERVED workflow into reusable steps.
 
-REGELN:
-1. Markdown-Struktur:
-   # [SOP-Titel]
-   ## Ziel
-   ## Voraussetzungen
-   ## Schritte
-   ### Schritt 1: [Bezeichnung]
+RULES:
+1. Markdown structure:
+   # [SOP Title]
+   ## Objective
+   ## Prerequisites
+   ## Steps
+   ### Step 1: [Description]
    ...
-   ## Erwartetes Ergebnis
-   ## Hinweise
-2. Leite die Schritte aus den TATSÄCHLICHEN Aktionen ab, nicht aus Vermutungen
-3. Generalisiere spezifische Pfade und Parameter zu Platzhaltern
-4. Enthält KEINE personenbezogenen Daten oder firmeninternen Geheimnisse
+   ## Expected Result
+   ## Notes
+2. Derive the steps from the ACTUAL actions, not from assumptions
+3. Generalize specific paths and parameters into placeholders
+4. Do NOT include any personally identifiable information or company secrets
 
-Am Ende, füge Tags hinzu:
+At the end, add tags:
 \`\`\`json
 {"tags": ["tag1", "tag2", ...]}
 \`\`\``;
 
     const userPrompt = `Task: ${task.title}
-Beschreibung: ${cluster.description}
-Dauer: ${cluster.duration_seconds}s
-Komplexität: ${cluster.complexity}/5
+Description: ${cluster.description}
+Duration: ${cluster.duration_seconds}s
+Complexity: ${cluster.complexity}/5
 
-Beobachtete Aktionen:
+Observed actions:
 ${actionSummary}`;
 
     const response = await this.client.messages.create({
@@ -396,7 +396,7 @@ ${actionSummary}`;
     const titleMatch = content_md.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1]!.trim() : task.title;
 
-    const goalMatch = content_md.match(/##\s+Ziel\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    const goalMatch = content_md.match(/##\s+(?:Ziel|Objective)\s*\n([\s\S]*?)(?=\n##|\n$)/);
     const description = goalMatch ? goalMatch[1]!.trim() : cluster.description;
 
     return { title, description, content_md, tags };

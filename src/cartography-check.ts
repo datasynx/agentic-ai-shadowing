@@ -81,9 +81,9 @@ export function ensureCartography(): CartographyCheckResult {
 
   if (!result.installed) {
     process.stderr.write(
-      `agentic-ai-cartography ist nicht installiert.\n` +
-      `Shadowing benötigt die Nodes aus agentic-ai-cartography als Grundlage.\n` +
-      `Bitte installieren Sie es mit:\n\n` +
+      `agentic-ai-cartography is not installed.\n` +
+      `Shadowing uses the nodes from agentic-ai-cartography as a foundation.\n` +
+      `Please install it with:\n\n` +
       `  npm install @datasynx/agentic-ai-cartography\n\n`,
     );
     process.exitCode = 1;

@@ -146,7 +146,7 @@ describe('Exporter — exportSOPs', () => {
   });
 
   it('throws when no SOP IDs provided', () => {
-    expect(() => exporter.exportSOPs([])).toThrow(/Keine SOPs zum Exportieren/);
+    expect(() => exporter.exportSOPs([])).toThrow(/No SOPs selected for export/);
   });
 
   it('skips invalid SOP IDs gracefully', () => {
@@ -168,7 +168,7 @@ describe('Exporter — exportAll', () => {
 
   it('throws when no approved SOPs exist', () => {
     createTestSOP('draft');
-    expect(() => exporter.exportAll()).toThrow(/Keine approved SOPs/);
+    expect(() => exporter.exportAll()).toThrow(/No approved SOPs/);
   });
 });
 

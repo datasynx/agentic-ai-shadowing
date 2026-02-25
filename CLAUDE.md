@@ -1,6 +1,6 @@
 # Agentic AI Shadowing
 
-Beobachtet Tasks von Mitarbeitern, generiert SOPs (Standard Operating Procedures) — vollständig lokal und anonymisiert.
+Observes employee tasks, generates SOPs (Standard Operating Procedures) — fully local and anonymized.
 
 ## Tech Stack
 
@@ -10,8 +10,8 @@ Build: tsup | Test: vitest | Dev: tsx
 
 ## Coding Rules
 
-Named exports, 2-Space, kein `any`, ISO 8601 UTC, IDs: hex(randomblob(8))
-Terminal auf stderr, process.exitCode statt exit(), .js Extensions
+Named exports, 2-Space, no `any`, ISO 8601 UTC, IDs: hex(randomblob(8))
+Output to stderr, use process.exitCode instead of exit(), .js Extensions
 
 ## Commands
 

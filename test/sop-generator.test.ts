@@ -61,7 +61,7 @@ describe('buildSOPPreview', () => {
 
   it('shows (keine) for empty tags', () => {
     const preview = buildSOPPreview('Test', [], 3);
-    expect(preview).toContain('(keine)');
+    expect(preview).toContain('(none)');
   });
 
   it('shows step count', () => {

@@ -8,8 +8,8 @@ export class TaskManager {
     const active = this.db.getActiveTask();
     if (active) {
       throw new Error(
-        `Es läuft bereits ein Task: "${active.title}" (ID: ${active.id.substring(0, 8)}). ` +
-        `Schließe oder breche ihn zuerst ab.`
+        `A task is already running: "${active.title}" (ID: ${active.id.substring(0, 8)}). ` +
+        `Complete or cancel it first.`
       );
     }
     return this.db.createTask(title, description);
@@ -21,26 +21,26 @@ export class TaskManager {
 
   pauseTask(): Task {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('Kein aktiver Task zum Pausieren.');
+    if (!active) throw new Error('No active task to pause.');
     return this.db.pauseTask(active.id);
   }
 
   resumeTask(id?: string): Task {
     if (id) {
       const task = this.db.getTask(id);
-      if (!task) throw new Error(`Task ${id} nicht gefunden.`);
-      if (task.status !== 'paused') throw new Error(`Task "${task.title}" ist nicht pausiert.`);
+      if (!task) throw new Error(`Task ${id} not found.`);
+      if (task.status !== 'paused') throw new Error(`Task "${task.title}" is not paused.`);
       return this.db.resumeTask(task.id);
     }
     // Resume the most recent paused task
     const paused = this.db.listTasks({ status: 'paused' });
-    if (paused.length === 0) throw new Error('Kein pausierter Task zum Fortsetzen.');
+    if (paused.length === 0) throw new Error('No paused task to resume.');
     return this.db.resumeTask(paused[0]!.id);
   }
 
   completeTask(complexityRating?: number): { task: Task; duration: string } {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('Kein aktiver Task zum Abschließen.');
+    if (!active) throw new Error('No active task to complete.');
 
     const task = this.db.completeTask(active.id);
 
@@ -63,13 +63,13 @@ export class TaskManager {
 
   cancelTask(): Task {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('Kein aktiver Task zum Abbrechen.');
+    if (!active) throw new Error('No active task to cancel.');
     return this.db.cancelTask(active.id);
   }
 
   addNote(note: string): Task {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('Kein aktiver Task für Notizen.');
+    if (!active) throw new Error('No active task for notes.');
 
     const existing = active.description ?? '';
     const updated = existing ? `${existing}\n- ${note}` : `- ${note}`;

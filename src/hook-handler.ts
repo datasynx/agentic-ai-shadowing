@@ -71,23 +71,23 @@ export function buildActionDescription(toolName: string, input: Record<string, u
     return cmd.length > 200 ? cmd.substring(0, 200) + '...' : cmd;
   }
   if ((name === 'edit' || name === 'write' || name === 'read') && input['file_path']) {
-    const action = name === 'read' ? 'Lesen' : name === 'edit' ? 'Bearbeiten' : 'Schreiben';
+    const action = name === 'read' ? 'Read' : name === 'edit' ? 'Edit' : 'Write';
     return `${action}: ${input['file_path'] as string}`;
   }
   if (name === 'glob' && input['pattern']) {
-    return `Dateisuche: ${input['pattern'] as string}`;
+    return `File search: ${input['pattern'] as string}`;
   }
   if (name === 'grep' && input['pattern']) {
-    return `Code-Suche: ${input['pattern'] as string}`;
+    return `Code search: ${input['pattern'] as string}`;
   }
   if (name === 'webfetch' && input['url']) {
-    return `Web-Fetch: ${input['url'] as string}`;
+    return `Web fetch: ${input['url'] as string}`;
   }
   if (name === 'websearch' && input['query']) {
-    return `Web-Suche: ${input['query'] as string}`;
+    return `Web search: ${input['query'] as string}`;
   }
   if (name === 'task' && input['description']) {
-    return `Subagent: ${input['description'] as string}`;
+    return `Sub-agent: ${input['description'] as string}`;
   }
 
   return `${toolName}: ${JSON.stringify(input).substring(0, 150)}`;
@@ -124,7 +124,7 @@ export function processHookEvent(db: ShadowingDB, event: HookEvent): void {
     // Log a summary action for session end
     db.logObservedAction(session.id, {
       source: 'manual',
-      window_title: `Claude Code Session beendet (${event.stop_reason ?? 'unknown'})`,
+      window_title: `Claude Code session ended (${event.stop_reason ?? 'unknown'})`,
       metadata: { stop_reason: event.stop_reason },
     });
     return;

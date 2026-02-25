@@ -29,7 +29,7 @@ describe('TaskManager — startTask', () => {
 
   it('throws when starting a second task while one is active', () => {
     tm.startTask('First Task');
-    expect(() => tm.startTask('Second Task')).toThrow(/Es läuft bereits ein Task/);
+    expect(() => tm.startTask('Second Task')).toThrow(/A task is already running/);
   });
 
   it('allows starting after previous task is completed', () => {
@@ -56,7 +56,7 @@ describe('TaskManager — pauseTask / resumeTask', () => {
   });
 
   it('throws when pausing with no active task', () => {
-    expect(() => tm.pauseTask()).toThrow(/Kein aktiver Task zum Pausieren/);
+    expect(() => tm.pauseTask()).toThrow(/No active task to pause/);
   });
 
   it('resumes the most recent paused task', () => {
@@ -76,15 +76,15 @@ describe('TaskManager — pauseTask / resumeTask', () => {
 
   it('throws when resuming a non-paused task by ID', () => {
     const task = tm.startTask('Active');
-    expect(() => tm.resumeTask(task.id)).toThrow(/ist nicht pausiert/);
+    expect(() => tm.resumeTask(task.id)).toThrow(/is not paused/);
   });
 
   it('throws when resuming with no paused tasks', () => {
-    expect(() => tm.resumeTask()).toThrow(/Kein pausierter Task zum Fortsetzen/);
+    expect(() => tm.resumeTask()).toThrow(/No paused task to resume/);
   });
 
   it('throws when resuming unknown task ID', () => {
-    expect(() => tm.resumeTask('nonexistent')).toThrow(/nicht gefunden/);
+    expect(() => tm.resumeTask('nonexistent')).toThrow(/not found/);
   });
 });
 
@@ -98,7 +98,7 @@ describe('TaskManager — completeTask', () => {
   });
 
   it('throws when completing with no active task', () => {
-    expect(() => tm.completeTask()).toThrow(/Kein aktiver Task zum Abschließen/);
+    expect(() => tm.completeTask()).toThrow(/No active task to complete/);
   });
 
   it('accepts optional complexity rating', () => {
@@ -119,7 +119,7 @@ describe('TaskManager — cancelTask', () => {
   });
 
   it('throws when cancelling with no active task', () => {
-    expect(() => tm.cancelTask()).toThrow(/Kein aktiver Task zum Abbrechen/);
+    expect(() => tm.cancelTask()).toThrow(/No active task to cancel/);
   });
 });
 
@@ -145,7 +145,7 @@ describe('TaskManager — addNote', () => {
   });
 
   it('throws when adding note with no active task', () => {
-    expect(() => tm.addNote('Orphan note')).toThrow(/Kein aktiver Task für Notizen/);
+    expect(() => tm.addNote('Orphan note')).toThrow(/No active task for notes/);
   });
 });
 

@@ -86,8 +86,8 @@ describe('buildGraphContext', () => {
 
   it('truncates at maxLength', () => {
     const ctx = buildGraphContext(testGraph, 50);
-    expect(ctx.length).toBeLessThanOrEqual(80); // 50 + "...(gekürzt)" suffix
-    expect(ctx).toContain('gekürzt');
+    expect(ctx.length).toBeLessThanOrEqual(80); // 50 + "...(truncated)" suffix
+    expect(ctx).toContain('truncated');
   });
 });
 
@@ -119,7 +119,7 @@ describe('buildFocusedContext', () => {
   it('returns focused context for matching task', () => {
     const ctx = buildFocusedContext(testGraph, 'SAP Rechnung erstellen');
     expect(ctx).toContain('SAP ERP');
-    expect(ctx).toContain('Relevante Systeme');
+    expect(ctx).toContain('Relevant systems');
   });
 
   it('includes related edges for matching nodes', () => {
@@ -129,7 +129,7 @@ describe('buildFocusedContext', () => {
 
   it('falls back to general context for no matches', () => {
     const ctx = buildFocusedContext(testGraph, 'xyz');
-    expect(ctx).toContain('Verfügbare Systeme'); // general fallback
+    expect(ctx).toContain('Available systems'); // general fallback
   });
 
   it('uses description for matching', () => {

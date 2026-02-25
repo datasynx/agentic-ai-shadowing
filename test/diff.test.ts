@@ -84,7 +84,7 @@ describe('formatDiff', () => {
   it('returns no-change message for identical texts', () => {
     const result = diffTexts('same', 'same');
     const formatted = formatDiff(result);
-    expect(formatted).toContain('keine Änderungen');
+    expect(formatted).toContain('no changes');
   });
 
   it('uses ANSI colors for changes', () => {
@@ -99,7 +99,7 @@ describe('formatDiff', () => {
     const formatted = formatDiff(result);
     expect(formatted).toContain('+1');
     expect(formatted).toContain('-1');
-    expect(formatted).toContain('Zeilen');
+    expect(formatted).toContain('lines');
   });
 
   it('respects context lines parameter', () => {

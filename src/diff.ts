@@ -64,7 +64,7 @@ export function formatDiff(diff: DiffResult, contextLines = 3): string {
     .filter(i => i >= 0);
 
   if (changeIndices.length === 0) {
-    return '  (keine Änderungen)\n';
+    return '  (no changes)\n';
   }
 
   // Build display ranges
@@ -104,7 +104,7 @@ export function formatDiff(diff: DiffResult, contextLines = 3): string {
   }
 
   output.push('');
-  output.push(`  \x1b[32m+${diff.addedCount}\x1b[0m / \x1b[31m-${diff.removedCount}\x1b[0m Zeilen`);
+  output.push(`  \x1b[32m+${diff.addedCount}\x1b[0m / \x1b[31m-${diff.removedCount}\x1b[0m lines`);
 
   return output.join('\n') + '\n';
 }

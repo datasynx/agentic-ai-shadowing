@@ -44,39 +44,39 @@ describe('diffTexts', () => {
   });
 
   it('handles multi-line SOP changes', () => {
-    const oldSOP = `# SOP: Rechnungserstellung
-## Ziel
-Rechnungen erstellen.
+    const oldSOP = `# SOP: Invoice Creation
+## Objective
+Create invoices.
 
-## Schritte
-### Schritt 1: SAP öffnen
-Melde dich im SAP an.
+## Steps
+### Step 1: Open SAP
+Sign in to SAP.
 
-### Schritt 2: Rechnung anlegen
-Lege eine neue Rechnung an.`;
+### Step 2: Create Invoice
+Create a new invoice.`;
 
-    const newSOP = `# SOP: Rechnungserstellung
-## Ziel
-Rechnungen korrekt erstellen und prüfen.
+    const newSOP = `# SOP: Invoice Creation
+## Objective
+Create and verify invoices correctly.
 
-## Schritte
-### Schritt 1: SAP öffnen
-Melde dich im SAP an.
+## Steps
+### Step 1: Open SAP
+Sign in to SAP.
 
-### Schritt 2: Rechnung anlegen
-Lege eine neue Rechnung an.
+### Step 2: Create Invoice
+Create a new invoice.
 
-### Schritt 3: Rechnung prüfen
-Prüfe die Rechnung auf Korrektheit.`;
+### Step 3: Verify Invoice
+Check the invoice for correctness.`;
 
     const result = diffTexts(oldSOP, newSOP);
     expect(result.addedCount).toBeGreaterThan(0);
     expect(result.unchangedCount).toBeGreaterThan(0);
     // The goal line changed
     const removed = result.lines.filter(l => l.type === 'removed');
-    expect(removed.some(l => l.content.includes('Rechnungen erstellen.'))).toBe(true);
+    expect(removed.some(l => l.content.includes('Create invoices.'))).toBe(true);
     const added = result.lines.filter(l => l.type === 'added');
-    expect(added.some(l => l.content.includes('korrekt erstellen'))).toBe(true);
+    expect(added.some(l => l.content.includes('verify invoices correctly'))).toBe(true);
   });
 });
 

@@ -1,74 +1,74 @@
-# Implementierungsplan — @datasynx/agentic-ai-shadowing v0.1.0
+# Implementation Plan — @datasynx/agentic-ai-shadowing v0.1.0
 
-## Analyse: Ist-Zustand vs. Soll-Zustand
+## Analysis: Current State vs. Target State
 
-### Grundlegende Erkenntnis
-Das aktuelle Repo enthält den **alten Shadow-Daemon** aus `@datasynx/agentic-ai-cartography` —
-ein System-Monitoring-Tool (TCP-Snapshots, Prozesse, IPC-Daemon). Die neue Spezifikation beschreibt
-ein **fundamental anderes Produkt**: ein interaktives, Mitarbeiter-gesteuertes Task-Tracking-Tool
-mit SOP-Generierung, HTML-Frontend und Export-Engine.
+### Key Insight
+The current repo contains the **old Shadow Daemon** from `@datasynx/agentic-ai-cartography` —
+a system monitoring tool (TCP snapshots, processes, IPC daemon). The new specification describes
+a **fundamentally different product**: an interactive, employee-driven task tracking tool
+with SOP generation, HTML frontend, and export engine.
 
-**Konsequenz:** Alle Source-Dateien (`src/*.ts`) werden komplett ersetzt. Behalten werden:
-- Build-Infrastruktur: `tsconfig.json`, `tsup.config.ts`, `.gitignore`
-- Projekt-Metadaten: `LICENSE`, `CLAUDE.md`
-- `package.json` (wird angepasst: neue Dependencies, andere Binaries)
+**Consequence:** All source files (`src/*.ts`) will be completely replaced. The following will be kept:
+- Build infrastructure: `tsconfig.json`, `tsup.config.ts`, `.gitignore`
+- Project metadata: `LICENSE`, `CLAUDE.md`
+- `package.json` (will be modified: new dependencies, different binaries)
 
-### Alte Dateien → Entscheidung
+### Old Files → Decision
 
-| Datei | Aktion | Begründung |
-|-------|--------|------------|
-| `src/daemon.ts` | **Löschen** | Kein Daemon-Konzept in neuer Spec |
-| `src/ipc.ts` | **Löschen** | Kein IPC/Unix-Socket nötig |
-| `src/client.ts` | **Löschen** | Kein Attach/Foreground-Client |
-| `src/notify.ts` | **Löschen** | Keine Desktop-Notifications in MVP |
-| `src/agent.ts` | **Löschen** | Komplett andere SOP-Generierung |
-| `src/types.ts` | **Löschen** | Komplett neues Typsystem |
-| `src/cli.ts` | **Löschen** | Komplett andere CLI-Befehle |
-| `src/index.ts` | **Löschen** | Neue Public API |
-| `test/ipc.test.ts` | **Löschen** | IPC existiert nicht mehr |
-| `docs/SHADOW_SPEC.md` | **Ersetzen** | Durch neue Produktspezifikation |
+| File | Action | Reason |
+|------|--------|--------|
+| `src/daemon.ts` | **Delete** | No daemon concept in new spec |
+| `src/ipc.ts` | **Delete** | No IPC/Unix socket needed |
+| `src/client.ts` | **Delete** | No attach/foreground client |
+| `src/notify.ts` | **Delete** | No desktop notifications in MVP |
+| `src/agent.ts` | **Delete** | Completely different SOP generation |
+| `src/types.ts` | **Delete** | Completely new type system |
+| `src/cli.ts` | **Delete** | Completely different CLI commands |
+| `src/index.ts` | **Delete** | New public API |
+| `test/ipc.test.ts` | **Delete** | IPC no longer exists |
+| `docs/SHADOW_SPEC.md` | **Replace** | With new product specification |
 
 ---
 
-## Implementierungsschritte (Phase 1 — MVP)
+## Implementation Steps (Phase 1 — MVP)
 
-### Schritt 1: Projekt-Restrukturierung
-**Ziel:** Alte Dateien entfernen, Dependencies anpassen, neue Verzeichnisstruktur anlegen.
+### Step 1: Project Restructuring
+**Goal:** Remove old files, update dependencies, create new directory structure.
 
-**1.1 Alte Source-Dateien löschen:**
-- Alle `src/*.ts` löschen
-- `test/ipc.test.ts` löschen
+**1.1 Delete old source files:**
+- Delete all `src/*.ts`
+- Delete `test/ipc.test.ts`
 
-**1.2 `package.json` anpassen:**
+**1.2 Update `package.json`:**
 - Binary `datasynx-shadow` → `shadowing`
-- `node-notifier` entfernen (nicht im MVP)
-- `@anthropic-ai/claude-code` entfernen (direkt `@anthropic-ai/sdk` nutzen)
-- `@inquirer/prompts` hinzufügen (interaktive Terminal-Prompts)
-- `express` hinzufügen (REST-API für Frontend, Phase 2 vorbereiten)
-- `marked` + `dompurify` noch NICHT (Phase 2)
-- `engines.node` auf `>=20` setzen
-- Peer-Dependency auf `@datasynx/agentic-ai-cartography` entfernen (optional in neuer Spec)
+- Remove `node-notifier` (not in MVP)
+- Remove `@anthropic-ai/claude-code` (use `@anthropic-ai/sdk` directly)
+- Add `@inquirer/prompts` (interactive terminal prompts)
+- Add `express` (REST API for frontend, prepare for Phase 2)
+- `marked` + `dompurify` NOT yet (Phase 2)
+- Set `engines.node` to `>=20`
+- Remove peer dependency on `@datasynx/agentic-ai-cartography` (optional in new spec)
 
-**1.3 `CLAUDE.md` aktualisieren** mit neuer Projektbeschreibung
+**1.3 Update `CLAUDE.md`** with new project description
 
-**1.4 `docs/SHADOW_SPEC.md`** durch neue Produktspezifikation ersetzen
+**1.4 Replace `docs/SHADOW_SPEC.md`** with new product specification
 
-**1.5 `docs/tasks.md`** mit neuer Task-Liste ersetzen
+**1.5 Replace `docs/tasks.md`** with new task list
 
-**1.6 Neue Verzeichnisstruktur:**
+**1.6 New directory structure:**
 ```
 src/
-├── cli.ts              # Commander CLI (Haupteintrag)
+├── cli.ts              # Commander CLI (main entry)
 ├── index.ts            # Public API
-├── db.ts               # SQLite-Schema + Datenbank-Klasse
-├── types.ts            # Alle TypeScript-Typen
-├── config.ts           # Config-Management (~/.datasynx/shadowing/config.json)
-├── task-manager.ts     # Task-Lifecycle (start, pause, complete, cancel)
-├── sop-generator.ts    # Claude SDK SOP-Generierung
-├── metrics.ts          # Metriken-Berechnung (Scores)
-├── anonymizer.ts       # PII-Erkennung und -Redaktion
-├── exporter.ts         # Markdown-Export mit Manifest
-└── ui-server.ts        # Express REST-Server + HTML-Frontend (Phase 2 Vorbereitung)
+├── db.ts               # SQLite schema + database class
+├── types.ts            # All TypeScript types
+├── config.ts           # Config management (~/.datasynx/shadowing/config.json)
+├── task-manager.ts     # Task lifecycle (start, pause, complete, cancel)
+├── sop-generator.ts    # Claude SDK SOP generation
+├── metrics.ts          # Metrics calculation (scores)
+├── anonymizer.ts       # PII detection and redaction
+├── exporter.ts         # Markdown export with manifest
+└── ui-server.ts        # Express REST server + HTML frontend (Phase 2 preparation)
 test/
 ├── db.test.ts
 ├── task-manager.test.ts
@@ -78,14 +78,14 @@ test/
 └── exporter.test.ts
 ```
 
-**1.7 Build verifizieren:** `npm install && npm run lint && npm run build`
+**1.7 Verify build:** `npm install && npm run lint && npm run build`
 
 ---
 
-### Schritt 2: `src/types.ts` — Typsystem
-**Ziel:** Alle Interfaces und Zod-Schemas aus der DB-Spec (Sektion 4) definieren.
+### Step 2: `src/types.ts` — Type System
+**Goal:** Define all interfaces and Zod schemas from the DB spec (Section 4).
 
-**Definieren:**
+**Define:**
 - `Task` interface (id, title, description, status, started_at, completed_at, duration_seconds, created_at, updated_at)
 - `TaskStatus` type: `'active' | 'paused' | 'completed' | 'cancelled'`
 - `SOP` interface (id, task_id, title, description, content_md, version, status, ai_generated, reviewed_at, exported_at, created_at, updated_at)
@@ -94,19 +94,19 @@ test/
 - `SOPTag` interface (sop_id, tag_id, ai_generated)
 - `TaskExecution` interface (id, sop_id, duration_seconds, complexity_rating, notes, executed_at)
 - `ExportRecord` interface (id, exported_at, sop_count, export_path, anonymized)
-- `ShadowingConfig` interface (aus Sektion 10.1)
+- `ShadowingConfig` interface (from Section 10.1)
 - `SOPMetrics` interface (execution_count, avg_duration, median_duration, min_duration, max_duration, std_deviation, cv, avg_complexity, consistency_score, maturity_score, freshness_score)
 - `GlobalStats` interface
 
 ---
 
-### Schritt 3: `src/config.ts` — Konfigurationsmanagement
-**Ziel:** `~/.datasynx/shadowing/config.json` lesen/schreiben mit Defaults.
+### Step 3: `src/config.ts` — Configuration Management
+**Goal:** Read/write `~/.datasynx/shadowing/config.json` with defaults.
 
-**Funktionen:**
+**Functions:**
 - `getConfigDir(): string` → `~/.datasynx/shadowing/`
-- `getDefaultConfig(): ShadowingConfig` → Defaults aus Spec Sektion 10.1
-- `loadConfig(): ShadowingConfig` → liest config.json oder erstellt mit Defaults
+- `getDefaultConfig(): ShadowingConfig` → Defaults from spec Section 10.1
+- `loadConfig(): ShadowingConfig` → reads config.json or creates with defaults
 - `saveConfig(config: ShadowingConfig): void`
 - `getDbPath(): string` → `~/.datasynx/shadowing/shadowing.db`
 
@@ -116,278 +116,278 @@ test/
 - `ui_port: 3847`
 - `sop_generation.model: "claude-sonnet-4-20250514"`
 - `sop_generation.temperature: 0.3`
-- `sop_generation.sop_language: "de"`
-- `anonymization.*`: alle true
+- `sop_generation.sop_language: "en"`
+- `anonymization.*`: all true
 
 ---
 
-### Schritt 4: `src/db.ts` — SQLite-Datenbank
-**Ziel:** better-sqlite3 Wrapper mit dem Schema aus Sektion 4.1.
+### Step 4: `src/db.ts` — SQLite Database
+**Goal:** better-sqlite3 wrapper with the schema from Section 4.1.
 
-**Klasse: `ShadowingDB`**
+**Class: `ShadowingDB`**
 
-**Schema-Migration (in `initialize()`):**
-- `tasks` Tabelle
-- `sops` Tabelle
-- `tags` Tabelle
-- `sop_tags` Tabelle
-- `task_executions` Tabelle
-- `exports` Tabelle
-- `export_sops` Tabelle
-- Alle Indizes
+**Schema migration (in `initialize()`):**
+- `tasks` table
+- `sops` table
+- `tags` table
+- `sop_tags` table
+- `task_executions` table
+- `exports` table
+- `export_sops` table
+- All indexes
 
-**Methoden — Tasks:**
+**Methods — Tasks:**
 - `createTask(title: string, description?: string): Task`
 - `getTask(id: string): Task | null`
 - `getActiveTask(): Task | null`
 - `listTasks(filter?: { status?: TaskStatus }): Task[]`
 - `updateTask(id: string, updates: Partial<Task>): Task`
-- `completeTask(id: string): Task` — setzt status, completed_at, berechnet duration_seconds
+- `completeTask(id: string): Task` — sets status, completed_at, calculates duration_seconds
 - `pauseTask(id: string): Task`
 - `resumeTask(id: string): Task`
 - `cancelTask(id: string): Task`
 - `deleteTask(id: string): void`
 
-**Methoden — SOPs:**
+**Methods — SOPs:**
 - `createSOP(taskId: string, data: { title, description, content_md, tags?: string[] }): SOP`
 - `getSOP(id: string): SOP | null`
 - `listSOPs(filter?: { status?, tag?, search? }): SOP[]`
-- `updateSOP(id: string, updates: Partial<SOP>): SOP` — inkrementiert version bei content_md-Änderung
+- `updateSOP(id: string, updates: Partial<SOP>): SOP` — increments version on content_md change
 - `updateSOPStatus(id: string, status: SOPStatus): SOP`
 - `deleteSOP(id: string): void`
 
-**Methoden — Tags:**
+**Methods — Tags:**
 - `getOrCreateTag(name: string): Tag`
 - `addTagToSOP(sopId: string, tagName: string, aiGenerated?: boolean): void`
 - `removeTagFromSOP(sopId: string, tagId: string): void`
 - `listTags(): Tag[]`
 - `getTagsForSOP(sopId: string): (Tag & { ai_generated: boolean })[]`
 
-**Methoden — Executions:**
+**Methods — Executions:**
 - `logExecution(sopId: string, data: { duration_seconds, complexity_rating?, notes? }): TaskExecution`
 - `getExecutions(sopId: string): TaskExecution[]`
 
-**Methoden — Exports:**
+**Methods — Exports:**
 - `logExport(data: { sop_count, export_path, sop_ids: string[] }): ExportRecord`
 - `getExports(): ExportRecord[]`
 
-**Methoden — Stats:**
+**Methods — Stats:**
 - `getGlobalStats(): GlobalStats`
 
 **Tests:** `test/db.test.ts`
-- Tabellen-Erstellung
-- CRUD für Tasks, SOPs, Tags
-- Task-Lifecycle (active → paused → active → completed)
-- SOP-Versionierung
-- Tag-Zuordnung
-- Execution-Logging
+- Table creation
+- CRUD for tasks, SOPs, tags
+- Task lifecycle (active → paused → active → completed)
+- SOP versioning
+- Tag assignment
+- Execution logging
 
 ---
 
-### Schritt 5: `src/task-manager.ts` — Task-Lifecycle
-**Ziel:** Orchestriert Task-Lifecycle und interaktive Prompts.
+### Step 5: `src/task-manager.ts` — Task Lifecycle
+**Goal:** Orchestrates task lifecycle and interactive prompts.
 
-**Klasse: `TaskManager`**
+**Class: `TaskManager`**
 
-Benötigt: `ShadowingDB`, `ShadowingConfig`
+Requires: `ShadowingDB`, `ShadowingConfig`
 
-**Methoden:**
-- `startTask(title: string, description?: string): Task` — prüft ob bereits ein aktiver Task existiert
-- `pauseTask(): Task` — pausiert den aktiven Task
-- `resumeTask(): Task` — nimmt pausierten Task wieder auf
-- `completeTask(complexityRating?: number): { task: Task; duration: string }` — beendet Task, formatiert Dauer
+**Methods:**
+- `startTask(title: string, description?: string): Task` — checks if an active task already exists
+- `pauseTask(): Task` — pauses the active task
+- `resumeTask(): Task` — resumes a paused task
+- `completeTask(complexityRating?: number): { task: Task; duration: string }` — completes task, formats duration
 - `cancelTask(): Task`
 - `getActiveTask(): Task | null`
-- `addNote(note: string): void` — speichert Notiz zum aktiven Task (in description anhängen)
+- `addNote(note: string): void` — saves note to the active task (appended to description)
 
-**Hilfsfunktionen:**
+**Helper functions:**
 - `formatDuration(seconds: number): string` — "1h 23min 45s"
 
 **Tests:** `test/task-manager.test.ts`
-- Start/Complete-Flow
-- Pause/Resume
-- Fehler wenn kein aktiver Task
-- Fehler bei doppeltem Start
+- Start/complete flow
+- Pause/resume
+- Error when no active task
+- Error on duplicate start
 
 ---
 
-### Schritt 6: `src/sop-generator.ts` — Claude SOP-Generierung
-**Ziel:** Generiert SOPs via Anthropic Messages API basierend auf Task-Daten.
+### Step 6: `src/sop-generator.ts` — Claude SOP Generation
+**Goal:** Generates SOPs via Anthropic Messages API based on task data.
 
-**Klasse: `SOPGenerator`**
+**Class: `SOPGenerator`**
 
-Benötigt: `ShadowingConfig`, `ShadowingDB`
+Requires: `ShadowingConfig`, `ShadowingDB`
 
-**Methoden:**
-- `generateSOP(task: Task, notes?: string[]): Promise<{ title, description, content_md, tags }>` — System-Prompt aus Spec Sektion 6.1, Cartography-Graph als optionaler Kontext
-- `regenerateSOP(sopId: string): Promise<SOP>` — SOP neu generieren aus Task-Daten
+**Methods:**
+- `generateSOP(task: Task, notes?: string[]): Promise<{ title, description, content_md, tags }>` — System prompt from spec Section 6.1, Cartography graph as optional context
+- `regenerateSOP(sopId: string): Promise<SOP>` — Regenerate SOP from task data
 
-**Prompt-Aufbau:**
-- System-Prompt definiert Rolle, Regeln, Markdown-Struktur (Sektion 4.2)
-- User-Prompt enthält: Task-Titel, Beschreibung, Dauer, Notizen, Komplexität, optional Cartography-Graph
-- Response-Parsing: Markdown-Content + Tags-Array aus structured output
+**Prompt construction:**
+- System prompt defines role, rules, Markdown structure (Section 4.2)
+- User prompt contains: task title, description, duration, notes, complexity, optional Cartography graph
+- Response parsing: Markdown content + tags array from structured output
 
-**KI-Tag-Generierung:**
-- Aus dem generierten Content Tags extrahieren
-- Kategorien: Abteilung, Tool/System, Prozessart, Frequenz, Komplexität (Sektion 6.2)
+**AI tag generation:**
+- Extract tags from generated content
+- Categories: department, tool/system, process type, frequency, complexity (Section 6.2)
 
 **Tests:** `test/sop-generator.test.ts`
-- Prompt-Aufbau testen (ohne API-Call)
-- Response-Parsing testen (Mock-Response)
-- Tag-Extraktion
+- Test prompt construction (without API call)
+- Test response parsing (mock response)
+- Tag extraction
 
 ---
 
-### Schritt 7: `src/metrics.ts` — Metriken-Berechnung
-**Ziel:** Qualitäts-Scores aus Execution-Daten berechnen (Sektion 7).
+### Step 7: `src/metrics.ts` — Metrics Calculation
+**Goal:** Calculate quality scores from execution data (Section 7).
 
-**Funktionen:**
+**Functions:**
 - `calculateSOPMetrics(db: ShadowingDB, sopId: string): SOPMetrics`
-  - Ausführungsstatistik: count, avg, median, min, max, stddev, CV
-  - avg_complexity aus task_executions
+  - Execution statistics: count, avg, median, min, max, stddev, CV
+  - avg_complexity from task_executions
 - `calculateConsistencyScore(cv: number): number` — `max(0, 100 - (cv * 2))`
-- `calculateMaturityScore(sop: SOP, executionCount: number, hasReview: boolean, revisionCount: number, hasTags: boolean, hasDescription: boolean): number` — gewichteter Score
-- `calculateFreshnessScore(sop: SOP, avgFrequencyDays: number): number` — Aktualität basierend auf Review-Alter und Frequenz
+- `calculateMaturityScore(sop: SOP, executionCount: number, hasReview: boolean, revisionCount: number, hasTags: boolean, hasDescription: boolean): number` — weighted score
+- `calculateFreshnessScore(sop: SOP, avgFrequencyDays: number): number` — freshness based on review age and frequency
 - `calculateOverallQualityScore(consistency, maturity, freshness, weights): number`
 
 **Tests:** `test/metrics.test.ts`
-- Konsistenz-Score bei verschiedenen CVs
-- Reife-Score bei verschiedenen Kombinationen
-- Aktualitäts-Score
-- Edge Cases (0 Ausführungen, keine Reviews)
+- Consistency score at various CVs
+- Maturity score at various combinations
+- Freshness score
+- Edge cases (0 executions, no reviews)
 
 ---
 
-### Schritt 8: `src/anonymizer.ts` — PII-Erkennung und -Redaktion
-**Ziel:** Export-Anonymisierung gemäß Sektion 9.2.
+### Step 8: `src/anonymizer.ts` — PII Detection and Redaction
+**Goal:** Export anonymization according to Section 9.2.
 
-**Klasse: `Anonymizer`**
+**Class: `Anonymizer`**
 
-Benötigt: `ShadowingConfig.anonymization`
+Requires: `ShadowingConfig.anonymization`
 
-**Methoden:**
-- `anonymize(text: string): string` — wendet alle Regeln an
-- Private Methoden:
+**Methods:**
+- `anonymize(text: string): string` — applies all rules
+- Private methods:
   - `redactEmails(text: string): string` — `[email@example.com]`
-  - `redactIPs(text: string): string` — `[interne-ip]`
-  - `redactURLs(text: string): string` — Domain generalisieren
-  - `redactPhoneNumbers(text: string): string` — `[Telefonnummer]`
+  - `redactIPs(text: string): string` — `[internal-ip]`
+  - `redactURLs(text: string): string` — generalize domain
+  - `redactPhoneNumbers(text: string): string` — `[phone-number]`
   - `redactFilePaths(text: string): string` — `/Users/[user]/...`
-  - `applyCustomReplacements(text: string): string` — aus config
+  - `applyCustomReplacements(text: string): string` — from config
 
-**Regex-Patterns:**
-- E-Mail: `/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g`
+**Regex patterns:**
+- Email: `/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g`
 - IP: `/\b(?:\d{1,3}\.){3}\d{1,3}\b/g`
 - URL: `/https?:\/\/[^\s)]+/g`
-- Telefon: `/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/g`
-- Dateipfade: `/(?:\/Users\/|\/home\/|C:\\Users\\)[^\s"')]+/g`
+- Phone: `/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/g`
+- File paths: `/(?:\/Users\/|\/home\/|C:\\Users\\)[^\s"')]+/g`
 
 **Tests:** `test/anonymizer.test.ts`
-- Jeder PII-Typ einzeln
-- Custom Replacements
-- Text ohne PII bleibt unverändert
-- Markdown-Struktur bleibt intakt
+- Each PII type individually
+- Custom replacements
+- Text without PII remains unchanged
+- Markdown structure remains intact
 
 ---
 
-### Schritt 9: `src/exporter.ts` — Markdown-Export
-**Ziel:** Anonymisierter Export als Markdown-Dateien + manifest.json (Sektion 9.1).
+### Step 9: `src/exporter.ts` — Markdown Export
+**Goal:** Anonymized export as Markdown files + manifest.json (Section 9.1).
 
-**Klasse: `Exporter`**
+**Class: `Exporter`**
 
-Benötigt: `ShadowingDB`, `Anonymizer`, `ShadowingConfig`
+Requires: `ShadowingDB`, `Anonymizer`, `ShadowingConfig`
 
-**Methoden:**
-- `exportSOPs(sopIds: string[]): ExportResult` — Erzeugt Export-Verzeichnis
-  1. Verzeichnis anlegen: `~/.datasynx/shadowing/exports/export_YYYY-MM-DD_HH-mm/`
-  2. Für jede SOP: Anonymisieren → `sops/sop_NNN.md` schreiben
-  3. Metriken pro SOP berechnen
-  4. `manifest.json` schreiben (Format aus Sektion 9.1)
-  5. Export in DB loggen
-  6. Pfad zurückgeben
-- `exportAll(): ExportResult` — alle SOPs mit status='approved'
+**Methods:**
+- `exportSOPs(sopIds: string[]): ExportResult` — Creates export directory
+  1. Create directory: `~/.datasynx/shadowing/exports/export_YYYY-MM-DD_HH-mm/`
+  2. For each SOP: Anonymize → write `sops/sop_NNN.md`
+  3. Calculate metrics per SOP
+  4. Write `manifest.json` (format from Section 9.1)
+  5. Log export in DB
+  6. Return path
+- `exportAll(): ExportResult` — all SOPs with status='approved'
 - `getExportHistory(): ExportRecord[]`
 
 **Tests:** `test/exporter.test.ts`
-- Export-Verzeichnis-Struktur
-- manifest.json Format
-- Anonymisierung wird angewendet
-- Export-Logging in DB
+- Export directory structure
+- manifest.json format
+- Anonymization is applied
+- Export logging in DB
 
 ---
 
-### Schritt 10: `src/cli.ts` — Commander CLI
-**Ziel:** Alle CLI-Befehle aus Sektion 5.4 implementieren.
+### Step 10: `src/cli.ts` — Commander CLI
+**Goal:** Implement all CLI commands from Section 5.4.
 
 **Binary:** `shadowing` (in package.json `bin`)
 
-**Befehle:**
+**Commands:**
 
 **`shadowing init`**
-- Config-Verzeichnis anlegen
-- DB initialisieren
-- config.json mit Defaults erstellen
-- Erfolgsmeldung
+- Create config directory
+- Initialize DB
+- Create config.json with defaults
+- Success message
 
-**`shadowing start`** (interaktiver Task-Loop)
-- Prüft ob DB initialisiert
-- Fragt: "Startest du einen neuen Task?"
-- Bei Ja: Titel + optionale Beschreibung erfragen
-- Loop: Alle `config.polling_interval_minutes` Minuten fragen: "Bist du noch beim gleichen Task?"
-- Optionen: [1] Task abschließen → SOP generieren, [2] Pausieren, [3] Abbrechen, [4] Notiz, [5] Neuer Task
-- Bei Abschluss: Komplexität (1-5) erfragen → SOP generieren → Review-Optionen anzeigen
+**`shadowing start`** (interactive task loop)
+- Checks if DB is initialized
+- Asks: "Are you starting a new task?"
+- If yes: request title + optional description
+- Loop: Every `config.polling_interval_minutes` minutes ask: "Are you still on the same task?"
+- Options: [1] Complete task → generate SOP, [2] Pause, [3] Cancel, [4] Add note, [5] New task
+- On completion: request complexity (1-5) → generate SOP → show review options
 
 **`shadowing status`**
-- Aktuellen Task anzeigen (falls aktiv)
-- Statistiken: Anzahl Tasks, SOPs, letzte Aktivität
+- Show current task (if active)
+- Statistics: number of tasks, SOPs, last activity
 
 **`shadowing list`**
-- SOPs als Tabelle: ID (kurz), Titel, Status, Tags, Datum
-- Optionen: `--status <status>`, `--tag <tag>`, `--search <query>`
+- SOPs as table: ID (short), title, status, tags, date
+- Options: `--status <status>`, `--tag <tag>`, `--search <query>`
 
 **`shadowing show <sop-id>`**
-- SOP-Markdown im Terminal rendern (content_md ausgeben)
-- Metadaten: Tags, Version, Status, Metriken
+- Render SOP Markdown in terminal (output content_md)
+- Metadata: tags, version, status, metrics
 
 **`shadowing edit <sop-id>`**
-- SOP in temporäre Datei schreiben
-- Standard-Editor öffnen (`$EDITOR` oder config.editor)
-- Nach Schließen: Änderungen in DB speichern, Version inkrementieren
+- Write SOP to temporary file
+- Open default editor (`$EDITOR` or config.editor)
+- After closing: save changes to DB, increment version
 
 **`shadowing delete <sop-id>`**
-- Bestätigungsabfrage
-- SOP löschen (CASCADE löscht tags, executions)
+- Confirmation prompt
+- Delete SOP (CASCADE deletes tags, executions)
 
 **`shadowing tag <sop-id> <tags...>`**
-- Tags hinzufügen (mit `+tag`) oder entfernen (mit `-tag`)
+- Add tags (with `+tag`) or remove tags (with `-tag`)
 
 **`shadowing stats`**
-- Globale Statistiken im Terminal
-- Top-5 häufigste Tasks
-- Qualitäts-Score-Übersicht
+- Global statistics in terminal
+- Top 5 most frequent tasks
+- Quality score overview
 
 **`shadowing export`**
-- Interaktiv: SOPs zur Auswahl anzeigen (Checkbox)
-- Vorschau der Anonymisierung
-- Bestätigung → Export
+- Interactive: show SOPs for selection (checkbox)
+- Preview anonymization
+- Confirmation → export
 
 **`shadowing export --all`**
-- Alle approved SOPs exportieren
+- Export all approved SOPs
 
 **`shadowing import-graph <path>`**
-- Cartography-Graph (JSON) importieren und in config speichern
+- Import Cartography graph (JSON) and store in config
 
 **`shadowing config`**
-- Config im Editor öffnen
+- Open config in editor
 
 **`shadowing reset`**
-- Bestätigungsabfrage ("Bist du sicher? Alle Daten werden gelöscht.")
-- DB + config löschen
+- Confirmation prompt ("Are you sure? All data will be deleted.")
+- Delete DB + config
 
 ---
 
-### Schritt 11: `src/index.ts` — Public API
-**Ziel:** Saubere Re-Exports für programmatische Nutzung.
+### Step 11: `src/index.ts` — Public API
+**Goal:** Clean re-exports for programmatic usage.
 
 **Exports:**
 - `ShadowingDB`
@@ -395,101 +395,101 @@ Benötigt: `ShadowingDB`, `Anonymizer`, `ShadowingConfig`
 - `SOPGenerator`
 - `Anonymizer`
 - `Exporter`
-- Alle Types
+- All types
 - `loadConfig`, `getDefaultConfig`
-- Metriken-Funktionen
+- Metrics functions
 
 ---
 
-### Schritt 12: `tsup.config.ts` anpassen
-**Ziel:** CLI-Binary + Library-Entry korrekt konfigurieren.
+### Step 12: Update `tsup.config.ts`
+**Goal:** Correctly configure CLI binary + library entry.
 
-- CLI entry: `src/cli.ts` → `dist/cli.js` (mit shebang)
+- CLI entry: `src/cli.ts` → `dist/cli.js` (with shebang)
 - Library entry: `src/index.ts` → `dist/index.js` + `dist/index.d.ts`
 
 ---
 
-### Schritt 13: Build, Lint, Test, Smoke-Test
-**Ziel:** Alles baut, alle Tests grün, CLI funktioniert.
+### Step 13: Build, Lint, Test, Smoke Test
+**Goal:** Everything builds, all tests green, CLI works.
 
-- `npm run lint` — TypeScript ohne Fehler
-- `npm run test` — alle Tests grün
-- `npm run build` — dist/ korrekt
-- `npx tsx src/cli.ts init` → DB wird erstellt
-- `npx tsx src/cli.ts status` → zeigt "Kein aktiver Task"
-- `npx tsx src/cli.ts list` → zeigt leere Liste
-
----
-
-### Schritt 14: Dokumentation aktualisieren
-**Ziel:** README.md, CLAUDE.md, docs/ aktuell.
-
-- `README.md` — neue Projektbeschreibung, Installation, CLI-Befehle
-- `CLAUDE.md` — neue Coding-Rules, Commands
-- `docs/tasks.md` — Task-Liste aktualisieren (Phase 1 als erledigt markieren)
-- `docs/PRODUCT_SPEC.md` — Produktspezifikation ablegen
+- `npm run lint` — TypeScript without errors
+- `npm run test` — all tests green
+- `npm run build` — dist/ correct
+- `npx tsx src/cli.ts init` → DB is created
+- `npx tsx src/cli.ts status` → shows "No active task"
+- `npx tsx src/cli.ts list` → shows empty list
 
 ---
 
-### Schritt 15: Commit & Push
-- Sauberer Commit mit allen Änderungen
-- Push auf den Feature-Branch
+### Step 14: Update Documentation
+**Goal:** README.md, CLAUDE.md, docs/ up to date.
+
+- `README.md` — new project description, installation, CLI commands
+- `CLAUDE.md` — new coding rules, commands
+- `docs/tasks.md` — update task list (mark Phase 1 as completed)
+- `docs/PRODUCT_SPEC.md` — store product specification
 
 ---
 
-## Abhängigkeitsgraph der Schritte
+### Step 15: Commit & Push
+- Clean commit with all changes
+- Push to feature branch
+
+---
+
+## Step Dependency Graph
 
 ```
-Schritt 1 (Restrukturierung)
+Step 1 (Restructuring)
     │
-    ├── Schritt 2 (types.ts) ──────────────┐
+    ├── Step 2 (types.ts) ─────────────────┐
     │                                       │
-    ├── Schritt 3 (config.ts) ─────────────┤
+    ├── Step 3 (config.ts) ────────────────┤
     │                                       │
-    └── Schritt 4 (db.ts) ◄────────────────┤
+    └── Step 4 (db.ts) ◄──────────────────┤
          │                                  │
-         ├── Schritt 5 (task-manager.ts) ◄──┘
+         ├── Step 5 (task-manager.ts) ◄────┘
          │        │
-         │        └── Schritt 6 (sop-generator.ts)
+         │        └── Step 6 (sop-generator.ts)
          │
-         ├── Schritt 7 (metrics.ts)
+         ├── Step 7 (metrics.ts)
          │
-         ├── Schritt 8 (anonymizer.ts)
+         ├── Step 8 (anonymizer.ts)
          │        │
-         │        └── Schritt 9 (exporter.ts)
+         │        └── Step 9 (exporter.ts)
          │
-         └─── Alle ──► Schritt 10 (cli.ts)
+         └─── All ──► Step 10 (cli.ts)
                            │
-                           ├── Schritt 11 (index.ts)
-                           ├── Schritt 12 (tsup.config.ts)
-                           ├── Schritt 13 (Build/Test)
-                           ├── Schritt 14 (Docs)
-                           └── Schritt 15 (Commit/Push)
+                           ├── Step 11 (index.ts)
+                           ├── Step 12 (tsup.config.ts)
+                           ├── Step 13 (Build/Test)
+                           ├── Step 14 (Docs)
+                           └── Step 15 (Commit/Push)
 ```
 
-## Geschätzte Dateien & Umfang
+## Estimated Files & Scope
 
-| Datei | ~LOC | Komplexität |
-|-------|------|-------------|
-| `src/types.ts` | 120 | Niedrig |
-| `src/config.ts` | 80 | Niedrig |
-| `src/db.ts` | 350 | Mittel |
-| `src/task-manager.ts` | 100 | Niedrig |
-| `src/sop-generator.ts` | 150 | Mittel |
-| `src/metrics.ts` | 120 | Mittel |
-| `src/anonymizer.ts` | 100 | Niedrig |
-| `src/exporter.ts` | 120 | Niedrig |
-| `src/cli.ts` | 350 | Hoch |
-| `src/index.ts` | 30 | Niedrig |
-| Tests (gesamt) | 400 | Mittel |
-| **Gesamt** | **~1920** | |
+| File | ~LOC | Complexity |
+|------|------|------------|
+| `src/types.ts` | 120 | Low |
+| `src/config.ts` | 80 | Low |
+| `src/db.ts` | 350 | Medium |
+| `src/task-manager.ts` | 100 | Low |
+| `src/sop-generator.ts` | 150 | Medium |
+| `src/metrics.ts` | 120 | Medium |
+| `src/anonymizer.ts` | 100 | Low |
+| `src/exporter.ts` | 120 | Low |
+| `src/cli.ts` | 350 | High |
+| `src/index.ts` | 30 | Low |
+| Tests (total) | 400 | Medium |
+| **Total** | **~1920** | |
 
-## Nicht im Scope (Phase 2+)
+## Out of Scope (Phase 2+)
 
-- HTML-Frontend + REST-API-Server (`shadowing ui`)
-- SOP-Editor mit Markdown-Preview im Browser
-- Versionshistorie / Diff-Ansicht
-- Heatmap / Trend-Charts
-- NER-basierte Anonymisierung
-- Cartography-Graph-Kontext-Nutzung (wird vorbereitet aber nicht voll implementiert)
-- `shadowing config` (Config-Editor) — wird als Stub implementiert
+- HTML frontend + REST API server (`shadowing ui`)
+- SOP editor with Markdown preview in browser
+- Version history / diff view
+- Heatmap / trend charts
+- NER-based anonymization
+- Cartography graph context usage (will be prepared but not fully implemented)
+- `shadowing config` (config editor) — will be implemented as a stub

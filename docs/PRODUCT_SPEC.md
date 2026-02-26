@@ -1,16 +1,16 @@
-# Agentic AI Shadowing — Produktspezifikation v0.1.0
+# Agentic AI Shadowing — Product Specification v0.1.0
 
-## 1. Überblick
+## 1. Overview
 
-**Agentic AI Shadowing** ist ein CLI-Tool, das wie ein Schatten die täglichen Arbeitsabläufe von Mitarbeitern beobachtet und daraus automatisch Standard Operating Procedures (SOPs) generiert.
+**Agentic AI Shadowing** is a CLI tool that shadows the daily workflows of employees like a silent observer and automatically generates Standard Operating Procedures (SOPs) from them.
 
-**Kernprinzipien:**
-- Vollständig lokal — keine Cloud, keine externen Services (außer Claude API für SOP-Generierung)
-- Mitarbeiter-gesteuert — der Mitarbeiter startet, pausiert und beendet Tasks selbst
-- Anonymisiert — alle Exporte werden automatisch von PII bereinigt
-- Minimal invasiv — reines Terminal-Tool, kein Agent, kein Hintergrund-Daemon
+**Core Principles:**
+- Fully local — no cloud, no external services (except Claude API for SOP generation)
+- Employee-driven — the employee starts, pauses, and completes tasks themselves
+- Anonymized — all exports are automatically scrubbed of PII
+- Minimally invasive — pure terminal tool, no agent, no background daemon
 
-## 2. Architektur
+## 2. Architecture
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -35,125 +35,125 @@
        └──────────┘
 ```
 
-## 3. Datenmodell
+## 3. Data Model
 
-### 3.1 SQLite-Schema
+### 3.1 SQLite Schema
 
-**tasks** — Mitarbeiter-Tasks
-| Spalte | Typ | Beschreibung |
-|--------|-----|-------------|
+**tasks** — Employee Tasks
+| Column | Type | Description |
+|--------|------|-------------|
 | id | TEXT PK | hex(randomblob(8)) |
-| title | TEXT NOT NULL | Task-Titel |
-| description | TEXT | Notizen/Beschreibung |
+| title | TEXT NOT NULL | Task title |
+| description | TEXT | Notes/description |
 | status | TEXT | active, paused, completed, cancelled |
 | started_at | TEXT | ISO 8601 UTC |
 | completed_at | TEXT | ISO 8601 UTC |
-| duration_seconds | INTEGER | Berechnete Dauer |
+| duration_seconds | INTEGER | Calculated duration |
 | created_at | TEXT | ISO 8601 UTC |
 | updated_at | TEXT | ISO 8601 UTC |
 
 **sops** — Standard Operating Procedures
-| Spalte | Typ | Beschreibung |
-|--------|-----|-------------|
+| Column | Type | Description |
+|--------|------|-------------|
 | id | TEXT PK | hex(randomblob(8)) |
-| task_id | TEXT FK | Verknüpfter Task |
-| title | TEXT NOT NULL | SOP-Titel |
-| description | TEXT | Kurzbeschreibung |
-| content_md | TEXT NOT NULL | Markdown-Inhalt |
-| version | INTEGER | Auto-inkrement bei Content-Änderung |
+| task_id | TEXT FK | Linked task |
+| title | TEXT NOT NULL | SOP title |
+| description | TEXT | Short description |
+| content_md | TEXT NOT NULL | Markdown content |
+| version | INTEGER | Auto-increment on content change |
 | status | TEXT | draft, reviewed, approved, exported, archived |
-| ai_generated | INTEGER | 1=KI-generiert |
-| reviewed_at | TEXT | Zeitpunkt des Reviews |
-| exported_at | TEXT | Zeitpunkt des Exports |
+| ai_generated | INTEGER | 1=AI-generated |
+| reviewed_at | TEXT | Time of review |
+| exported_at | TEXT | Time of export |
 
-**sop_versions** — Versionshistorie
-| Spalte | Typ | Beschreibung |
-|--------|-----|-------------|
+**sop_versions** — Version History
+| Column | Type | Description |
+|--------|------|-------------|
 | id | TEXT PK | hex(randomblob(8)) |
-| sop_id | TEXT FK | Verknüpfte SOP |
-| version | INTEGER | Versionsnummer |
-| title | TEXT | Titel zu diesem Zeitpunkt |
-| content_md | TEXT | Content zu diesem Zeitpunkt |
-| changed_at | TEXT | Änderungszeitpunkt |
-| change_summary | TEXT | Optionale Zusammenfassung |
+| sop_id | TEXT FK | Linked SOP |
+| version | INTEGER | Version number |
+| title | TEXT | Title at this point in time |
+| content_md | TEXT | Content at this point in time |
+| changed_at | TEXT | Time of change |
+| change_summary | TEXT | Optional summary |
 
-**tags** — Kategorisierung (case-insensitive)
-**sop_tags** — N:M Zuordnung SOP↔Tag
-**task_executions** — Ausführungsprotokoll mit Dauer und Komplexität
-**exports** — Export-Protokoll
-**export_sops** — N:M Zuordnung Export↔SOP
+**tags** — Categorization (case-insensitive)
+**sop_tags** — N:M mapping SOP↔Tag
+**task_executions** — Execution log with duration and complexity
+**exports** — Export log
+**export_sops** — N:M mapping Export↔SOP
 
-## 4. SOP-Generierung
+## 4. SOP Generation
 
-### 4.1 Prompt-Aufbau
+### 4.1 Prompt Structure
 
-**System-Prompt:**
-- Rolle: SOP-Analyst
-- Sprache: konfigurierbar (de/en)
-- Markdown-Struktur: Ziel → Voraussetzungen → Schritte → Erwartetes Ergebnis → Hinweise
-- Tag-Generierung als JSON-Block am Ende
+**System Prompt:**
+- Role: SOP Analyst
+- Language: configurable (en/de)
+- Markdown structure: Objective → Prerequisites → Steps → Expected Result → Notes
+- Tag generation as JSON block at the end
 
-**User-Prompt:**
-- Task-Titel und Beschreibung/Notizen
-- Dauer
-- Optional: Cartography-Graph-Kontext (relevante Systeme)
+**User Prompt:**
+- Task title and description/notes
+- Duration
+- Optional: Cartography graph context (relevant systems)
 
-### 4.2 Markdown-Struktur
+### 4.2 Markdown Structure
 ```markdown
-# [SOP-Titel]
-## Ziel
-## Voraussetzungen
-## Schritte
-### Schritt 1: [Bezeichnung]
+# [SOP Title]
+## Objective
+## Prerequisites
+## Steps
+### Step 1: [Label]
 ...
-## Erwartetes Ergebnis
-## Hinweise
-## Verknüpfte Systeme
+## Expected Result
+## Notes
+## Linked Systems
 ```
 
-### 4.3 Tag-Generierung
-Kategorien: Abteilung, Tool/System, Prozessart, Frequenz, Komplexität.
-3-8 Tags pro SOP, lowercase.
+### 4.3 Tag Generation
+Categories: Department, Tool/System, Process Type, Frequency, Complexity.
+3-8 tags per SOP, lowercase.
 
-## 5. Metriken
+## 5. Metrics
 
-### 5.1 Konsistenz-Score
-`max(0, 100 - CV * 2)` — basierend auf dem Variationskoeffizienten der Ausführungsdauern.
+### 5.1 Consistency Score
+`max(0, 100 - CV * 2)` — based on the coefficient of variation of execution durations.
 
-### 5.2 Reife-Score (gewichtet)
-- ≥5 Ausführungen → 30%
-- Review durchgeführt → 30%
-- ≥1 Revision → 20%
-- Tags vorhanden → 10%
-- Beschreibung vorhanden → 10%
+### 5.2 Maturity Score (weighted)
+- ≥5 executions → 30%
+- Review performed → 30%
+- ≥1 revision → 20%
+- Tags present → 10%
+- Description present → 10%
 
-### 5.3 Aktualitäts-Score
-Basierend auf Review-Alter und Ausführungsfrequenz. Häufig ausgeführte SOPs veralten schneller.
+### 5.3 Freshness Score
+Based on review age and execution frequency. Frequently executed SOPs become outdated faster.
 
-### 5.4 Gesamt-Qualitäts-Score
+### 5.4 Overall Quality Score
 `consistency * 0.35 + maturity * 0.35 + freshness * 0.30`
 
-## 6. Anonymisierung
+## 6. Anonymization
 
-### 6.1 Konfigurierbare Patterns
-- E-Mail-Adressen → `[email@example.com]`
-- IPv4/IPv6-Adressen → `[interne-ip]`
-- URLs → `[internes-system]/pfad`
-- Telefonnummern → `[Telefonnummer]`
-- Dateipfade → `/Users/[user]/...`
+### 6.1 Configurable Patterns
+- Email addresses → `[email@example.com]`
+- IPv4/IPv6 addresses → `[internal-ip]`
+- URLs → `[internal-system]/path`
+- Phone numbers → `[phone-number]`
+- File paths → `/Users/[user]/...`
 
-### 6.2 Immer aktive Patterns
+### 6.2 Always-Active Patterns
 - IBAN → `[IBAN]`
-- Kreditkartennummern → `[Kreditkartennummer]`
-- Steuer-ID → `[Steuer-ID]`
-- Sozialversicherungsnummer → `[SV-Nummer]`
+- Credit card numbers → `[credit-card-number]`
+- Tax ID → `[tax-id]`
+- Social security number → `[ssn]`
 
 ### 6.3 Custom Replacements
-Konfigurierbar über `config.anonymization.custom_replacements`.
+Configurable via `config.anonymization.custom_replacements`.
 
 ## 7. Export
 
-### 7.1 Verzeichnisstruktur
+### 7.1 Directory Structure
 ```
 exports/export_YYYY-MM-DDTHH-mm-ss/
 ├── manifest.json
@@ -181,48 +181,48 @@ exports/export_YYYY-MM-DDTHH-mm-ss/
 }
 ```
 
-## 8. Web-Dashboard
+## 8. Web Dashboard
 
-REST-API auf konfigurierbarem Port (default: 3847).
+REST API on a configurable port (default: 3847).
 
-### 8.1 API-Endpunkte
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| GET | /api/stats | Globale Statistiken |
-| GET | /api/tasks | Task-Liste (filter: ?status=) |
-| GET | /api/tasks/active | Aktiver Task |
-| GET | /api/sops | SOP-Liste (filter: ?status=, ?tag=, ?search=) |
-| GET | /api/sops/:id | SOP-Detail mit Metriken + Versionen |
-| PUT | /api/sops/:id/status | Status ändern |
-| GET | /api/sops/:id/diff | Diff zur Vorgängerversion |
-| GET | /api/tags | Alle Tags |
-| GET | /api/exports | Export-Historie |
+### 8.1 API Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/stats | Global statistics |
+| GET | /api/tasks | Task list (filter: ?status=) |
+| GET | /api/tasks/active | Active task |
+| GET | /api/sops | SOP list (filter: ?status=, ?tag=, ?search=) |
+| GET | /api/sops/:id | SOP detail with metrics + versions |
+| PUT | /api/sops/:id/status | Change status |
+| GET | /api/sops/:id/diff | Diff to previous version |
+| GET | /api/tags | All tags |
+| GET | /api/exports | Export history |
 
-### 8.2 HTML-Dashboard
-Eingebettetes Single-Page HTML mit Dark-Theme. Features:
-- Statistik-Kacheln
-- Aktiver Task mit Laufzeit
-- SOP-Liste mit Filter und Suche
-- SOP-Detail mit Markdown-Preview, Metriken, Versionshistorie
-- Status-Workflow: Draft → Reviewed → Approved
+### 8.2 HTML Dashboard
+Embedded single-page HTML with dark theme. Features:
+- Statistics tiles
+- Active task with runtime
+- SOP list with filter and search
+- SOP detail with Markdown preview, metrics, version history
+- Status workflow: Draft → Reviewed → Approved
 
-## 9. Cartography-Integration
+## 9. Cartography Integration
 
-Optional: Importierter JSON-Graph aus `@datasynx/agentic-ai-cartography`.
+Optional: Imported JSON graph from `@datasynx/agentic-ai-cartography`.
 
-- Zod-validiertes Schema (nodes + edges)
-- Automatische Keyword-Extraktion aus Task-Titel/Beschreibung
-- Fokussierter Kontext: nur relevante Systeme im SOP-Prompt
-- Fallback auf vollständige Übersicht wenn keine Matches
+- Zod-validated schema (nodes + edges)
+- Automatic keyword extraction from task title/description
+- Focused context: only relevant systems in SOP prompt
+- Fallback to full overview when no matches
 
-## 10. Konfiguration
+## 10. Configuration
 
-Pfad: `~/.datasynx/shadowing/config.json`
+Path: `~/.datasynx/shadowing/config.json`
 
 ```json
 {
   "version": "1.0.0",
-  "language": "de",
+  "language": "en",
   "polling_interval_minutes": 15,
   "editor": "code",
   "ui_port": 3847,
@@ -241,7 +241,7 @@ Pfad: `~/.datasynx/shadowing/config.json`
     "temperature": 0.3,
     "include_cartography_context": true,
     "auto_generate_tags": true,
-    "sop_language": "de"
+    "sop_language": "en"
   },
   "metrics": {
     "quality_score_weights": {

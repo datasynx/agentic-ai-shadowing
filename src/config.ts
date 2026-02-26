@@ -21,7 +21,7 @@ const SOPGenerationSchema = z.object({
   temperature: z.number().min(0).max(1).default(0.3),
   include_cartography_context: z.boolean().default(true),
   auto_generate_tags: z.boolean().default(true),
-  sop_language: z.enum(['de', 'en']).default('de'),
+  sop_language: z.enum(['de', 'en']).default('en'),
 }).default({});
 
 const MetricsWeightsSchema = z.object({
@@ -32,7 +32,7 @@ const MetricsWeightsSchema = z.object({
 
 export const ConfigSchema = z.object({
   version: z.string().default('1.0.0'),
-  language: z.enum(['de', 'en']).default('de'),
+  language: z.enum(['de', 'en']).default('en'),
   polling_interval_minutes: z.number().int().positive().default(15),
   editor: z.string().min(1).default(process.env['EDITOR'] ?? 'code'),
   ui_port: z.number().int().min(1024).max(65535).default(3847),
@@ -66,7 +66,7 @@ export function getExportsDir(): string {
 export function getDefaultConfig(): ShadowingConfig {
   return {
     version: '1.0.0',
-    language: 'de',
+    language: 'en',
     polling_interval_minutes: 15,
     editor: process.env['EDITOR'] ?? 'code',
     ui_port: 3847,
@@ -85,7 +85,7 @@ export function getDefaultConfig(): ShadowingConfig {
       temperature: 0.3,
       include_cartography_context: true,
       auto_generate_tags: true,
-      sop_language: 'de',
+      sop_language: 'en',
     },
     metrics: {
       quality_score_weights: {
@@ -125,7 +125,7 @@ export function loadConfig(): ShadowingConfig {
     }
     // Validation failed — log warning and fall back to merge with defaults
     process.stderr.write(
-      `  Warnung: Config-Validierung fehlgeschlagen: ${result.error.issues.map(i => i.message).join(', ')}\n` +
+      `  Warning: Config validation failed: ${result.error.issues.map(i => i.message).join(', ')}\n` +
       `  Using defaults for invalid fields.\n`,
     );
     const loaded = data as Partial<ShadowingConfig>;

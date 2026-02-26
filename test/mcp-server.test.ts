@@ -131,7 +131,7 @@ describe('MCPServer — SOP Tools', () => {
     taskId = task.id;
     const sop = db.createSOP(taskId, {
       title: 'Test SOP',
-      content_md: '# Test\n## Ziel\nTest content',
+      content_md: '# Test\n## Objective\nTest content',
       tags: ['test', 'mcp'],
     });
     sopId = sop.id;
@@ -173,7 +173,7 @@ describe('MCPServer — SOP Tools', () => {
   it('update_sop creates new version', () => {
     const result = server.handleToolCall('shadowing_update_sop', {
       sop_id: sopId,
-      content_md: '# Updated\n## Ziel\nNew content',
+      content_md: '# Updated\n## Objective\nNew content',
     });
     const data = JSON.parse(result.content[0]!.text);
     expect(data.success).toBe(true);
@@ -231,7 +231,7 @@ describe('MCPServer — Observation Tools', () => {
     server.handleToolCall('shadowing_start_observation', { title: 'Active Session' });
     const result = server.handleToolCall('shadowing_log_observation', {
       source: 'file',
-      description: 'Bearbeiten: src/main.ts',
+      description: 'Editing: src/main.ts',
       file_path: 'src/main.ts',
     });
     const data = JSON.parse(result.content[0]!.text);

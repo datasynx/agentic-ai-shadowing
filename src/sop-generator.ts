@@ -187,6 +187,6 @@ export function buildSOPPreview(title: string, tags: string[], stepCount: number
 }
 
 export function countSteps(contentMd: string): number {
-  const matches = contentMd.match(/^###\s+(?:Schritt|Step)\s+\d/gm);
+  const matches = contentMd.match(/^###\s+(?:Step|Schritt)\s+\d/gm);
   return matches ? matches.length : 0;
 }

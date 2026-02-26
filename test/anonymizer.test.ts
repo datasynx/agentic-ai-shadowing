@@ -45,17 +45,17 @@ describe('Anonymizer', () => {
     const anon = new Anonymizer({
       ...defaultConfig,
       custom_replacements: {
-        'Firma GmbH': '[Unternehmen]',
-        'Max Mustermann': '[Mitarbeiter]',
+        'Acme Corp': '[company]',
+        'John Smith': '[employee]',
       },
     });
-    const result = anon.anonymize('Max Mustermann bei Firma GmbH');
-    expect(result).toBe('[Mitarbeiter] bei [Unternehmen]');
+    const result = anon.anonymize('John Smith at Acme Corp');
+    expect(result).toBe('[employee] at [company]');
   });
 
   it('leaves clean text unchanged', () => {
     const anon = new Anonymizer(defaultConfig);
-    const text = 'Schritt 1: CRM öffnen\nSchritt 2: Kundendaten aktualisieren';
+    const text = 'Step 1: Open CRM\nStep 2: Update customer data';
     expect(anon.anonymize(text)).toBe(text);
   });
 
@@ -72,8 +72,8 @@ describe('Anonymizer', () => {
 
   it('redacts German IBAN', () => {
     const anon = new Anonymizer(defaultConfig);
-    const result = anon.anonymize('Überweisung an DE89370400440532013000');
-    expect(result).toBe('Überweisung an [IBAN]');
+    const result = anon.anonymize('Transfer to DE89370400440532013000');
+    expect(result).toBe('Transfer to [IBAN]');
   });
 
   it('redacts IBAN with spaces', () => {
@@ -84,8 +84,8 @@ describe('Anonymizer', () => {
 
   it('redacts credit card numbers', () => {
     const anon = new Anonymizer(defaultConfig);
-    const result = anon.anonymize('Karte: 4111-1111-1111-1111');
-    expect(result).toBe('Karte: [credit-card-number]');
+    const result = anon.anonymize('Card: 4111-1111-1111-1111');
+    expect(result).toBe('Card: [credit-card-number]');
   });
 
   it('redacts credit card numbers with spaces', () => {
@@ -102,35 +102,35 @@ describe('Anonymizer', () => {
 
   it('redacts Windows file paths on C: drive', () => {
     const anon = new Anonymizer(defaultConfig);
-    const result = anon.anonymize('Datei unter C:\\Users\\Schmidt\\Documents\\report.xlsx');
+    const result = anon.anonymize('File at C:\\Users\\Schmidt\\Documents\\report.xlsx');
     expect(result).toContain('[user]');
     expect(result).not.toContain('Schmidt');
   });
 
   it('redacts Windows file paths on D: drive', () => {
     const anon = new Anonymizer(defaultConfig);
-    const result = anon.anonymize('Datei unter D:\\Users\\Admin\\Desktop\\secrets.txt');
+    const result = anon.anonymize('File at D:\\Users\\Admin\\Desktop\\secrets.txt');
     expect(result).toContain('[user]');
     expect(result).not.toContain('Admin');
   });
 
   it('redacts Windows file paths on any drive letter', () => {
     const anon = new Anonymizer(defaultConfig);
-    const result = anon.anonymize('Pfad: E:\\Users\\Mitarbeiter\\Daten\\export.csv');
+    const result = anon.anonymize('Path: E:\\Users\\Employee\\Data\\export.csv');
     expect(result).toContain('[user]');
-    expect(result).not.toContain('Mitarbeiter');
+    expect(result).not.toContain('Employee');
   });
 
   it('redacts phone numbers (German format)', () => {
     const anon = new Anonymizer(defaultConfig);
-    const result = anon.anonymize('Anruf bei +49 170 1234567');
+    const result = anon.anonymize('Call to +49 170 1234567');
     expect(result).toContain('[phone-number]');
     expect(result).not.toContain('1234567');
   });
 
   it('redacts phone numbers (local format)', () => {
     const anon = new Anonymizer(defaultConfig);
-    const result = anon.anonymize('Büro: (089) 1234-5678');
+    const result = anon.anonymize('Office: (089) 1234-5678');
     expect(result).toContain('[phone-number]');
     expect(result).not.toContain('1234');
   });
@@ -156,7 +156,7 @@ describe('Anonymizer', () => {
 
   it('handles multiple PII types in one text', () => {
     const anon = new Anonymizer(defaultConfig);
-    const text = 'Kontakt: admin@firma.de, Server: 10.0.0.5, IBAN: DE89370400440532013000';
+    const text = 'Contact: admin@firma.de, Server: 10.0.0.5, IBAN: DE89370400440532013000';
     const result = anon.anonymize(text);
     expect(result).not.toContain('admin@firma.de');
     expect(result).not.toContain('10.0.0.5');

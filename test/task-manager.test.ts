@@ -177,8 +177,8 @@ describe('formatDuration', () => {
     expect(formatDuration(125)).toBe('2min 5s');
   });
 
-  it('formats hours and minutes', () => {
-    expect(formatDuration(5025)).toBe('1h 23min');
+  it('formats hours, minutes, and seconds', () => {
+    expect(formatDuration(5025)).toBe('1h 23min 45s');
   });
 
   it('formats hours only', () => {
@@ -189,8 +189,8 @@ describe('formatDuration', () => {
     expect(formatDuration(0)).toBe('0s');
   });
 
-  it('suppresses seconds when hours present', () => {
-    expect(formatDuration(3661)).toBe('1h 1min');
+  it('includes seconds when hours present', () => {
+    expect(formatDuration(3661)).toBe('1h 1min 1s');
   });
 
   it('formats exactly one minute', () => {

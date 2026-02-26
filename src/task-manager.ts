@@ -87,7 +87,7 @@ export function formatDuration(seconds: number): string {
   const parts: string[] = [];
   if (hours > 0) parts.push(`${hours}h`);
   if (mins > 0) parts.push(`${mins}min`);
-  if (secs > 0 && hours === 0) parts.push(`${secs}s`);
+  if (secs > 0) parts.push(`${secs}s`);
 
   return parts.join(' ');
 }

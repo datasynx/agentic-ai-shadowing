@@ -547,14 +547,10 @@ describe('E2E: TaskManager', () => {
   });
 
   it('should format duration correctly', () => {
-    // [BUG-001]: formatDuration drops seconds when hours > 0
-    // formatDuration(3661) returns '1h 1min' instead of '1h 1min 1s'
-    // This is by design in current implementation (line 90: secs shown only if hours === 0)
     expect(formatDuration(0)).toBe('0s');
     expect(formatDuration(30)).toBe('30s');
     expect(formatDuration(90)).toBe('1min 30s');
-    // Current behavior: hours > 0 suppresses seconds display
-    expect(formatDuration(3661)).toBe('1h 1min');
+    expect(formatDuration(3661)).toBe('1h 1min 1s');
     expect(formatDuration(3600)).toBe('1h');
     expect(formatDuration(7200)).toBe('2h');
     expect(formatDuration(3660)).toBe('1h 1min');
@@ -964,25 +960,15 @@ describe('E2E: GlobalStats edge cases', () => {
     db.close();
   });
 
-  it('[BUG-004] should return 0 not null for empty table counts', () => {
-    // When the DB is empty, SUM(CASE...) returns NULL, not 0.
-    // getGlobalStats() passes these NULLs through as-is.
+  it('should return 0 not null for empty table counts', () => {
     const stats = db.getGlobalStats();
     expect(stats.total_tasks).toBe(0);
-
-    // [BUG-004]: These return null instead of 0 from SQLite
-    // SUM() returns NULL for empty result sets
-    // Expected: active_tasks === 0, completed_tasks === 0
-    // Actual: active_tasks === null, completed_tasks === null
-    // This causes "null abgeschlossen" display in CLI status output
-    const activeIsNull = stats.active_tasks === null;
-    const completedIsNull = stats.completed_tasks === null;
-    if (activeIsNull || completedIsNull) {
-      // This documents the bug: values are null, not 0
-      expect(activeIsNull || completedIsNull).toBe(true);
-    } else {
-      expect(stats.active_tasks).toBe(0);
-      expect(stats.completed_tasks).toBe(0);
-    }
+    expect(stats.active_tasks).toBe(0);
+    expect(stats.completed_tasks).toBe(0);
+    expect(stats.total_sops).toBe(0);
+    expect(stats.draft_sops).toBe(0);
+    expect(stats.reviewed_sops).toBe(0);
+    expect(stats.approved_sops).toBe(0);
+    expect(stats.exported_sops).toBe(0);
   });
 });

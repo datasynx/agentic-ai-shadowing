@@ -154,6 +154,19 @@ describe('Exporter — exportSOPs', () => {
     const result = exporter.exportSOPs([sop.id, 'nonexistent']);
     expect(result.sop_count).toBe(1);
   });
+
+  it('handles same-second export collision without error', () => {
+    const sop = createTestSOP('approved');
+    const result1 = exporter.exportSOPs([sop.id]);
+
+    // Reset SOP status so it can be exported again
+    db.updateSOPStatus(sop.id, 'approved');
+    const result2 = exporter.exportSOPs([sop.id]);
+
+    expect(result1.export_path).not.toBe(result2.export_path);
+    expect(existsSync(result1.export_path)).toBe(true);
+    expect(existsSync(result2.export_path)).toBe(true);
+  });
 });
 
 describe('Exporter — exportAll', () => {

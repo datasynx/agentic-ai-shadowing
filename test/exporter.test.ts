@@ -36,15 +36,15 @@ function createTestSOP(status: 'approved' | 'draft' | 'reviewed' = 'approved') {
     title: 'Test SOP',
     description: 'A test SOP for export',
     content_md: `# Test SOP
-## Ziel
-Test der Exportfunktion.
+## Objective
+Testing the export function.
 
-## Schritte
-### Schritt 1: Aktion
-Führe die Aktion aus.
+## Steps
+### Step 1: Action
+Perform the action.
 
-## Erwartetes Ergebnis
-Export erfolgreich.`,
+## Expected Result
+Export successful.`,
     tags: ['testing', 'export'],
   });
   if (status !== 'draft') {
@@ -93,7 +93,7 @@ describe('Exporter — exportSOPs', () => {
 
     const content = readFileSync(sopFile, 'utf8');
     expect(content).toContain('# Test SOP');
-    expect(content).toContain('Schritt 1');
+    expect(content).toContain('Step 1');
   });
 
   it('anonymizes content in exported files', () => {

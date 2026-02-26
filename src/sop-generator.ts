@@ -36,7 +36,7 @@ export class SOPGenerator {
   }
 
   async generateSOP(task: Task): Promise<{ title: string; description: string; content_md: string; tags: string[] }> {
-    const lang = this.config.sop_generation.sop_language === 'de' ? 'Deutsch' : 'English';
+    const lang = this.config.sop_generation.sop_language === 'de' ? 'German' : 'English';
 
     const systemPrompt = `You are an SOP analyst. The employee has just completed a task.
 Create a precise, reusable Standard Operating Procedure (SOP) in ${lang}.
@@ -174,7 +174,7 @@ Generate 3-8 relevant tags (lowercase, without #).`;
     const title = titleMatch ? titleMatch[1]!.trim() : fallbackTitle;
 
     // Extract description from "## Objective" section
-    const goalMatch = content_md.match(/##\s+(?:Ziel|Objective)\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    const goalMatch = content_md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
     const description = goalMatch ? goalMatch[1]!.trim() : '';
 
     return { title, description, content_md, tags };
@@ -187,6 +187,6 @@ export function buildSOPPreview(title: string, tags: string[], stepCount: number
 }
 
 export function countSteps(contentMd: string): number {
-  const matches = contentMd.match(/^###\s+(?:Schritt|Step)\s+\d/gm);
+  const matches = contentMd.match(/^###\s+Step\s+\d/gm);
   return matches ? matches.length : 0;
 }

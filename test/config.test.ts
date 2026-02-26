@@ -11,7 +11,7 @@ describe('Config — Defaults', () => {
   it('returns a valid default config', () => {
     const config = getDefaultConfig();
     expect(config.version).toBe('1.0.0');
-    expect(config.language).toBe('de');
+    expect(config.language).toBe('en');
     expect(config.ui_port).toBe(3847);
     expect(config.polling_interval_minutes).toBe(15);
     expect(config.cartography_graph_path).toBeNull();
@@ -32,7 +32,7 @@ describe('Config — Defaults', () => {
     expect(config.sop_generation.model).toContain('claude');
     expect(config.sop_generation.max_tokens).toBe(4096);
     expect(config.sop_generation.temperature).toBe(0.3);
-    expect(config.sop_generation.sop_language).toBe('de');
+    expect(config.sop_generation.sop_language).toBe('en');
   });
 
   it('default config has metrics weights summing to ~1.0', () => {
@@ -63,7 +63,7 @@ describe('Config — Schema Validation', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.version).toBe('1.0.0');
-      expect(result.data.language).toBe('de');
+      expect(result.data.language).toBe('en');
     }
   });
 

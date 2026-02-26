@@ -1,60 +1,60 @@
 # Shadow Feature Spec — `@datasynx/cartography-shadow`
 
 > Extracted from `@datasynx/agentic-ai-cartography` v0.2.6
-> Ziel: Eigenständiges npm-Paket mit Peer-Dependency auf `@datasynx/agentic-ai-cartography`
+> Goal: Standalone npm package with peer dependency on `@datasynx/agentic-ai-cartography`
 
 ---
 
-## Übersicht
+## Overview
 
-Das Shadow-Feature ist ein Hintergrund-Monitoring-System, das kontinuierlich den System-Zustand beobachtet (Prozesse, TCP-Verbindungen, Fenster-Fokus), Änderungen per Claude Haiku analysiert und daraus Tasks, Events und SOPs ableitet.
+The Shadow feature is a background monitoring system that continuously observes system state (processes, TCP connections, window focus), analyzes changes via Claude Haiku, and derives tasks, events, and SOPs from them.
 
-**Paketname:** `@datasynx/cartography-shadow`
-**Peer-Dependency:** `@datasynx/agentic-ai-cartography >= 0.3.0`
-**Neue npm-Dependency:** `node-notifier ^10.0.1`
+**Package name:** `@datasynx/cartography-shadow`
+**Peer dependency:** `@datasynx/agentic-ai-cartography >= 0.3.0`
+**New npm dependency:** `node-notifier ^10.0.1`
 
 ---
 
-## Architektur
+## Architecture
 
 ```
 CLI (shadow start/stop/pause/resume/status/attach)
   └── forkDaemon() → detached child process (CARTOGRAPHYY_DAEMON=1)
       └── startDaemonProcess()
-          ├── CartographyDB  (peer-dep: aus @datasynx/agentic-ai-cartography)
+          ├── CartographyDB  (peer-dep: from @datasynx/agentic-ai-cartography)
           ├── IPCServer      (Unix socket: ~/.cartography/daemon.sock)
           ├── NotificationService (node-notifier)
           └── ShadowDaemon.run()
-              ├── takeSnapshot()  → ss + ps [kein Claude!]
-              ├── Diff-Check      → bei Änderung runShadowCycle() aufrufen
+              ├── takeSnapshot()  → ss + ps [no Claude!]
+              ├── Diff-Check      → on change, call runShadowCycle()
               └── Broadcast status/events/agent-output via IPCServer
 
 AttachClient (shadow attach)
-  └── IPCClient → verbindet sich mit daemon.sock
-      └── Terminal-UI mit Hotkeys [T] [S] [P] [D] [Q]
+  └── IPCClient → connects to daemon.sock
+      └── Terminal UI with hotkeys [T] [S] [P] [D] [Q]
 
 ForegroundClient (shadow start --foreground)
-  └── startDaemonProcess() inline (kein fork)
+  └── startDaemonProcess() inline (no fork)
 ```
 
 ---
 
-## Files (aus dem alten Paket extrahiert)
+## Files (extracted from the old package)
 
-| Datei | Beschreibung |
-|-------|-------------|
+| File | Description |
+|------|-------------|
 | `src/daemon.ts` | `ShadowDaemon`, `takeSnapshot()`, `forkDaemon()`, `isDaemonRunning()`, `stopDaemon()`, `pauseDaemon()`, `resumeDaemon()`, `startDaemonProcess()` |
 | `src/ipc.ts` | `IPCServer`, `IPCClient`, `cleanStaleSocket()` — UNIX socket, JSON-NDJF |
-| `src/client.ts` | `ForegroundClient`, `AttachClient` — Terminal-UI |
-| `src/notify.ts` | `NotificationService` — Desktop-Notifications via node-notifier |
+| `src/client.ts` | `ForegroundClient`, `AttachClient` — Terminal UI |
+| `src/notify.ts` | `NotificationService` — Desktop notifications via node-notifier |
 | `src/agent.ts` | `runShadowCycle()`, `generateSOPs()`, `clusterTasks()` |
-| `test/ipc.test.ts` | IPC-Tests |
+| `test/ipc.test.ts` | IPC tests |
 
 ---
 
-## Types (müssen im Shadow-Paket neu definiert werden)
+## Types (must be redefined in the Shadow package)
 
-### IPC-Protokoll
+### IPC Protocol
 
 ```typescript
 // Daemon → Client
@@ -90,7 +90,7 @@ export interface PendingPrompt {
 ```typescript
 export interface ShadowStatus {
   pid: number;
-  uptime: number;          // process.uptime() in Sekunden
+  uptime: number;          // process.uptime() in seconds
   nodeCount: number;
   eventCount: number;
   taskCount: number;
@@ -105,7 +105,7 @@ export interface ShadowStatus {
 }
 ```
 
-### DB Row Types (shadow-spezifisch)
+### DB Row Types (shadow-specific)
 
 ```typescript
 export interface EventRow {
@@ -170,9 +170,9 @@ export const EventSchema = z.object({
 
 ---
 
-## Config-Felder (shadow-spezifisch)
+## Config Fields (shadow-specific)
 
-Diese Felder werden aus `CartographyConfig` extrahiert und in eine eigene `ShadowConfig` überführt:
+These fields are extracted from `CartographyConfig` and moved into a separate `ShadowConfig`:
 
 ```typescript
 export interface ShadowConfig {
@@ -180,27 +180,27 @@ export interface ShadowConfig {
   pollIntervalMs: number;        // default: 30_000 (30s)
   inactivityTimeoutMs: number;   // default: 300_000 (5 min)
   promptTimeoutMs: number;       // default: 60_000 (60s)
-  trackWindowFocus: boolean;     // default: false — erfordert xdotool
+  trackWindowFocus: boolean;     // default: false — requires xdotool
   autoSaveNodes: boolean;        // default: false
   enableNotifications: boolean;  // default: true
   shadowModel: string;           // default: 'claude-haiku-4-5-20251001'
   socketPath: string;            // default: ~/.cartography/daemon.sock
   pidFile: string;               // default: ~/.cartography/daemon.pid
-  dbPath: string;                // aus CartographyConfig erben
+  dbPath: string;                // inherited from CartographyConfig
 }
 
-export const MIN_POLL_INTERVAL_MS = 15_000; // 15s Minimum (Agent SDK Overhead)
+export const MIN_POLL_INTERVAL_MS = 15_000; // 15s minimum (Agent SDK overhead)
 ```
 
-**Wichtig:** `MIN_POLL_INTERVAL_MS = 15_000` — weniger als 15s führt zu Problemen weil der Agent SDK (Claude Haiku) selbst mehrere Sekunden braucht. Unter 15s würden Zyklen überlappen.
+**Important:** `MIN_POLL_INTERVAL_MS = 15_000` — less than 15s causes problems because the Agent SDK (Claude Haiku) itself takes several seconds. Below 15s, cycles would overlap.
 
 ---
 
-## Snapshot-Logik
+## Snapshot Logic
 
 ### `takeSnapshot(config: ShadowConfig): string`
 
-Läuft ohne Claude — rein CLI-basiert:
+Runs without Claude — purely CLI-based:
 
 ```typescript
 const ss  = execSync('ss -tnp 2>/dev/null || ss -tn 2>/dev/null || echo "ss not available"');
@@ -212,21 +212,21 @@ if (config.trackWindowFocus) {
 return `=== TCP ===\n${ss}\n=== PS ===\n${ps}\n=== Window ===\n${win}`;
 ```
 
-**Timeout:** 5000ms per Kommando, 2000ms für xdotool.
+**Timeout:** 5000ms per command, 2000ms for xdotool.
 
 ---
 
-## Shadow-Zyklus-Analyse
+## Shadow Cycle Analysis
 
 ### `runShadowCycle(config, db, sessionId, prevSnapshot, currSnapshot, onOutput?): Promise<void>`
 
-- **Modell:** `config.shadowModel` (Standard: Claude Haiku — günstig!)
-- **maxTurns:** 5 (kurze Analyse, nicht Full-Discovery)
+- **Model:** `config.shadowModel` (default: Claude Haiku — cheap!)
+- **maxTurns:** 5 (short analysis, not full discovery)
 - **permissionMode:** `'bypassPermissions'`
-- **Erlaubte Tools:** `save_event`, `save_node`, `save_edge`, `get_catalog`, `manage_task`
-- **Kein Bash** — nur MCP-Tools (sicherheitskritisch!)
+- **Allowed tools:** `save_event`, `save_node`, `save_edge`, `get_catalog`, `manage_task`
+- **No Bash** — only MCP tools (security-critical!)
 
-**System-Prompt (Kurzversion):**
+**System prompt (short version):**
 ```
 Analyze the diff between two system snapshots.
 Find:
@@ -237,21 +237,21 @@ Find:
 target = host:port ONLY. Be concise and efficient.
 ```
 
-**Diff-Check:** Claude wird NUR aufgerufen wenn `snapshot !== prevSnapshot`. Bei unverändertem System → `cyclesSkipped++`, kein API-Call. In der Praxis überspringt der Daemon 90%+ der Zyklen → sehr günstig.
+**Diff check:** Claude is ONLY called when `snapshot !== prevSnapshot`. If the system is unchanged → `cyclesSkipped++`, no API call. In practice, the daemon skips 90%+ of cycles → very cheap.
 
 ---
 
-## SOP-Generierung
+## SOP Generation
 
 ### `generateSOPs(db, sessionId): Promise<number>`
 
-- **Modell:** `claude-sonnet-4-5-20250929` (Anthropic Messages API, kein Agent Loop)
-- **Input:** abgeschlossene Tasks (`status === 'completed'`) aus der DB
-- **Clustering:** Tasks werden nach überlappenden `involvedServices` gruppiert
-- **Output:** pro Cluster ein SOP-Objekt (JSON) via `db.insertSOP()`
-- **Rückgabe:** Anzahl generierter SOPs
+- **Model:** `claude-sonnet-4-5-20250929` (Anthropic Messages API, no agent loop)
+- **Input:** completed tasks (`status === 'completed'`) from the DB
+- **Clustering:** Tasks are grouped by overlapping `involvedServices`
+- **Output:** one SOP object (JSON) per cluster via `db.insertSOP()`
+- **Return value:** number of generated SOPs
 
-**SOP JSON-Format:**
+**SOP JSON format:**
 ```json
 {
   "title": "...",
@@ -268,52 +268,52 @@ target = host:port ONLY. Be concise and efficient.
 
 ---
 
-## IPC-Protokoll
+## IPC Protocol
 
-**Transport:** UNIX-Socket (`~/.cartography/daemon.sock`)
-**Format:** JSON-NDJF (newline-delimited JSON — jede Nachricht = eine Zeile + `\n`)
-**Socket-Permissions:** `chmod 0o600` nach Erstellung
+**Transport:** UNIX socket (`~/.cartography/daemon.sock`)
+**Format:** JSON-NDJF (newline-delimited JSON — each message = one line + `\n`)
+**Socket permissions:** `chmod 0o600` after creation
 
-### Nachrichtenfluss
+### Message Flow
 
 ```
 Client → Daemon:  { type: 'command', command: 'status' }
 Daemon → Client:  { type: 'status', data: ShadowStatus }
 
 Client → Daemon:  { type: 'command', command: 'new-task' }
-Daemon → Client:  { type: 'info', message: 'Task gestartet' }
+Daemon → Client:  { type: 'info', message: 'Task started' }
 
 Client → Daemon:  { type: 'task-description', description: 'Deploy to prod' }
 
 Daemon → Client:  { type: 'event', data: EventRow }
 Daemon → Client:  { type: 'agent-output', text: '...' }
 Daemon → Client:  { type: 'prompt', id: 'sop-suggest:uuid', prompt: PendingPrompt }
-Client → Daemon:  { type: 'prompt-response', id: 'sop-suggest:uuid', answer: 'Ja, als SOP speichern' }
+Client → Daemon:  { type: 'prompt-response', id: 'sop-suggest:uuid', answer: 'Yes, save as SOP' }
 ```
 
 ---
 
-## Signal-Handling (Daemon-Prozess)
+## Signal Handling (Daemon Process)
 
-| Signal | Aktion |
+| Signal | Action |
 |--------|--------|
-| `SIGTERM` | Graceful Stop — `ShadowDaemon.stop()` |
-| `SIGINT` | Graceful Stop — `ShadowDaemon.stop()` |
+| `SIGTERM` | Graceful stop — `ShadowDaemon.stop()` |
+| `SIGINT` | Graceful stop — `ShadowDaemon.stop()` |
 | `SIGUSR1` | Pause — `ShadowDaemon.pause()` |
 | `SIGUSR2` | Resume — `ShadowDaemon.resume()` |
 
 ---
 
-## Daemon-Lifecycle
+## Daemon Lifecycle
 
-### Fork-Strategie
+### Fork Strategy
 
 ```
 CLI (shadow start)
   → forkDaemon(config)
       → spawn(process.execPath, [...args], { detached: true, stdio: 'ignore' })
         env: CARTOGRAPHYY_DAEMON=1, CARTOGRAPHYY_CONFIG=JSON.stringify(config)
-      → child.unref()  // Elternprozess kann enden
+      → child.unref()  // Parent process can exit
       → writeFileSync(pidFile, String(pid))
 
 child process:
@@ -321,55 +321,55 @@ child process:
   → startDaemonProcess(config)
 ```
 
-### Daemon-Erkennung
+### Daemon Detection
 
 ```typescript
 isDaemonRunning(pidFile): { running: boolean; pid?: number }
-// Liest PID-Datei, prüft via process.kill(pid, 0)
-// Bei veralteter PID-Datei: automatisch löschen
+// Reads PID file, checks via process.kill(pid, 0)
+// Stale PID files are automatically deleted
 ```
 
 ### Stale Socket Cleanup
 
 ```typescript
 cleanStaleSocket(socketPath): void
-// Löscht daemon.sock wenn vorhanden (vor Daemon-Start aufrufen)
+// Deletes daemon.sock if present (call before daemon start)
 ```
 
 ---
 
-## CLI-Kommandos
+## CLI Commands
 
-Alle Kommandos müssen im Shadow-Paket re-implementiert werden (als `commander`-Plugin oder eigenständige Binary `datasynx-shadow`).
+All commands must be re-implemented in the Shadow package (as a `commander` plugin or standalone binary `datasynx-shadow`).
 
 ### `shadow start`
 
 ```
 Options:
-  --interval <ms>       Poll-Intervall        (default: 30000, min: 15000)
-  --inactivity <ms>     Task-Grenze Inaktiv.  (default: 300000 = 5 min)
-  --model <m>           Analyse-Modell        (default: claude-haiku-4-5-20251001)
-  --track-windows       Fenster-Fokus tracken (erfordert xdotool)
-  --auto-save           Nodes ohne Prompt speichern
-  --no-notifications    Desktop-Notifications deaktivieren
-  --foreground          Im Terminal ausführen (kein Daemon-Fork)
-  --db <path>           DB-Pfad
+  --interval <ms>       Poll interval           (default: 30000, min: 15000)
+  --inactivity <ms>     Task boundary inactiv.  (default: 300000 = 5 min)
+  --model <m>           Analysis model          (default: claude-haiku-4-5-20251001)
+  --track-windows       Track window focus      (requires xdotool)
+  --auto-save           Save nodes without prompt
+  --no-notifications    Disable desktop notifications
+  --foreground          Run in terminal (no daemon fork)
+  --db <path>           DB path
 ```
 
-**Ablauf:**
-1. `checkPrerequisites()` (Claude CLI + API Key)
-2. `checkPollInterval(ms)` — blockiert wenn < `MIN_POLL_INTERVAL_MS`
-3. `isDaemonRunning(pidFile)` — Fehler wenn bereits läuft
-4. `forkDaemon(config)` oder `ForegroundClient.run(config)`
+**Flow:**
+1. `checkPrerequisites()` (Claude CLI + API key)
+2. `checkPollInterval(ms)` — blocks if < `MIN_POLL_INTERVAL_MS`
+3. `isDaemonRunning(pidFile)` — error if already running
+4. `forkDaemon(config)` or `ForegroundClient.run(config)`
 
 ### `shadow stop`
 
-**Ablauf:**
+**Flow:**
 1. `stopDaemon(pidFile)` — SIGTERM
-2. Kurz warten (500ms) damit DB geflusht wird
-3. `generateSOPs(db, sessionId)` aufrufen
-4. SOPs als Markdown exportieren + HTML-Dashboard
-5. DB schließen
+2. Wait briefly (500ms) for DB to flush
+3. Call `generateSOPs(db, sessionId)`
+4. Export SOPs as Markdown + HTML dashboard
+5. Close DB
 
 ### `shadow pause` / `shadow resume`
 
@@ -382,7 +382,7 @@ resumeDaemon(pidFile)  // SIGUSR2
 
 ```typescript
 const { running, pid } = isDaemonRunning(config.pidFile);
-// zeigt PID + socket path
+// shows PID + socket path
 ```
 
 ### `shadow attach`
@@ -392,14 +392,14 @@ const client = new AttachClient();
 await client.attach(config.socketPath);
 ```
 
-**Hotkeys im Attach-Modus:**
-| Taste | Aktion |
-|-------|--------|
-| `T` | Neuen Task starten (fragt nach Beschreibung) |
-| `S` | Status anzeigen (nodes, events, tasks, cycles) |
-| `P` | Pause/Resume umschalten |
-| `D` | Trennen — Daemon läuft weiter |
-| `Q` | Daemon stoppen und beenden |
+**Hotkeys in attach mode:**
+| Key | Action |
+|-----|--------|
+| `T` | Start new task (prompts for description) |
+| `S` | Show status (nodes, events, tasks, cycles) |
+| `P` | Toggle pause/resume |
+| `D` | Detach — daemon continues running |
+| `Q` | Stop daemon and exit |
 
 ### `sops [session-id]`
 
@@ -408,13 +408,13 @@ datasynx-cartography sops [session-id]
 → generateSOPs(db, session.id)
 ```
 
-Liest `getLatestSession('shadow')` wenn keine session-id angegeben.
+Reads `getLatestSession('shadow')` if no session-id is provided.
 
 ---
 
-## DB-Schema (shadow-spezifisch)
+## DB Schema (shadow-specific)
 
-Die folgenden Tabellen müssen in `CartographyDB` ergänzt werden (oder im Shadow-Paket eigene Migration):
+The following tables must be added to `CartographyDB` (or as a separate migration in the Shadow package):
 
 ```sql
 CREATE TABLE IF NOT EXISTS events (
@@ -460,7 +460,7 @@ CREATE TABLE IF NOT EXISTS workflows (
 );
 ```
 
-### Benötigte DB-Methoden (müssen im Shadow-Paket oder CartographyDB verfügbar sein)
+### Required DB Methods (must be available in the Shadow package or CartographyDB)
 
 ```typescript
 // Events
@@ -474,81 +474,81 @@ updateTaskDescription(sessionId: string, description: string): void
 markTaskAsSOPCandidate(taskId: string): void
 getTasks(sessionId: string): TaskRow[]
 
-// Sessions (shadow-spezifisch)
+// Sessions (shadow-specific)
 getLatestSession(mode: 'shadow'): SessionRow | null
 ```
 
 ---
 
-## Desktop-Notifications
+## Desktop Notifications
 
 ### `NotificationService`
 
 ```typescript
 class NotificationService {
   constructor(private enabled: boolean) {}
-  nodeDiscovered(nodeId: string, via: string): void   // "📍 Node entdeckt"
-  workflowDetected(count: number, desc: string): void // "🔄 N Workflow(s) erkannt"
-  taskBoundary(gapMinutes: number): void              // "⏸ Task-Grenze erkannt"
+  nodeDiscovered(nodeId: string, via: string): void   // "📍 Node discovered"
+  workflowDetected(count: number, desc: string): void // "🔄 N workflow(s) detected"
+  taskBoundary(gapMinutes: number): void              // "⏸ Task boundary detected"
 }
 ```
 
 **Dependency:** `node-notifier ^10.0.1`
-**Verhalten:** Notifications werden NUR gesendet wenn kein Client angehängt ist (`!ipc.hasClients()`). Fehler beim Senden werden still ignoriert. `sound: false`.
+**Behavior:** Notifications are ONLY sent when no client is attached (`!ipc.hasClients()`). Errors during sending are silently ignored. `sound: false`.
 
 ---
 
-## Kosten
+## Costs
 
-| Modus | Modell | Intervall | pro Stunde | pro 8h Tag |
-|-------|--------|-----------|------------|------------|
-| Shadow (aktiv) | Haiku | 30s | $0.12–0.36 | $0.96–2.88 |
-| Shadow (aktiv) | Haiku | 60s | $0.06–0.18 | $0.48–1.44 |
-| Shadow (ruhig) | Haiku | 30s | ~$0.02 | ~$0.16 |
-| SOP-Gen | Sonnet | one-shot | $0.01–0.03 | one-shot |
+| Mode | Model | Interval | per Hour | per 8h Day |
+|------|-------|----------|----------|------------|
+| Shadow (active) | Haiku | 30s | $0.12–0.36 | $0.96–2.88 |
+| Shadow (active) | Haiku | 60s | $0.06–0.18 | $0.48–1.44 |
+| Shadow (quiet) | Haiku | 30s | ~$0.02 | ~$0.16 |
+| SOP gen | Sonnet | one-shot | $0.01–0.03 | one-shot |
 
-**"Ruhig"** = 90%+ Zyklen werden übersprungen wenn das System sich nicht ändert.
+**"Quiet"** = 90%+ of cycles are skipped when the system doesn't change.
 
 ---
 
-## Learnings / Entscheidungen
+## Learnings / Decisions
 
-### Warum MIN_POLL_INTERVAL_MS = 15_000?
+### Why MIN_POLL_INTERVAL_MS = 15,000?
 
-Der Claude Agent SDK hat beim Start (model loading, tool schema serialization) ~2–5s Overhead. Bei 15s-Intervall und ~5s Agent-Laufzeit bleibt genug Puffer. Bei < 15s würden Zyklen überlappen oder der Daemon käme nicht zur Ruhe.
+The Claude Agent SDK has ~2-5s overhead at startup (model loading, tool schema serialization). With a 15s interval and ~5s agent runtime, there is enough buffer. Below 15s, cycles would overlap or the daemon wouldn't reach a resting state.
 
-### Warum Claude Haiku für Shadow?
+### Why Claude Haiku for Shadow?
 
-- Discovery (einmalig) → Sonnet (leistungsfähig, ~$0.15-0.50 einmalig)
-- Shadow-Monitoring (kontinuierlich) → Haiku (günstig, ~$0.02-0.36/h je nach Aktivität)
-- SOP-Generierung (einmalig am Ende) → Sonnet (Qualität wichtiger als Kosten)
+- Discovery (one-time) → Sonnet (powerful, ~$0.15-0.50 one-time)
+- Shadow monitoring (continuous) → Haiku (cheap, ~$0.02-0.36/h depending on activity)
+- SOP generation (one-time at the end) → Sonnet (quality more important than cost)
 
-### Warum kein Bash im Shadow-Zyklus?
+### Why no Bash in the Shadow cycle?
 
-`runShadowCycle()` erlaubt bewusst kein `Bash`-Tool — nur MCP-Tools. Der Snapshot wird bereits vorher via `takeSnapshot()` erstellt. Das verhindert, dass der Agent während des Monitorings unerwartete Shell-Kommandos ausführt.
+`runShadowCycle()` intentionally does not allow the `Bash` tool — only MCP tools. The snapshot is already created beforehand via `takeSnapshot()`. This prevents the agent from executing unexpected shell commands during monitoring.
 
 ### UNIX Socket vs. TCP
 
-UNIX-Socket (`~/.cartography/daemon.sock`) statt TCP-Port weil:
-- Kein Port-Konflikt möglich
-- Permissions via `chmod 0o600` → nur lokaler User
-- Schneller (kein Netzwerk-Stack)
+UNIX socket (`~/.cartography/daemon.sock`) instead of TCP port because:
+- No port conflicts possible
+- Permissions via `chmod 0o600` → local user only
+- Faster (no network stack)
 
-### Daemon-Erkennung via PID-File
+### Daemon Detection via PID File
 
-`~/.cartography/daemon.pid` — einfach und robust. `isDaemonRunning()` prüft via `process.kill(pid, 0)` ob der Prozess noch lebt, ohne ihm zu signalisieren. Veraltete PID-Files werden automatisch gelöscht.
+`~/.cartography/daemon.pid` — simple and robust. `isDaemonRunning()` checks via `process.kill(pid, 0)` whether the process is still alive without actually signaling it. Stale PID files are automatically deleted.
 
-### Foreground-Modus
+### Foreground Mode
 
-`--foreground` startet den Daemon im selben Prozess (kein Fork). Nützlich für Debugging und Entwicklung. `ForegroundClient` ruft `startDaemonProcess()` direkt auf.
+`--foreground` starts the daemon in the same process (no fork). Useful for debugging and development. `ForegroundClient` calls `startDaemonProcess()` directly.
 
-### SOP-Clustering-Algorithmus
+### SOP Clustering Algorithm
 
-Einfaches Overlap-Clustering: Tasks werden gruppiert wenn sie mindestens einen gemeinsamen Service in `involvedServices` haben. Kein ML — absichtlich simpel für Transparenz und Nachvollziehbarkeit.
+Simple overlap clustering: Tasks are grouped if they share at least one common service in `involvedServices`. No ML — intentionally simple for transparency and traceability.
 
 ---
 
-## Abhängigkeiten des neuen Pakets
+## Dependencies of the New Package
 
 ```json
 {
@@ -569,10 +569,10 @@ Einfaches Overlap-Clustering: Tasks werden gruppiert wenn sie mindestens einen g
 
 ---
 
-## Offene Fragen für die Implementierung
+## Open Questions for Implementation
 
-1. **DB-Zugang:** Greift das Shadow-Paket direkt auf die SQLite-Datei zu (eigene DB-Klasse) oder erweitert es `CartographyDB` via Dependency-Injection? → Empfehlung: eigene `ShadowDB extends CartographyDB`
-2. **CLI-Integration:** Eigene Binary `datasynx-shadow` oder Plugin-System für `datasynx-cartography`? → Empfehlung: eigene Binary für saubere Trennung
-3. **Types-Sharing:** Gemeinsame `@datasynx/cartography-types` für `NodeType`, `SessionRow` etc.? → Empfehlung: ja, als drittes Paket um Duplikation zu vermeiden
-4. **MCP-Tool `save_event`:** Fehlt in der Kern-Toolbox — muss im Shadow-Paket hinzugefügt werden
-5. **MCP-Tool `manage_task`:** Fehlt ebenfalls — Shadow-spezifisch
+1. **DB access:** Does the Shadow package access the SQLite file directly (own DB class) or extend `CartographyDB` via dependency injection? → Recommendation: own `ShadowDB extends CartographyDB`
+2. **CLI integration:** Separate binary `datasynx-shadow` or plugin system for `datasynx-cartography`? → Recommendation: separate binary for clean separation
+3. **Types sharing:** Shared `@datasynx/cartography-types` for `NodeType`, `SessionRow`, etc.? → Recommendation: yes, as a third package to avoid duplication
+4. **MCP tool `save_event`:** Missing from the core toolbox — must be added in the Shadow package
+5. **MCP tool `manage_task`:** Also missing — Shadow-specific

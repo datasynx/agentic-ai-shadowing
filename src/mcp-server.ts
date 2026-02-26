@@ -260,7 +260,7 @@ export class MCPServer {
         const title = args['title'] as string;
         const description = args['description'] as string | undefined;
         const task = this.taskManager.startTask(title, description);
-        return { success: true, task, message: `Task "${title}" gestartet.` };
+        return { success: true, task, message: `Task "${title}" started.` };
       }
 
       case 'shadowing_complete_task': {
@@ -272,17 +272,17 @@ export class MCPServer {
         } else if (args['notes']) {
           this.db.updateTask(result.task.id, { description: args['notes'] as string });
         }
-        return { success: true, task: result.task, duration: result.duration, message: `Task abgeschlossen (${result.duration}).` };
+        return { success: true, task: result.task, duration: result.duration, message: `Task completed (${result.duration}).` };
       }
 
       case 'shadowing_pause_task': {
         const task = this.taskManager.pauseTask();
-        return { success: true, task, message: 'Task pausiert.' };
+        return { success: true, task, message: 'Task paused.' };
       }
 
       case 'shadowing_resume_task': {
         const task = this.taskManager.resumeTask();
-        return { success: true, task, message: 'Task fortgesetzt.' };
+        return { success: true, task, message: 'Task resumed.' };
       }
 
       case 'shadowing_get_status': {
@@ -315,7 +315,7 @@ export class MCPServer {
       case 'shadowing_get_sop': {
         const id = args['sop_id'] as string;
         const sop = this.db.getSOP(id);
-        if (!sop) throw new Error(`SOP "${id}" nicht gefunden.`);
+        if (!sop) throw new Error(`SOP "${id}" not found.`);
         const tags = this.db.getTagsForSOP(id).map(t => t.name);
         const metrics = calculateSOPMetrics(this.db, id, this.config.metrics.quality_score_weights);
         const versions = this.db.getSOPVersions(id);
@@ -329,13 +329,13 @@ export class MCPServer {
         if (args['description']) updates['description'] = args['description'];
         if (args['content_md']) updates['content_md'] = args['content_md'];
         const sop = this.db.updateSOP(id, updates as { title?: string; description?: string; content_md?: string });
-        return { success: true, sop, message: `SOP "${sop.title}" aktualisiert (v${sop.version}).` };
+        return { success: true, sop, message: `SOP "${sop.title}" updated (v${sop.version}).` };
       }
 
       case 'shadowing_approve_sop': {
         const id = args['sop_id'] as string;
         const sop = this.db.updateSOPStatus(id, 'approved');
-        return { success: true, sop, message: `SOP "${sop.title}" genehmigt.` };
+        return { success: true, sop, message: `SOP "${sop.title}" approved.` };
       }
 
       case 'shadowing_add_tags': {
@@ -376,17 +376,17 @@ export class MCPServer {
         const title = (args['title'] as string) ?? 'Claude Code Session';
         const existing = this.db.getActiveObservationSession();
         if (existing) {
-          return { success: true, session: existing, message: 'Session bereits aktiv.', already_active: true };
+          return { success: true, session: existing, message: 'Session already active.', already_active: true };
         }
         const session = this.db.startObservationSession(title);
-        return { success: true, session, message: `Observation-Session "${title}" gestartet.` };
+        return { success: true, session, message: `Observation session "${title}" started.` };
       }
 
       case 'shadowing_stop_observation': {
         const session = this.db.getActiveObservationSession();
-        if (!session) throw new Error('Keine aktive Observation-Session.');
+        if (!session) throw new Error('No active observation session.');
         const completed = this.db.completeObservationSession(session.id);
-        return { success: true, session: completed, message: `Session beendet (${completed.total_actions} Actions).` };
+        return { success: true, session: completed, message: `Session ended (${completed.total_actions} actions).` };
       }
 
       case 'shadowing_get_stats':
@@ -398,10 +398,10 @@ export class MCPServer {
         const exporter = new Exporter(this.db, anonymizer, this.config);
         if (sopIds.length === 0) {
           const result = exporter.exportAll();
-          return { success: true, ...result, message: `${result.sop_count} SOPs exportiert.` };
+          return { success: true, ...result, message: `${result.sop_count} SOPs exported.` };
         }
         const result = exporter.exportSOPs(sopIds);
-        return { success: true, ...result, message: `${result.sop_count} SOPs exportiert.` };
+        return { success: true, ...result, message: `${result.sop_count} SOPs exported.` };
       }
 
       case 'shadowing_list_tasks': {
@@ -487,5 +487,5 @@ export function startMCPServer(): void {
     process.exitCode = 0;
   });
 
-  process.stderr.write('shadowing-mcp: Server gestartet (stdio)\n');
+  process.stderr.write('shadowing-mcp: Server started (stdio)\n');
 }

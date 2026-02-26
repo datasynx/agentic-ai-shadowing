@@ -1,13 +1,13 @@
 <div align="center">
 
-# 👁️ Datasynx Shadowing
+# Datasynx Shadowing
 
 **AI-powered Workflow Observation & SOP Generation**
 
 [![npm version](https://img.shields.io/npm/v/@datasynx/agentic-ai-shadowing?style=flat-square&color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing)
 [![npm downloads](https://img.shields.io/npm/dm/@datasynx/agentic-ai-shadowing?style=flat-square&color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Node.js ≥20](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Node.js >=20](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Built with Claude](https://img.shields.io/badge/Built_with-Claude_API-D4A017?style=flat-square&logo=anthropic&logoColor=white)](https://docs.anthropic.com)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Datasynx_AI-0077B5?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/datasynx-ai/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square)](https://github.com/datasynx-ai/agentic-ai-shadowing)
@@ -15,11 +15,11 @@
 
 <br/>
 
-*Shadowing beobachtet wie ein Schatten die täglichen Arbeitsabläufe — Shell-Commands, aktive Fenster, Git-Commits — und generiert daraus automatisch Standard Operating Procedures (SOPs) via Claude. Vollständig lokal, vollständig anonymisiert.*
+*Shadowing observes daily workflows like a shadow — shell commands, active windows, git commits — and automatically generates Standard Operating Procedures (SOPs) via Claude. Fully local, fully anonymized.*
 
 <br/>
 
-**[📦 npm](https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing) · [💼 LinkedIn](https://www.linkedin.com/company/datasynx-ai/) · [🐛 Issues](https://github.com/datasynx-ai/agentic-ai-shadowing/issues)**
+**[npm](https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing) · [LinkedIn](https://www.linkedin.com/company/datasynx-ai/) · [Issues](https://github.com/datasynx-ai/agentic-ai-shadowing/issues)**
 
 </div>
 
@@ -27,22 +27,22 @@
 
 ## Requires Cartography
 
-Shadowing nutzt die Infrastruktur-Daten aus **Datasynx Cartography** als Kontext für die SOP-Generierung — Systemlandschaft, Services und Abhängigkeiten fließen automatisch in die generierten SOPs ein.
+Shadowing uses infrastructure data from **Datasynx Cartography** as context for SOP generation — system landscape, services, and dependencies are automatically included in generated SOPs.
 
 [![Cartography](https://img.shields.io/badge/Requires-@datasynx%2Fagentic--ai--cartography-0077B5?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/@datasynx/agentic-ai-cartography)
 
 ```bash
-# Cartography installieren (empfohlen)
+# Install Cartography (recommended)
 npm install -g @datasynx/agentic-ai-cartography
 
-# Infrastructure-Scan durchführen → erzeugt den Graph
+# Run infrastructure scan — generates the graph
 datasynx-cartography discover
 
-# Graph in Shadowing importieren
+# Import graph into Shadowing
 shadowing import-graph ./datasynx-output/cartography-graph.jgf.json
 ```
 
-> **Hinweis:** Shadowing funktioniert auch ohne Cartography — die SOPs werden dann ohne Systemlandschaft-Kontext generiert.
+> **Note:** Shadowing also works without Cartography — SOPs will be generated without system landscape context.
 
 ---
 
@@ -53,47 +53,47 @@ $ shadowing start
 
   Agentic AI Shadowing — Active
 
-? Neuen Task starten? Yes
-? Task-Titel: Monatsabschluss SAP
-? Kurze Beschreibung: Monatliche Abschlussarbeiten in SAP FI
+? Start a new task? Yes
+? Task title: Monthly SAP Closing
+? Short description: Monthly closing tasks in SAP FI
 
-  Task gestartet: "Monatsabschluss SAP" (ID: a3f8c210)
+  Task started: "Monthly SAP Closing" (ID: a3f8c210)
 
-? Was möchtest du tun?
-  ❯ Task abschließen → SOP generieren
-    Task pausieren
-    Notiz zum aktuellen Schritt hinzufügen
-    Shadowing beenden
+? What would you like to do?
+  > Complete task > Generate SOP
+    Pause task
+    Add note to current step
+    End shadowing
 
-? Wie komplex war dieser Task? 3 - Mittel
+? How complex was this task? 3 - Medium
 
-  Task abgeschlossen. Dauer: 1h 23min 45s
-  SOP wird generiert...
+  Task completed. Duration: 1h 23min 45s
+  Generating SOP...
 
-  SOP generiert!
-  ┌────────────────────────────────────────────────┐
-  │  Monatsabschluss SAP — Standard Operating      │
-  │  Procedure                                     │
-  │  Tags: #buchhaltung #sap #monatlich            │
-  │  Schritte: 8                                   │
-  └────────────────────────────────────────────────┘
+  SOP generated!
+  +-------------------------------------------------+
+  |  Monthly SAP Closing — Standard Operating       |
+  |  Procedure                                      |
+  |  Tags: #accounting #sap #monthly                |
+  |  Steps: 8                                       |
+  +-------------------------------------------------+
 ```
 
 ```
 $ shadowing observe --auto-sop
 
-  Beobachtung gestartet (Session: b7e2f4a1)
-  Quellen: Fenster · Shell-History · Git
-  Auto-SOP: aktiviert
+  Observation started (Session: b7e2f4a1)
+  Sources: Windows · Shell History · Git
+  Auto-SOP: enabled
 
-  [14:23:01] 🖥  VS Code — src/api/routes.ts
-  [14:23:45] 💻  git diff src/api/routes.ts
-  [14:24:12] 💻  npm run test
-  [14:31:00] 🖥  Chrome — Jira Board
-  [14:35:22] 💻  git commit -m "fix: validate input"
-  [14:35:30] 💻  git push origin feature/validation
+  [14:23:01] Window  VS Code — src/api/routes.ts
+  [14:23:45] Shell   git diff src/api/routes.ts
+  [14:24:12] Shell   npm run test
+  [14:31:00] Window  Chrome — Jira Board
+  [14:35:22] Shell   git commit -m "fix: validate input"
+  [14:35:30] Shell   git push origin feature/validation
 
-  Beobachtung beendet. 2 Tasks erkannt → 2 SOPs generiert.
+  Observation ended. 2 tasks detected > 2 SOPs generated.
 ```
 
 ---
@@ -102,39 +102,39 @@ $ shadowing observe --auto-sop
 
 | Feature | Details |
 |---------|---------|
-| **Automatische Beobachtung** | Shell-History, aktive Fenster, Git-Commits und Dateiänderungen — cross-platform |
-| **KI-SOP-Generierung** | Claude generiert strukturierte SOPs mit Ziel, Voraussetzungen, Schritten, erwarteten Ergebnissen |
-| **Enterprise Dashboard** | Dark-Theme Web-Dashboard mit SOP-Editor, Metriken, Diff-Viewer, Export-Workflow |
-| **Qualitäts-Metriken** | Konsistenz-, Reife-, Aktualitäts- und Gesamt-Score pro SOP |
-| **PII-Anonymisierung** | E-Mail, IP, URL, Telefon, Dateipfade, IBAN, Kreditkarten, Steuer-ID, SV-Nummer |
-| **Versionshistorie** | Jede SOP-Änderung versioniert mit Diff-Ansicht |
-| **Claude Code Integration** | MCP-Server (17 Tools) + Hook-Handler für nahtlose IDE-Integration |
-| **Cartography-Kontext** | Systemlandschaft aus [@datasynx/agentic-ai-cartography](https://github.com/datasynx/agentic-ai-cartography) fließt in SOP-Generierung |
-| **Privacy First** | Consent-Management, Ausschlussregeln, konfigurierbare Anonymisierung |
-| **100% Lokal** | SQLite-DB, kein Cloud-Sync, kein Daemon — der Mitarbeiter kontrolliert alles |
+| **Automatic Observation** | Shell history, active windows, git commits, and file changes — cross-platform |
+| **AI SOP Generation** | Claude generates structured SOPs with goal, prerequisites, steps, expected results |
+| **Enterprise Dashboard** | Dark-theme web dashboard with SOP editor, metrics, diff viewer, export workflow |
+| **Quality Metrics** | Consistency, maturity, freshness, and overall score per SOP |
+| **PII Anonymization** | Email, IP, URL, phone, file paths, IBAN, credit cards, tax ID, social security number |
+| **Version History** | Every SOP change is versioned with diff view |
+| **Claude Code Integration** | MCP server (17 tools) + hook handler for seamless IDE integration |
+| **Cartography Context** | System landscape from [@datasynx/agentic-ai-cartography](https://github.com/datasynx/agentic-ai-cartography) feeds into SOP generation |
+| **Privacy First** | Consent management, exclusion rules, configurable anonymization |
+| **100% Local** | SQLite DB, no cloud sync, no daemon — the employee controls everything |
 
 ---
 
 ## Cross-Platform Support
 
-Shadowing erkennt Fenster und Shell-History nativ auf **Linux**, **macOS** und **Windows**.
+Shadowing detects windows and shell history natively on **Linux**, **macOS**, and **Windows**.
 
 | Capability | Linux | macOS | Windows |
 |---|---|---|---|
-| **Fenster-Erkennung** | `xdotool` (X11) | `osascript` (AppleScript) | PowerShell P/Invoke (`user32.dll`) |
-| **Shell-History** | Zsh extended, Bash timestamps | Zsh extended, Bash timestamps | PSReadLine ConsoleHost_history |
-| **Git-Tracking** | `git log` | `git log` | `git log` |
-| **File-Watching** | `fs.stat` | `fs.stat` | `fs.stat` |
-| **Shell-Erkennung** | `$SHELL` | `$SHELL` | `$MSYSTEM` / PowerShell fallback |
+| **Window Detection** | `xdotool` (X11) | `osascript` (AppleScript) | PowerShell P/Invoke (`user32.dll`) |
+| **Shell History** | Zsh extended, Bash timestamps | Zsh extended, Bash timestamps | PSReadLine ConsoleHost_history |
+| **Git Tracking** | `git log` | `git log` | `git log` |
+| **File Watching** | `fs.stat` | `fs.stat` | `fs.stat` |
+| **Shell Detection** | `$SHELL` | `$SHELL` | `$MSYSTEM` / PowerShell fallback |
 
-### Shell-History-Parser
+### Shell History Parser
 
 | Shell | Format | Timestamps |
 |-------|--------|-----------|
-| **Zsh** | Extended (`: timestamp:duration;command`) | Exakt |
-| **Bash** | `#timestamp` + Kommandozeilen | Exakt |
-| **Fish** | YAML-artig (`- cmd:` / `when:`) | Exakt |
-| **PowerShell** | PSReadLine `ConsoleHost_history.txt` | Lesezeit |
+| **Zsh** | Extended (`: timestamp:duration;command`) | Exact |
+| **Bash** | `#timestamp` + command lines | Exact |
+| **Fish** | YAML-like (`- cmd:` / `when:`) | Exact |
+| **PowerShell** | PSReadLine `ConsoleHost_history.txt` | Read time |
 
 ---
 
@@ -163,23 +163,23 @@ npm install -g @datasynx/agentic-ai-shadowing
 ## Quick Start
 
 ```bash
-# 1. Einrichtung (DB + Config anlegen)
+# 1. Setup (create DB + config)
 shadowing init
 
-# 2. Manueller Modus: Task starten → SOP generieren lassen
+# 2. Manual mode: start task > generate SOP
 shadowing start
 
-# 3. Automatischer Modus: Workflow beobachten → SOPs auto-generieren
+# 3. Automatic mode: observe workflow > auto-generate SOPs
 shadowing observe --auto-sop
 
-# 4. SOPs anzeigen
+# 4. View SOPs
 shadowing list
 shadowing show <sop-id>
 
-# 5. Web-Dashboard starten
+# 5. Start web dashboard
 shadowing ui
 
-# 6. Anonymisiert exportieren
+# 6. Export with anonymization
 shadowing export --all
 ```
 
@@ -187,67 +187,67 @@ shadowing export --all
 
 ## Commands
 
-### Task-Management
+### Task Management
 
 ```
-shadowing init                          Erstmalige Einrichtung (DB + Config)
-shadowing start                         Interaktiven Shadowing-Modus starten
-shadowing status                        Aktuellen Task und Statistiken anzeigen
+shadowing init                          Initial setup (DB + config)
+shadowing start                         Start interactive shadowing mode
+shadowing status                        Show current task and statistics
 ```
 
-### SOP-Verwaltung
+### SOP Management
 
 ```
-shadowing list [options]                SOPs auflisten
+shadowing list [options]                List SOPs
   --status <status>                       Filter: draft/reviewed/approved/exported/archived
-  --tag <tag>                             Filter: Tag-Name
-  --search <query>                        Freitextsuche
+  --tag <tag>                             Filter: tag name
+  --search <query>                        Full-text search
 
-shadowing show <sop-id>                 SOP im Terminal anzeigen
-shadowing edit <sop-id>                 SOP im Standard-Editor bearbeiten
-shadowing delete <sop-id>               SOP unwiderruflich löschen
-shadowing history <sop-id>              Versionshistorie anzeigen
-shadowing diff <sop-id> [version]       Diff zwischen Versionen
-shadowing tag <sop-id> <tags...>        Tags hinzufügen (+tag) / entfernen (-tag)
+shadowing show <sop-id>                 Display SOP in terminal
+shadowing edit <sop-id>                 Edit SOP in default editor
+shadowing delete <sop-id>               Permanently delete SOP
+shadowing history <sop-id>              Show version history
+shadowing diff <sop-id> [version]       Diff between versions
+shadowing tag <sop-id> <tags...>        Add (+tag) / remove (-tag) tags
 ```
 
-### Automatische Beobachtung
+### Automatic Observation
 
 ```
-shadowing observe [options]             Beobachtungsmodus starten
-  --auto-sop                              SOPs automatisch nach Stop generieren
-  --no-window                             Ohne Fenster-Erkennung
-  --no-shell                              Ohne Shell-History-Tracking
+shadowing observe [options]             Start observation mode
+  --auto-sop                              Auto-generate SOPs after stop
+  --no-window                             Without window detection
+  --no-shell                              Without shell history tracking
 
-shadowing sessions                      Beobachtungssessions auflisten
-shadowing timeline [session-id]         Zeitachse einer Session anzeigen
-shadowing analyze [session-id]          Session → Tasks erkennen → SOPs generieren
+shadowing sessions                      List observation sessions
+shadowing timeline [session-id]         Show session timeline
+shadowing analyze [session-id]          Session > detect tasks > generate SOPs
 ```
 
-### Metriken & Export
+### Metrics & Export
 
 ```
-shadowing stats                         Metriken-Dashboard im Terminal
-shadowing export                        Interaktiver Export-Wizard
-shadowing export --all                  Alle approved SOPs exportieren
-shadowing ui [--port <n>]               Web-Dashboard starten (default: 3847)
+shadowing stats                         Metrics dashboard in terminal
+shadowing export                        Interactive export wizard
+shadowing export --all                  Export all approved SOPs
+shadowing ui [--port <n>]               Start web dashboard (default: 3847)
 ```
 
-### Datenschutz
+### Privacy
 
 ```
-shadowing consent                       Zustimmungsmanagement für Beobachtung
-shadowing exclude                       Ausschlussregeln verwalten
+shadowing consent                       Consent management for observation
+shadowing exclude                       Manage exclusion rules
 ```
 
 ### Integration
 
 ```
-shadowing import-graph <path>           Cartography-Graph (JGF) importieren
-shadowing infra [dir]                   Infrastruktur-Kontext extrahieren
-shadowing mcp                           MCP-Server starten (stdio-Transport)
-shadowing setup-hooks                   Claude Code Hooks + MCP konfigurieren
-shadowing guide                         Komplette Anleitung
+shadowing import-graph <path>           Import Cartography graph (JGF)
+shadowing infra [dir]                   Extract infrastructure context
+shadowing mcp                           Start MCP server (stdio transport)
+shadowing setup-hooks                   Configure Claude Code hooks + MCP
+shadowing guide                         Complete guide
 ```
 
 ---
@@ -256,11 +256,11 @@ shadowing guide                         Komplette Anleitung
 
 ```
 exports/export_2026-02-24T14-30-00/
-├── manifest.json                  Metadaten, Tags, Metriken-Übersicht
-└── sops/
-    ├── sop_001.md                 Anonymisierte SOP (Markdown)
-    ├── sop_002.md
-    └── ...
++-- manifest.json                  Metadata, tags, metrics summary
++-- sops/
+    +-- sop_001.md                 Anonymized SOP (Markdown)
+    +-- sop_002.md
+    +-- ...
 ```
 
 ---
@@ -269,63 +269,63 @@ exports/export_2026-02-24T14-30-00/
 
 ```bash
 shadowing ui
-# → http://localhost:3847
+# > http://localhost:3847
 ```
 
-Dark-Theme Single-Page-App mit:
+Dark-theme single-page app with:
 
-- **Statistik-Kacheln** — Tasks, SOPs, Quality Scores, Exports
-- **SOP-Editor** — Split-Pane mit Markdown-Preview
-- **Versionshistorie** — Diff-Viewer für jede Änderung
-- **Tag-Management** — Inline hinzufügen/entfernen
-- **Export-Workflow** — Anonymisierungs-Preview, Batch-Export
-- **Timeline** — Farbcodierte Observation-Events
-- **17 REST-API Endpoints** — vollständige programmatische Kontrolle
+- **Statistics Tiles** — Tasks, SOPs, quality scores, exports
+- **SOP Editor** — Split-pane with Markdown preview
+- **Version History** — Diff viewer for every change
+- **Tag Management** — Inline add/remove
+- **Export Workflow** — Anonymization preview, batch export
+- **Timeline** — Color-coded observation events
+- **17 REST API Endpoints** — Full programmatic control
 
 ### REST API
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| GET | `/api/stats` | Globale Statistiken |
-| GET | `/api/tasks` | Task-Liste (Filter: `?status=`) |
-| GET | `/api/tasks/active` | Aktiver Task |
-| GET | `/api/sops` | SOP-Liste (Filter: `?status=`, `?tag=`, `?search=`) |
-| GET | `/api/sops/:id` | SOP-Detail mit Metriken + Versionen |
-| PUT | `/api/sops/:id` | SOP-Content aktualisieren |
-| PUT | `/api/sops/:id/status` | Status ändern (Draft → Reviewed → Approved) |
-| PUT | `/api/sops/:id/tags` | Tags hinzufügen/entfernen |
-| GET | `/api/sops/:id/diff` | Diff zur Vorgängerversion |
-| GET | `/api/sops/:id/preview` | Anonymisierte Vorschau |
-| GET | `/api/tags` | Alle Tags |
-| GET | `/api/exports` | Export-Historie |
-| POST | `/api/exports` | Export auslösen |
-| GET | `/api/sessions` | Observation-Sessions |
-| GET | `/api/sessions/:id/timeline` | Session-Timeline |
-| GET | `/api/sessions/:id/summary` | Session-Zusammenfassung |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/stats` | Global statistics |
+| GET | `/api/tasks` | Task list (filter: `?status=`) |
+| GET | `/api/tasks/active` | Active task |
+| GET | `/api/sops` | SOP list (filter: `?status=`, `?tag=`, `?search=`) |
+| GET | `/api/sops/:id` | SOP detail with metrics + versions |
+| PUT | `/api/sops/:id` | Update SOP content |
+| PUT | `/api/sops/:id/status` | Change status (Draft > Reviewed > Approved) |
+| PUT | `/api/sops/:id/tags` | Add/remove tags |
+| GET | `/api/sops/:id/diff` | Diff to previous version |
+| GET | `/api/sops/:id/preview` | Anonymized preview |
+| GET | `/api/tags` | All tags |
+| GET | `/api/exports` | Export history |
+| POST | `/api/exports` | Trigger export |
+| GET | `/api/sessions` | Observation sessions |
+| GET | `/api/sessions/:id/timeline` | Session timeline |
+| GET | `/api/sessions/:id/summary` | Session summary |
 
 ---
 
 ## Quality Metrics
 
-### Konsistenz-Score
+### Consistency Score
 
-`max(0, 100 - CV * 2)` — basierend auf dem Variationskoeffizienten der Ausführungsdauern.
+`max(0, 100 - CV * 2)` — based on the coefficient of variation of execution durations.
 
-### Reife-Score (gewichtet)
+### Maturity Score (weighted)
 
-| Kriterium | Gewicht |
-|-----------|---------|
-| >= 5 Ausführungen | 30% |
-| Review durchgeführt | 30% |
-| >= 1 Revision | 20% |
-| Tags vorhanden | 10% |
-| Beschreibung vorhanden | 10% |
+| Criterion | Weight |
+|-----------|--------|
+| >= 5 executions | 30% |
+| Review completed | 30% |
+| >= 1 revision | 20% |
+| Tags present | 10% |
+| Description present | 10% |
 
-### Aktualitäts-Score
+### Freshness Score
 
-Basierend auf Review-Alter und Ausführungsfrequenz. Häufig ausgeführte SOPs veralten schneller.
+Based on review age and execution frequency. Frequently executed SOPs become outdated faster.
 
-### Gesamt-Qualitäts-Score
+### Overall Quality Score
 
 ```
 consistency * 0.35 + maturity * 0.35 + freshness * 0.30
@@ -335,19 +335,19 @@ consistency * 0.35 + maturity * 0.35 + freshness * 0.30
 
 ## Privacy & Anonymization
 
-| Pattern | Ersetzung | Konfigurierbar |
-|---------|----------|----------------|
-| E-Mail-Adressen | `[email@example.com]` | `redact_emails` |
-| IPv4/IPv6-Adressen | `[interne-ip]` | `redact_ips` |
-| URLs | `[internes-system]/pfad` | `redact_urls` |
-| Telefonnummern | `[Telefonnummer]` | `redact_phone_numbers` |
-| Dateipfade | `/Users/[user]/...` | `redact_file_paths` |
-| **IBAN** | `[IBAN]` | Immer aktiv |
-| **Kreditkartennummern** | `[Kreditkartennummer]` | Immer aktiv |
-| **Steuer-ID** | `[Steuer-ID]` | Immer aktiv |
-| **SV-Nummer** | `[SV-Nummer]` | Immer aktiv |
+| Pattern | Replacement | Configurable |
+|---------|------------|--------------|
+| Email addresses | `[email@example.com]` | `redact_emails` |
+| IPv4/IPv6 addresses | `[internal-ip]` | `redact_ips` |
+| URLs | `[internal-system]/path` | `redact_urls` |
+| Phone numbers | `[phone-number]` | `redact_phone_numbers` |
+| File paths | `/Users/[user]/...` | `redact_file_paths` |
+| **IBAN** | `[IBAN]` | Always active |
+| **Credit card numbers** | `[credit-card]` | Always active |
+| **Tax ID** | `[tax-id]` | Always active |
+| **Social security number** | `[social-security]` | Always active |
 
-Custom Replacements über `config.anonymization.custom_replacements`.
+Custom replacements via `config.anonymization.custom_replacements`.
 
 ---
 
@@ -355,32 +355,32 @@ Custom Replacements über `config.anonymization.custom_replacements`.
 
 ```
 CLI (Commander.js — 27 Commands)
-  └── shadowing init / start / observe / list / export / ui / ...
-      ├── TaskManager         Task-Lifecycle (start → pause → resume → complete)
-      ├── Observer             Heartbeat-basierte Workflow-Erfassung
-      │   ├── WindowDetector   xdotool (Linux) / osascript (macOS) / P/Invoke (Win)
-      │   ├── ShellHistory     Zsh / Bash / Fish / PowerShell Parser
-      │   └── Git + File       Commit-Tracking + Dateiänderungen
-      ├── SessionAnalyzer      Silence-Clustering → Task-Erkennung (LLM)
-      ├── SOPGenerator         Claude API → strukturierte SOPs + Tags
-      ├── Anonymizer           PII-Redaktion (8+ Patterns)
-      ├── Exporter             Markdown + manifest.json (atomare Operationen)
-      ├── Metrics              Konsistenz · Reife · Aktualität · Qualität
-      ├── PrivacyManager       Consent + Ausschlussregeln + Degradation
-      └── ShadowingDB          SQLite WAL (11 Tabellen, Constraints, Indices)
+  +-- shadowing init / start / observe / list / export / ui / ...
+      +-- TaskManager         Task lifecycle (start > pause > resume > complete)
+      +-- Observer             Heartbeat-based workflow capture
+      |   +-- WindowDetector   xdotool (Linux) / osascript (macOS) / P/Invoke (Win)
+      |   +-- ShellHistory     Zsh / Bash / Fish / PowerShell parser
+      |   +-- Git + File       Commit tracking + file changes
+      +-- SessionAnalyzer      Silence clustering > task detection (LLM)
+      +-- SOPGenerator         Claude API > structured SOPs + tags
+      +-- Anonymizer           PII redaction (8+ patterns)
+      +-- Exporter             Markdown + manifest.json (atomic operations)
+      +-- Metrics              Consistency · Maturity · Freshness · Quality
+      +-- PrivacyManager       Consent + exclusion rules + degradation
+      +-- ShadowingDB          SQLite WAL (11 tables, constraints, indices)
 
   Integrations:
-      ├── UIServer             REST-API (17 Endpoints) + HTML Dashboard
-      ├── MCPServer            Model Context Protocol (17 Tools, stdio)
-      ├── HookHandler          Claude Code Event-Verarbeitung
-      └── Cartography          JGF Graph-Import aus agentic-ai-cartography
+      +-- UIServer             REST API (17 endpoints) + HTML dashboard
+      +-- MCPServer            Model Context Protocol (17 tools, stdio)
+      +-- HookHandler          Claude Code event processing
+      +-- Cartography          JGF graph import from agentic-ai-cartography
 ```
 
 ---
 
 ## Claude Code Integration
 
-### MCP-Server (17 Tools)
+### MCP Server (17 Tools)
 
 ```bash
 shadowing mcp
@@ -388,14 +388,14 @@ shadowing mcp
 
 Tools: `task_start`, `task_status`, `task_complete`, `task_pause`, `sop_list`, `sop_show`, `sop_generate`, `sop_update_status`, `observe_start`, `observe_stop`, `timeline_show`, `session_analyze`, `export_sops`, `stats_show`, `consent_manage`, `exclude_manage`, `config_show`
 
-### Hook-Handler
+### Hook Handler
 
 ```bash
-# Automatische Konfiguration für Claude Code
+# Automatic configuration for Claude Code
 shadowing setup-hooks
 ```
 
-Empfängt Events (File-Open, Git-Commit, Tool-Use) und protokolliert automatisch Aktionen als Observation-Events.
+Receives events (file-open, git-commit, tool-use) and automatically logs actions as observation events.
 
 ---
 
@@ -414,20 +414,20 @@ import {
   loadConfig,
 } from '@datasynx/agentic-ai-shadowing';
 
-// DB öffnen + Task starten
+// Open DB + start task
 const db = new ShadowingDB('/path/to/shadowing.db');
 const tm = new TaskManager(db);
-const task = tm.startTask('Monatsabschluss SAP');
+const task = tm.startTask('Monthly SAP Closing');
 
-// Task abschließen → SOP generieren
+// Complete task > generate SOP
 const { task: completed } = tm.completeTask();
 const gen = new SOPGenerator(loadConfig(), db);
 const sop = await gen.generateSOP(completed);
 
-// Metriken berechnen
+// Calculate metrics
 const metrics = calculateSOPMetrics(db, sop.id);
 
-// Anonymisiert exportieren
+// Export with anonymization
 const config = loadConfig();
 const exporter = new Exporter(db, new Anonymizer(config.anonymization), config);
 exporter.exportSOPs([sop.id]);
@@ -442,7 +442,7 @@ Config: `~/.datasynx/shadowing/config.json`
 ```json
 {
   "version": "1.0.0",
-  "language": "de",
+  "language": "en",
   "polling_interval_minutes": 15,
   "editor": "code",
   "ui_port": 3847,
@@ -461,7 +461,7 @@ Config: `~/.datasynx/shadowing/config.json`
     "temperature": 0.3,
     "include_cartography_context": true,
     "auto_generate_tags": true,
-    "sop_language": "de"
+    "sop_language": "en"
   }
 }
 ```
@@ -472,7 +472,7 @@ Config: `~/.datasynx/shadowing/config.json`
 
 ```bash
 npm run dev    # tsx src/cli.ts
-npm run test   # vitest (373 Tests, 19 Testdateien)
+npm run test   # vitest (373 tests, 19 test files)
 npm run lint   # tsc --noEmit
 npm run build  # tsup
 ```

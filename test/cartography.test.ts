@@ -117,13 +117,13 @@ describe('findRelevantNodes', () => {
 
 describe('buildFocusedContext', () => {
   it('returns focused context for matching task', () => {
-    const ctx = buildFocusedContext(testGraph, 'SAP Rechnung erstellen');
+    const ctx = buildFocusedContext(testGraph, 'SAP Invoice Creation');
     expect(ctx).toContain('SAP ERP');
     expect(ctx).toContain('Relevant systems');
   });
 
   it('includes related edges for matching nodes', () => {
-    const ctx = buildFocusedContext(testGraph, 'SAP Bestellung anlegen');
+    const ctx = buildFocusedContext(testGraph, 'SAP Purchase Order');
     expect(ctx).toContain('PostgreSQL'); // connected via edge
   });
 
@@ -135,7 +135,7 @@ describe('buildFocusedContext', () => {
   it('uses description for matching', () => {
     const ctx = buildFocusedContext(
       testGraph,
-      'Slack Benachrichtigungen konfigurieren',
+      'Slack Notification Configuration',
     );
     expect(ctx).toContain('Slack');
   });

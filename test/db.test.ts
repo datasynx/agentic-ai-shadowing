@@ -139,7 +139,7 @@ describe('ShadowingDB — SOPs', () => {
     const task = db.createTask('SOP Task');
     const sop = db.createSOP(task.id, {
       title: 'Test SOP',
-      content_md: '# Test\n## Ziel\nTest SOP',
+      content_md: '# Test\n## Objective\nTest SOP',
       tags: ['testing', 'demo'],
     });
 
@@ -176,10 +176,10 @@ describe('ShadowingDB — SOPs', () => {
 
   it('lists SOPs with search filter', () => {
     const task = db.createTask('Search Task');
-    db.createSOP(task.id, { title: 'Billing SOP', content_md: 'Rechnungen erstellen' });
+    db.createSOP(task.id, { title: 'Billing SOP', content_md: 'Create invoices' });
     db.createSOP(task.id, { title: 'Deploy SOP', content_md: 'Server deployment' });
 
-    const results = db.listSOPs({ search: 'Rechnung' });
+    const results = db.listSOPs({ search: 'invoice' });
     expect(results).toHaveLength(1);
     expect(results[0]!.title).toBe('Billing SOP');
   });
@@ -227,7 +227,7 @@ describe('ShadowingDB — Executions', () => {
     const sop = db.createSOP(task.id, { title: 'E', content_md: 'C' });
 
     db.logExecution(sop.id, { duration_seconds: 120, complexity_rating: 3 });
-    db.logExecution(sop.id, { duration_seconds: 150, complexity_rating: 4, notes: 'Langsam' });
+    db.logExecution(sop.id, { duration_seconds: 150, complexity_rating: 4, notes: 'Slow' });
 
     const executions = db.getExecutions(sop.id);
     expect(executions).toHaveLength(2);

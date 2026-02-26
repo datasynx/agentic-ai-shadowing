@@ -7,7 +7,7 @@ export function calculateSOPMetrics(
   weights: MetricsWeights,
 ): SOPMetrics {
   const sop = db.getSOP(sopId);
-  if (!sop) throw new Error(`SOP ${sopId} nicht gefunden.`);
+  if (!sop) throw new Error(`SOP ${sopId} not found.`);
 
   const executions = db.getExecutions(sopId);
   const durations = executions.map(e => e.duration_seconds);
@@ -55,12 +55,12 @@ export function calculateSOPMetrics(
   };
 }
 
-// Niedriger CV = hohe Konsistenz. CV von 10% → 80%, CV von 50% → 0%.
+// Low CV = high consistency. CV of 10% → 80%, CV of 50% → 0%.
 export function calculateConsistencyScore(cv: number): number {
   return Math.max(0, Math.min(100, 100 - cv * 2));
 }
 
-// Gewichteter Score aus mehreren Faktoren.
+// Weighted score from multiple factors.
 export function calculateMaturityScore(
   sop: SOP,
   executionCount: number,
@@ -70,23 +70,23 @@ export function calculateMaturityScore(
   hasDescription: boolean,
 ): number {
   let score = 0;
-  // ≥5 Ausführungen → 30%
+  // >=5 executions → 30%
   score += Math.min(executionCount / 5, 1) * 30;
-  // Review durchgeführt → 30%
+  // Review completed → 30%
   if (hasReview) score += 30;
-  // ≥1 Revision → 20%
+  // >=1 revision → 20%
   if (revisionCount >= 1) score += 20;
-  // Tags vorhanden → 10%
+  // Tags present → 10%
   if (hasTags) score += 10;
-  // Beschreibung vorhanden → 10%
+  // Description present → 10%
   if (hasDescription) score += 10;
   return Math.min(100, score);
 }
 
-// Aktualität basierend auf letztem Review-Zeitpunkt.
+// Freshness based on last review timestamp.
 export function calculateFreshnessScore(sop: SOP, executionCount: number): number {
   if (!sop.reviewed_at) {
-    // Nie reviewed → Score basiert nur auf Alter
+    // Never reviewed → score based on age only
     const ageMs = Date.now() - new Date(sop.updated_at).getTime();
     const ageDays = ageMs / (1000 * 60 * 60 * 24);
     return Math.max(0, Math.min(100, 100 - ageDays * 2));
@@ -95,9 +95,9 @@ export function calculateFreshnessScore(sop: SOP, executionCount: number): numbe
   const reviewAgeMs = Date.now() - new Date(sop.reviewed_at).getTime();
   const reviewAgeDays = reviewAgeMs / (1000 * 60 * 60 * 24);
 
-  // Skalierung nach Frequenz: häufig ausgeführte SOPs veralten schneller
+  // Scale by frequency: frequently executed SOPs become outdated faster
   const frequencyFactor = executionCount > 10 ? 1.5 : executionCount > 5 ? 1.0 : 0.5;
-  const decayRate = frequencyFactor * 0.5; // Punkte pro Tag
+  const decayRate = frequencyFactor * 0.5; // points per day
 
   return Math.max(0, Math.min(100, 100 - reviewAgeDays * decayRate));
 }

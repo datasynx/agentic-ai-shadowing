@@ -6,45 +6,45 @@ import { buildSOPPreview, countSteps } from '../src/sop-generator.js';
 
 describe('countSteps', () => {
   it('counts steps in standard SOP markdown', () => {
-    const md = `# SOP Titel
-## Ziel
-Etwas erledigen.
+    const md = `# SOP Title
+## Objective
+Complete the task.
 
-## Schritte
+## Steps
 
-### Schritt 1: Vorbereitung
-Öffne das System.
+### Step 1: Preparation
+Open the system.
 
-### Schritt 2: Durchführung
-Mache die Sache.
+### Step 2: Execution
+Perform the task.
 
-### Schritt 3: Abschluss
-Schließe alles.
+### Step 3: Completion
+Close everything.
 
-## Erwartetes Ergebnis
-Fertig.`;
+## Expected Result
+Done.`;
     expect(countSteps(md)).toBe(3);
   });
 
   it('returns 0 for content without steps', () => {
-    expect(countSteps('# Einfache SOP\n\nKeine nummerierten Schritte.')).toBe(0);
+    expect(countSteps('# Simple SOP\n\nNo numbered steps.')).toBe(0);
   });
 
   it('does not count non-step headings', () => {
-    const md = `### Schritt 1: OK
-### Abschnitt: Not a step
-### Schritt 2: Also OK`;
+    const md = `### Step 1: OK
+### Section: Not a step
+### Step 2: Also OK`;
     expect(countSteps(md)).toBe(2);
   });
 
   it('handles single step', () => {
-    expect(countSteps('### Schritt 1: Einziger Schritt')).toBe(1);
+    expect(countSteps('### Step 1: Single Step')).toBe(1);
   });
 
   it('handles double-digit step numbers', () => {
     let md = '';
     for (let i = 1; i <= 12; i++) {
-      md += `### Schritt ${i}: Step ${i}\nContent\n\n`;
+      md += `### Step ${i}: Step ${i}\nContent\n\n`;
     }
     expect(countSteps(md)).toBe(12);
   });
@@ -52,14 +52,14 @@ Fertig.`;
 
 describe('buildSOPPreview', () => {
   it('formats preview with tags', () => {
-    const preview = buildSOPPreview('Rechnungserstellung', ['buchhaltung', 'sap'], 5);
-    expect(preview).toContain('Rechnungserstellung');
-    expect(preview).toContain('#buchhaltung');
+    const preview = buildSOPPreview('Invoice Creation', ['accounting', 'sap'], 5);
+    expect(preview).toContain('Invoice Creation');
+    expect(preview).toContain('#accounting');
     expect(preview).toContain('#sap');
     expect(preview).toContain('5');
   });
 
-  it('shows (keine) for empty tags', () => {
+  it('shows (none) for empty tags', () => {
     const preview = buildSOPPreview('Test', [], 3);
     expect(preview).toContain('(none)');
   });
@@ -91,23 +91,23 @@ Content here.
   });
 
   it('title extraction regex works', () => {
-    const md = '# Rechnungserstellung im SAP\n## Ziel\nRechnungen erstellen.';
+    const md = '# Invoice Creation in SAP\n## Objective\nCreate invoices.';
     const titleMatch = md.match(/^#\s+(.+)$/m);
     expect(titleMatch).not.toBeNull();
-    expect(titleMatch![1]!.trim()).toBe('Rechnungserstellung im SAP');
+    expect(titleMatch![1]!.trim()).toBe('Invoice Creation in SAP');
   });
 
   it('goal extraction regex works', () => {
-    const md = `# Titel
-## Ziel
-Eine klare Zielbeschreibung.
+    const md = `# Title
+## Objective
+A clear goal description.
 
-## Voraussetzungen
-SAP-Zugang.`;
+## Prerequisites
+SAP access.`;
 
-    const goalMatch = md.match(/##\s+Ziel\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    const goalMatch = md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
     expect(goalMatch).not.toBeNull();
-    expect(goalMatch![1]!.trim()).toBe('Eine klare Zielbeschreibung.');
+    expect(goalMatch![1]!.trim()).toBe('A clear goal description.');
   });
 
   it('handles tags with # prefix (should be stripped)', () => {
@@ -117,15 +117,15 @@ SAP-Zugang.`;
   });
 
   it('handles missing goal section gracefully', () => {
-    const md = `# Titel
-## Voraussetzungen
-Keine.`;
-    const goalMatch = md.match(/##\s+Ziel\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    const md = `# Title
+## Prerequisites
+None.`;
+    const goalMatch = md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
     expect(goalMatch).toBeNull();
   });
 
   it('handles missing JSON block gracefully', () => {
-    const text = '# SOP\n## Ziel\nJust content, no tags.';
+    const text = '# SOP\n## Objective\nJust content, no tags.';
     const jsonMatch = text.match(/```json\s*\n?\{[\s\S]*?"tags"\s*:\s*\[[\s\S]*?\]\s*\}\s*\n?```/);
     expect(jsonMatch).toBeNull();
   });

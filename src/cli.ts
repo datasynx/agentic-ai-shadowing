@@ -30,15 +30,15 @@ const program = new Command();
 
 program
   .name('shadowing')
-  .description('Agentic AI Shadowing — beobachtet Tasks, generiert SOPs')
+  .description('Agentic AI Shadowing — observes tasks, generates SOPs')
   .version('0.1.0');
 
-// ── Helper: DB + Config laden ────────────────────────────────────────────────
+// ── Helper: Load DB + Config ─────────────────────────────────────────────────
 
 function openDB(): ShadowingDB {
   const dbPath = getDbPath();
   if (!existsSync(dbPath)) {
-    process.stderr.write('Datenbank nicht gefunden. Bitte zuerst "shadowing init" ausführen.\n');
+    process.stderr.write('Database not found. Please run "shadowing init" first.\n');
     process.exitCode = 1;
     throw new Error('DB not initialized');
   }
@@ -51,14 +51,14 @@ function openDB(): ShadowingDB {
 
 program
   .command('init')
-  .description('Erstmalige Einrichtung (DB + Config anlegen)')
+  .description('Initial setup (create DB + config)')
   .action(() => {
     // Check cartography package (optional — just informational)
     const cartoCheck = checkCartographyInstalled();
     if (!cartoCheck.installed) {
       process.stderr.write(
-        `Hinweis: agentic-ai-cartography ist nicht installiert.\n` +
-        `Für Cartography-Kontext in SOPs können Sie es optional installieren:\n\n` +
+        `Note: agentic-ai-cartography is not installed.\n` +
+        `For cartography context in SOPs you can optionally install it:\n\n` +
         `  npm install @datasynx/agentic-ai-cartography\n\n`,
       );
     }
@@ -76,29 +76,29 @@ program
     const config = loadConfig();
     if (cartoCheck.jgfPath) {
       config.cartography_graph_path = cartoCheck.jgfPath;
-      process.stderr.write(`  Cartography-Graph gefunden: ${cartoCheck.jgfPath}\n`);
+      process.stderr.write(`  Cartography graph found: ${cartoCheck.jgfPath}\n`);
     } else {
       process.stderr.write(
-        `  Hinweis: cartography-graph.jgf.json nicht gefunden.\n` +
-        `  Führen Sie zuerst einen Discovery-Run in agentic-ai-cartography aus,\n` +
-        `  dann "shadowing import-graph <pfad>" oder legen Sie die Datei ab in:\n` +
+        `  Note: cartography-graph.jgf.json not found.\n` +
+        `  Run a discovery run in agentic-ai-cartography first,\n` +
+        `  then "shadowing import-graph <path>" or place the file at:\n` +
         `    - ./datasynx-output/cartography-graph.jgf.json\n` +
         `    - ${getConfigDir()}/cartography-graph.jgf.json\n`,
       );
     }
     saveConfig(config);
 
-    process.stderr.write(`\nShadowing initialisiert.\n`);
+    process.stderr.write(`\nShadowing initialized.\n`);
     process.stderr.write(`  DB:     ${dbPath}\n`);
     process.stderr.write(`  Config: ${configPath}\n`);
-    process.stderr.write(`\nStarte mit: shadowing start\n`);
+    process.stderr.write(`\nGet started with: shadowing start\n`);
   });
 
 // ── shadowing start ──────────────────────────────────────────────────────────
 
 program
   .command('start')
-  .description('Interaktiven Shadowing-Modus starten')
+  .description('Start interactive shadowing mode')
   .action(async () => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -115,8 +115,8 @@ program
     // Check for existing active task
     const active = tm.getActiveTask();
     if (active) {
-      process.stderr.write(`  Laufender Task: "${active.title}"\n`);
-      process.stderr.write(`  Gestartet: ${active.started_at}\n\n`);
+      process.stderr.write(`  Active task: "${active.title}"\n`);
+      process.stderr.write(`  Started: ${active.started_at}\n\n`);
     }
 
     // Main loop
@@ -125,35 +125,35 @@ program
       const currentTask = tm.getActiveTask();
 
       if (!currentTask) {
-        const startNew = await confirm({ message: 'Neuen Task starten?' });
+        const startNew = await confirm({ message: 'Start a new task?' });
         if (!startNew) {
           running = false;
           break;
         }
 
-        const title = await input({ message: 'Task-Titel:' });
+        const title = await input({ message: 'Task title:' });
         if (!title.trim()) continue;
 
-        const description = await input({ message: 'Kurze Beschreibung (optional):' });
+        const description = await input({ message: 'Short description (optional):' });
         const task = tm.startTask(title.trim(), description.trim() || undefined);
-        process.stderr.write(`\n  Task gestartet: "${task.title}" (ID: ${task.id.substring(0, 8)})\n\n`);
+        process.stderr.write(`\n  Task started: "${task.title}" (ID: ${task.id.substring(0, 8)})\n\n`);
         continue;
       }
 
       // Task is active — show options
       const elapsed = Math.round((Date.now() - new Date(currentTask.started_at).getTime()) / 1000);
-      process.stderr.write(`\n  Aktueller Task: "${currentTask.title}"\n`);
-      process.stderr.write(`  Laufzeit: ${formatDuration(elapsed)}\n\n`);
+      process.stderr.write(`\n  Current task: "${currentTask.title}"\n`);
+      process.stderr.write(`  Elapsed: ${formatDuration(elapsed)}\n\n`);
 
       const action = await select({
-        message: 'Was möchtest du tun?',
+        message: 'What would you like to do?',
         choices: [
-          { value: 'complete', name: 'Task abschließen -> SOP generieren' },
-          { value: 'pause', name: 'Task pausieren' },
-          { value: 'cancel', name: 'Task abbrechen (keine SOP)' },
-          { value: 'note', name: 'Notiz zum aktuellen Schritt hinzufügen' },
-          { value: 'new', name: 'Neuen Task starten (aktuellen beenden)' },
-          { value: 'quit', name: 'Shadowing beenden' },
+          { value: 'complete', name: 'Complete task -> Generate SOP' },
+          { value: 'pause', name: 'Pause task' },
+          { value: 'cancel', name: 'Cancel task (no SOP)' },
+          { value: 'note', name: 'Add note to current step' },
+          { value: 'new', name: 'Start new task (finish current)' },
+          { value: 'quit', name: 'Exit shadowing' },
         ],
       });
 
@@ -161,19 +161,19 @@ program
         switch (action) {
           case 'complete': {
             const complexity = await select({
-              message: 'Wie komplex war dieser Task? (1-5)',
+              message: 'How complex was this task? (1-5)',
               choices: [
-                { value: 1, name: '1 - Sehr einfach' },
-                { value: 2, name: '2 - Einfach' },
-                { value: 3, name: '3 - Mittel' },
-                { value: 4, name: '4 - Komplex' },
-                { value: 5, name: '5 - Sehr komplex' },
+                { value: 1, name: '1 - Very simple' },
+                { value: 2, name: '2 - Simple' },
+                { value: 3, name: '3 - Medium' },
+                { value: 4, name: '4 - Complex' },
+                { value: 5, name: '5 - Very complex' },
               ],
             });
 
             const { task, duration } = tm.completeTask(complexity);
-            process.stderr.write(`\n  Task abgeschlossen. Dauer: ${duration}\n`);
-            process.stderr.write('  SOP wird generiert...\n\n');
+            process.stderr.write(`\n  Task completed. Duration: ${duration}\n`);
+            process.stderr.write('  Generating SOP...\n\n');
 
             try {
               const result = await gen.generateSOP(task);
@@ -193,31 +193,31 @@ program
               }
 
               const steps = countSteps(result.content_md);
-              process.stderr.write(`  SOP generiert!\n`);
+              process.stderr.write(`  SOP generated!\n`);
               process.stderr.write(buildSOPPreview(result.title, result.tags, steps) + '\n\n');
 
               const sopAction = await select({
-                message: 'SOP-Aktion:',
+                message: 'SOP action:',
                 choices: [
-                  { value: 'accept', name: 'SOP akzeptieren' },
-                  { value: 'edit', name: 'SOP bearbeiten (öffnet Editor)' },
-                  { value: 'regenerate', name: 'SOP neu generieren' },
-                  { value: 'discard', name: 'SOP verwerfen' },
+                  { value: 'accept', name: 'Accept SOP' },
+                  { value: 'edit', name: 'Edit SOP (opens editor)' },
+                  { value: 'regenerate', name: 'Regenerate SOP' },
+                  { value: 'discard', name: 'Discard SOP' },
                 ],
               });
 
               if (sopAction === 'accept') {
                 db.updateSOPStatus(sop.id, 'reviewed');
-                process.stderr.write('  SOP akzeptiert und als "reviewed" markiert.\n');
+                process.stderr.write('  SOP accepted and marked as "reviewed".\n');
               } else if (sopAction === 'edit') {
                 await editSOPInEditor(db, sop.id, config.editor);
               } else if (sopAction === 'regenerate') {
-                process.stderr.write('  SOP wird neu generiert...\n');
+                process.stderr.write('  Regenerating SOP...\n');
                 await gen.regenerateSOP(sop.id);
-                process.stderr.write('  Neue Version erstellt.\n');
+                process.stderr.write('  New version created.\n');
               } else if (sopAction === 'discard') {
                 db.deleteSOP(sop.id);
-                process.stderr.write('  SOP verworfen.\n');
+                process.stderr.write('  SOP discarded.\n');
               }
             } catch (err) {
               if (err instanceof SOPGenerationError) {
@@ -226,44 +226,44 @@ program
                     process.stderr.write(`  ${err.message}`);
                     break;
                   case 'auth_failed':
-                    process.stderr.write(`  Authentifizierung fehlgeschlagen: ${err.message}\n`);
+                    process.stderr.write(`  Authentication failed: ${err.message}\n`);
                     break;
                   case 'rate_limited':
-                    process.stderr.write(`  API-Limit erreicht: ${err.message}\n`);
-                    process.stderr.write('  Tipp: Versuche es in einigen Minuten erneut mit "shadowing edit <sop-id>".\n');
+                    process.stderr.write(`  API rate limit reached: ${err.message}\n`);
+                    process.stderr.write('  Tip: Try again in a few minutes with "shadowing edit <sop-id>".\n');
                     break;
                   case 'api_error':
-                    process.stderr.write(`  Claude API Fehler: ${err.message}\n`);
+                    process.stderr.write(`  Claude API error: ${err.message}\n`);
                     break;
                   case 'parse_error':
-                    process.stderr.write(`  Parsing-Fehler: ${err.message}\n`);
+                    process.stderr.write(`  Parsing error: ${err.message}\n`);
                     break;
                   default:
-                    process.stderr.write(`  Fehler bei SOP-Generierung: ${err.message}\n`);
+                    process.stderr.write(`  Error during SOP generation: ${err.message}\n`);
                 }
               } else {
-                process.stderr.write(`  Unerwarteter Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+                process.stderr.write(`  Unexpected error: ${err instanceof Error ? err.message : String(err)}\n`);
               }
-              process.stderr.write('  Task wurde trotzdem als abgeschlossen markiert.\n');
+              process.stderr.write('  Task was still marked as completed.\n');
             }
             break;
           }
 
           case 'pause':
             tm.pauseTask();
-            process.stderr.write('  Task pausiert.\n');
+            process.stderr.write('  Task paused.\n');
             break;
 
           case 'cancel':
             tm.cancelTask();
-            process.stderr.write('  Task abgebrochen.\n');
+            process.stderr.write('  Task cancelled.\n');
             break;
 
           case 'note': {
-            const note = await input({ message: 'Notiz:' });
+            const note = await input({ message: 'Note:' });
             if (note.trim()) {
               tm.addNote(note.trim());
-              process.stderr.write('  Notiz hinzugefügt.\n');
+              process.stderr.write('  Note added.\n');
             }
             break;
           }
@@ -271,7 +271,7 @@ program
           case 'new': {
             // Complete current task first
             const { duration } = tm.completeTask();
-            process.stderr.write(`  Task abgeschlossen (${duration}). Starte neuen Task...\n`);
+            process.stderr.write(`  Task completed (${duration}). Starting new task...\n`);
             break;
           }
 
@@ -280,19 +280,19 @@ program
             break;
         }
       } catch (err) {
-        process.stderr.write(`  Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(`  Error: ${err instanceof Error ? err.message : String(err)}\n`);
       }
     }
 
     db.close();
-    process.stderr.write('\nShadowing beendet.\n');
+    process.stderr.write('\nShadowing ended.\n');
   });
 
 // ── shadowing status ─────────────────────────────────────────────────────────
 
 program
   .command('status')
-  .description('Aktuellen Task und Statistiken anzeigen')
+  .description('Show current task and statistics')
   .action(() => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -303,14 +303,14 @@ program
 
     if (active) {
       const elapsed = Math.round((Date.now() - new Date(active.started_at).getTime()) / 1000);
-      process.stderr.write(`\n  Aktiver Task: "${active.title}"\n`);
-      process.stderr.write(`  Laufzeit: ${formatDuration(elapsed)}\n`);
-      if (active.description) process.stderr.write(`  Beschreibung: ${active.description.substring(0, 80)}\n`);
+      process.stderr.write(`\n  Active task: "${active.title}"\n`);
+      process.stderr.write(`  Elapsed: ${formatDuration(elapsed)}\n`);
+      if (active.description) process.stderr.write(`  Description: ${active.description.substring(0, 80)}\n`);
     } else {
-      process.stderr.write('\n  Kein aktiver Task.\n');
+      process.stderr.write('\n  No active task.\n');
     }
 
-    process.stderr.write(`\n  Tasks: ${stats.total_tasks} (${stats.completed_tasks} abgeschlossen)\n`);
+    process.stderr.write(`\n  Tasks: ${stats.total_tasks} (${stats.completed_tasks} completed)\n`);
     process.stderr.write(`  SOPs:  ${stats.total_sops} (${stats.approved_sops} approved, ${stats.draft_sops} draft)\n`);
     process.stderr.write(`  Tags:  ${stats.total_tags} | Exports: ${stats.total_exports}\n\n`);
 
@@ -321,10 +321,10 @@ program
 
 program
   .command('list')
-  .description('Alle SOPs auflisten')
-  .option('--status <status>', 'Filter nach Status (draft/reviewed/approved/exported/archived)')
-  .option('--tag <tag>', 'Filter nach Tag')
-  .option('--search <query>', 'Freitextsuche')
+  .description('List all SOPs')
+  .option('--status <status>', 'Filter by status (draft/reviewed/approved/exported/archived)')
+  .option('--tag <tag>', 'Filter by tag')
+  .option('--search <query>', 'Free-text search')
   .action((opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -336,7 +336,7 @@ program
     });
 
     if (sops.length === 0) {
-      process.stderr.write('\n  Keine SOPs gefunden.\n\n');
+      process.stderr.write('\n  No SOPs found.\n\n');
       db.close();
       return;
     }
@@ -361,7 +361,7 @@ program
 
 program
   .command('show <sop-id>')
-  .description('Eine SOP im Terminal anzeigen')
+  .description('Display an SOP in the terminal')
   .action((sopId: string) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -374,10 +374,10 @@ program
     const metrics = calculateSOPMetrics(db, sop.id, config.metrics.quality_score_weights);
 
     process.stderr.write(`\n  ID: ${sop.id} | Version: ${sop.version} | Status: ${sop.status}\n`);
-    process.stderr.write(`  Tags: ${tags || '(keine)'}\n`);
+    process.stderr.write(`  Tags: ${tags || '(none)'}\n`);
     if (metrics.execution_count > 0) {
-      process.stderr.write(`  Ausführungen: ${metrics.execution_count} | Avg: ${formatDuration(metrics.avg_duration_seconds)}\n`);
-      process.stderr.write(`  Qualität: ${metrics.overall_quality_score}%\n`);
+      process.stderr.write(`  Executions: ${metrics.execution_count} | Avg: ${formatDuration(metrics.avg_duration_seconds)}\n`);
+      process.stderr.write(`  Quality: ${metrics.overall_quality_score}%\n`);
     }
     process.stderr.write('\n---\n\n');
     process.stdout.write(sop.content_md + '\n');
@@ -389,7 +389,7 @@ program
 
 program
   .command('edit <sop-id>')
-  .description('SOP im Standard-Editor öffnen')
+  .description('Open SOP in default editor')
   .action((sopId: string) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -406,7 +406,7 @@ program
 
 program
   .command('delete <sop-id>')
-  .description('SOP unwiderruflich löschen')
+  .description('Delete SOP permanently')
   .action(async (sopId: string) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -415,10 +415,10 @@ program
     if (!sop) { db.close(); return; }
 
     const { confirm } = await import('@inquirer/prompts');
-    const yes = await confirm({ message: `SOP "${sop.title}" wirklich löschen?` });
+    const yes = await confirm({ message: `Really delete SOP "${sop.title}"?` });
     if (yes) {
       db.deleteSOP(sop.id);
-      process.stderr.write('  SOP gelöscht.\n');
+      process.stderr.write('  SOP deleted.\n');
     }
     db.close();
   });
@@ -427,7 +427,7 @@ program
 
 program
   .command('history <sop-id>')
-  .description('Versionshistorie einer SOP anzeigen')
+  .description('Show version history of an SOP')
   .action((sopId: string) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -436,10 +436,10 @@ program
     if (!sop) { db.close(); return; }
 
     const versions = db.getSOPVersions(sop.id);
-    process.stderr.write(`\n  Versionshistorie: "${sop.title}" (aktuell: v${sop.version})\n\n`);
+    process.stderr.write(`\n  Version history: "${sop.title}" (current: v${sop.version})\n\n`);
 
     if (versions.length === 0) {
-      process.stderr.write('  Keine älteren Versionen vorhanden.\n\n');
+      process.stderr.write('  No older versions available.\n\n');
       db.close();
       return;
     }
@@ -448,7 +448,7 @@ program
       const summary = v.change_summary ? ` — ${v.change_summary}` : '';
       process.stderr.write(`  v${v.version}  ${v.changed_at}  "${v.title}"${summary}\n`);
     }
-    process.stderr.write(`\n  Nutze "shadowing diff <sop-id> <version>" um Änderungen zu sehen.\n\n`);
+    process.stderr.write(`\n  Use "shadowing diff <sop-id> <version>" to see changes.\n\n`);
 
     db.close();
   });
@@ -457,9 +457,9 @@ program
 
 program
   .command('diff <sop-id> [version]')
-  .description('Diff zwischen SOP-Versionen anzeigen')
-  .option('--from <version>', 'Ausgangsversion (default: vorherige)')
-  .option('--to <version>', 'Zielversion (default: aktuell)')
+  .description('Show diff between SOP versions')
+  .option('--from <version>', 'Source version (default: previous)')
+  .option('--to <version>', 'Target version (default: current)')
   .action((sopId: string, versionArg: string | undefined, opts: { from?: string; to?: string }) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -478,7 +478,7 @@ program
       newVersion = sop.version;
       const v = db.getSOPVersion(sop.id, oldVersion);
       if (!v) {
-        process.stderr.write(`  Version ${oldVersion} nicht gefunden.\n`);
+        process.stderr.write(`  Version ${oldVersion} not found.\n`);
         db.close();
         return;
       }
@@ -489,14 +489,14 @@ program
       newVersion = parseInt(opts.to, 10);
       const vFrom = db.getSOPVersion(sop.id, oldVersion);
       const vTo = newVersion === sop.version ? null : db.getSOPVersion(sop.id, newVersion);
-      if (!vFrom) { process.stderr.write(`  Version ${oldVersion} nicht gefunden.\n`); db.close(); return; }
+      if (!vFrom) { process.stderr.write(`  Version ${oldVersion} not found.\n`); db.close(); return; }
       oldContent = vFrom.content_md;
       newContent = vTo ? vTo.content_md : sop.content_md;
     } else {
       // Default: previous version vs current
       const versions = db.getSOPVersions(sop.id);
       if (versions.length === 0) {
-        process.stderr.write('  Keine älteren Versionen zum Vergleichen.\n');
+        process.stderr.write('  No older versions to compare.\n');
         db.close();
         return;
       }
@@ -519,7 +519,7 @@ program
 
 program
   .command('tag <sop-id> <tags...>')
-  .description('Tags hinzufügen (+tag) oder entfernen (-tag)')
+  .description('Add (+tag) or remove (-tag) tags')
   .action((sopId: string, tags: string[]) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -534,12 +534,12 @@ program
         const match = allTags.find(t => t.name.toLowerCase() === name.toLowerCase());
         if (match) {
           db.removeTagFromSOP(sop.id, match.id);
-          process.stderr.write(`  Tag entfernt: #${name}\n`);
+          process.stderr.write(`  Tag removed: #${name}\n`);
         }
       } else {
         const name = raw.startsWith('+') ? raw.substring(1) : raw;
         db.addTagToSOP(sop.id, name, false);
-        process.stderr.write(`  Tag hinzugefügt: #${name}\n`);
+        process.stderr.write(`  Tag added: #${name}\n`);
       }
     }
 
@@ -550,7 +550,7 @@ program
 
 program
   .command('stats')
-  .description('Metriken-Dashboard im Terminal')
+  .description('Metrics dashboard in terminal')
   .action(() => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -558,14 +558,14 @@ program
     const stats = db.getGlobalStats();
     const config = loadConfig();
 
-    process.stderr.write('\n  === Shadowing Statistiken ===\n\n');
-    process.stderr.write(`  Tasks:        ${stats.total_tasks} gesamt (${stats.completed_tasks} abgeschlossen, ${stats.active_tasks} aktiv)\n`);
-    process.stderr.write(`  SOPs:         ${stats.total_sops} gesamt\n`);
+    process.stderr.write('\n  === Shadowing Statistics ===\n\n');
+    process.stderr.write(`  Tasks:        ${stats.total_tasks} total (${stats.completed_tasks} completed, ${stats.active_tasks} active)\n`);
+    process.stderr.write(`  SOPs:         ${stats.total_sops} total\n`);
     process.stderr.write(`    Draft:      ${stats.draft_sops}\n`);
     process.stderr.write(`    Reviewed:   ${stats.reviewed_sops}\n`);
     process.stderr.write(`    Approved:   ${stats.approved_sops}\n`);
     process.stderr.write(`    Exported:   ${stats.exported_sops}\n`);
-    process.stderr.write(`  Ausführungen: ${stats.total_executions}\n`);
+    process.stderr.write(`  Executions: ${stats.total_executions}\n`);
     process.stderr.write(`  Tags:         ${stats.total_tags}\n`);
     process.stderr.write(`  Exports:      ${stats.total_exports}\n`);
 
@@ -594,8 +594,8 @@ program
 
 program
   .command('export')
-  .description('SOPs exportieren')
-  .option('--all', 'Alle approved SOPs exportieren')
+  .description('Export SOPs')
+  .option('--all', 'Export all approved SOPs')
   .action(async (opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -607,10 +607,10 @@ program
     if (opts.all) {
       try {
         const result = exporter.exportAll();
-        process.stderr.write(`\n  ${result.sop_count} SOP(s) exportiert.\n`);
-        process.stderr.write(`  Pfad: ${result.export_path}\n\n`);
+        process.stderr.write(`\n  ${result.sop_count} SOP(s) exported.\n`);
+        process.stderr.write(`  Path: ${result.export_path}\n\n`);
       } catch (err) {
-        process.stderr.write(`  Fehler: ${err instanceof Error ? err.message : err}\n`);
+        process.stderr.write(`  Error: ${err instanceof Error ? err.message : err}\n`);
       }
       db.close();
       return;
@@ -622,14 +622,14 @@ program
     const available = [...approved, ...reviewed];
 
     if (available.length === 0) {
-      process.stderr.write('\n  Keine SOPs zum Exportieren. SOPs müssen "approved" oder "reviewed" sein.\n\n');
+      process.stderr.write('\n  No SOPs to export. SOPs must be "approved" or "reviewed".\n\n');
       db.close();
       return;
     }
 
     const { checkbox, confirm } = await import('@inquirer/prompts');
     const selected = await checkbox({
-      message: 'SOPs zum Export auswählen:',
+      message: 'Select SOPs to export:',
       choices: available.map(s => ({
         value: s.id,
         name: `[${s.status}] ${s.title}`,
@@ -637,16 +637,16 @@ program
     });
 
     if (selected.length === 0) {
-      process.stderr.write('  Keine SOPs ausgewählt.\n');
+      process.stderr.write('  No SOPs selected.\n');
       db.close();
       return;
     }
 
-    const yes = await confirm({ message: `${selected.length} SOP(s) anonymisiert exportieren?` });
+    const yes = await confirm({ message: `${selected.length} SOP(s) with anonymization?` });
     if (yes) {
       const result = exporter.exportSOPs(selected);
-      process.stderr.write(`\n  ${result.sop_count} SOP(s) exportiert.\n`);
-      process.stderr.write(`  Pfad: ${result.export_path}\n\n`);
+      process.stderr.write(`\n  ${result.sop_count} SOP(s) exported.\n`);
+      process.stderr.write(`  Path: ${result.export_path}\n\n`);
     }
 
     db.close();
@@ -656,7 +656,7 @@ program
 
 program
   .command('ui')
-  .description('Web-Dashboard starten')
+  .description('Start web dashboard')
   .option('-p, --port <port>', 'Port (default: config.ui_port)')
   .action(async (opts) => {
     let db: ShadowingDB;
@@ -669,15 +669,15 @@ program
     const server = createUIServer(db, config);
 
     server.listen(port, () => {
-      process.stderr.write(`\n  Shadowing Dashboard gestartet.\n`);
+      process.stderr.write(`\n  Shadowing Dashboard started.\n`);
       process.stderr.write(`  http://localhost:${port}\n\n`);
-      process.stderr.write('  Strg+C zum Beenden.\n');
+      process.stderr.write('  Ctrl+C to quit.\n');
     });
 
     process.on('SIGINT', () => {
       server.close();
       db.close();
-      process.stderr.write('\n  Dashboard beendet.\n');
+      process.stderr.write('\n  Dashboard stopped.\n');
     });
   });
 
@@ -685,10 +685,10 @@ program
 
 program
   .command('import-graph <path>')
-  .description('Cartography-Graph (JGF) importieren')
+  .description('Import cartography graph (JGF)')
   .action((path: string) => {
     if (!existsSync(path)) {
-      process.stderr.write(`  Datei nicht gefunden: ${path}\n`);
+      process.stderr.write(`  File not found: ${path}\n`);
       process.exitCode = 1;
       return;
     }
@@ -696,8 +696,8 @@ program
     // Validate the file is a valid JGF or CartographyGraph
     const graph = loadJGFFile(path);
     if (!graph) {
-      process.stderr.write(`  Datei konnte nicht als Cartography-Graph geladen werden: ${path}\n`);
-      process.stderr.write(`  Erwartet: cartography-graph.jgf.json (JGF-Format)\n`);
+      process.stderr.write(`  File could not be loaded as cartography graph: ${path}\n`);
+      process.stderr.write(`  Expected: cartography-graph.jgf.json (JGF format)\n`);
       process.exitCode = 1;
       return;
     }
@@ -705,15 +705,15 @@ program
     const config = loadConfig();
     config.cartography_graph_path = path;
     saveConfig(config);
-    process.stderr.write(`  Cartography-Graph importiert: ${path}\n`);
-    process.stderr.write(`  ${graph.nodes.length} Knoten, ${graph.edges.length} Kanten geladen.\n`);
+    process.stderr.write(`  Cartography graph imported: ${path}\n`);
+    process.stderr.write(`  ${graph.nodes.length} nodes, ${graph.edges.length} edges loaded.\n`);
   });
 
 // ── shadowing config ─────────────────────────────────────────────────────────
 
 program
   .command('config')
-  .description('Konfiguration bearbeiten')
+  .description('Edit configuration')
   .action(() => {
     const configPath = getConfigPath();
     if (!existsSync(configPath)) {
@@ -724,10 +724,10 @@ program
 
     try {
       execSync(`${editor} "${configPath}"`, { stdio: 'inherit' });
-      process.stderr.write('  Config gespeichert.\n');
+      process.stderr.write('  Config saved.\n');
     } catch {
-      process.stderr.write(`  Editor konnte nicht gestartet werden: ${editor}\n`);
-      process.stderr.write(`  Config-Pfad: ${configPath}\n`);
+      process.stderr.write(`  Could not start editor: ${editor}\n`);
+      process.stderr.write(`  Config path: ${configPath}\n`);
     }
   });
 
@@ -735,11 +735,11 @@ program
 
 program
   .command('reset')
-  .description('Alle Daten löschen')
+  .description('Delete all data')
   .action(async () => {
     const { confirm } = await import('@inquirer/prompts');
     const yes = await confirm({
-      message: 'Alle Daten (DB + Config) unwiderruflich löschen?',
+      message: 'Permanently delete all data (DB + Config)?',
       default: false,
     });
 
@@ -751,19 +751,19 @@ program
     try { if (existsSync(dbPath)) unlinkSync(dbPath); } catch { /* ok */ }
     try { if (existsSync(configPath)) unlinkSync(configPath); } catch { /* ok */ }
 
-    process.stderr.write('  Alle Daten gelöscht. "shadowing init" zum Neustart.\n');
+    process.stderr.write('  All data deleted. Run "shadowing init" to restart.\n');
   });
 
 // ── shadowing observe ────────────────────────────────────────────────────────
 
 program
   .command('observe')
-  .description('Beobachtungsmodus starten (automatische Workflow-Erfassung)')
-  .option('--interval <ms>', 'Poll-Intervall in Millisekunden', '5000')
-  .option('--no-shell', 'Shell-History nicht erfassen')
-  .option('--work-hours', 'Nur während Arbeitszeiten erfassen')
-  .option('--auto-sop', 'Nach Beobachtung automatisch Tasks erkennen und SOPs generieren')
-  .option('--no-window', 'Fenster-Erkennung deaktivieren')
+  .description('Start observation mode (automatic workflow capture)')
+  .option('--interval <ms>', 'Poll interval in milliseconds', '5000')
+  .option('--no-shell', 'Do not capture shell history')
+  .option('--work-hours', 'Only capture during work hours')
+  .option('--auto-sop', 'Automatically detect tasks and generate SOPs after observation')
+  .option('--no-window', 'Disable window detection')
   .action(async (opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -773,18 +773,18 @@ program
     // Check consent
     if (!privacy.hasConsent('all')) {
       const { confirm } = await import('@inquirer/prompts');
-      process.stderr.write('\n  Beobachtungsmodus erfordert Zustimmung zur Datenerfassung.\n');
-      process.stderr.write('  Erfasst werden: aktive Fenster, Shell-Befehle, Dateiänderungen.\n');
-      process.stderr.write('  Alle Daten bleiben lokal. Keine Cloud-Übertragung.\n\n');
+      process.stderr.write('\n  Observation mode requires consent for data collection.\n');
+      process.stderr.write('  Captured: active windows, shell commands, file changes.\n');
+      process.stderr.write('  All data stays local. No cloud transmission.\n\n');
 
-      const yes = await confirm({ message: 'Zustimmung zur Beobachtung erteilen?' });
+      const yes = await confirm({ message: 'Grant consent for observation?' });
       if (!yes) {
-        process.stderr.write('  Beobachtung abgebrochen.\n');
+        process.stderr.write('  Observation cancelled.\n');
         db.close();
         return;
       }
       privacy.grantConsent('all');
-      process.stderr.write('  Zustimmung erteilt.\n\n');
+      process.stderr.write('  Consent granted.\n\n');
     }
 
     const observer = new Observer(db, {
@@ -803,16 +803,16 @@ program
       const detector = createWindowDetector();
       if (detector) {
         observer.setWindowDetector(detector);
-        process.stderr.write('  Fenster-Erkennung aktiv.\n');
+        process.stderr.write('  Window detection active.\n');
       }
     }
 
     const { input } = await import('@inquirer/prompts');
 
     const session = observer.start();
-    process.stderr.write(`\n  Beobachtung gestartet (Session: ${session.id.substring(0, 8)})\n`);
-    process.stderr.write(`  Intervall: ${opts.interval}ms\n`);
-    process.stderr.write('  Befehle: "stop" = beenden, "pause" = pausieren, "note" = Notiz\n\n');
+    process.stderr.write(`\n  Observation started (Session: ${session.id.substring(0, 8)})\n`);
+    process.stderr.write(`  Interval: ${opts.interval}ms\n`);
+    process.stderr.write('  Commands: "stop" = end, "pause" = pause, "note" = add note\n\n');
 
     let running = true;
     while (running) {
@@ -825,11 +825,11 @@ program
         case 'exit': {
           const completed = observer.stop();
           if (completed) {
-            process.stderr.write(`  Session beendet. ${completed.total_actions} Aktionen erfasst.\n`);
+            process.stderr.write(`  Session ended. ${completed.total_actions} actions captured.\n`);
 
             // Auto-SOP: analyze session and generate tasks + SOPs
             if (opts.autoSop && completed.total_actions > 0) {
-              process.stderr.write('\n  Analysiere Beobachtungen...\n');
+              process.stderr.write('\n  Analyzing observations...\n');
               try {
                 const config = loadConfig();
                 const analyzer = new SessionAnalyzer(config, db);
@@ -840,13 +840,13 @@ program
                 }
               } catch (err) {
                 if (err instanceof SOPGenerationError) {
-                  process.stderr.write(`  SOP-Analyse fehlgeschlagen: ${err.message}\n`);
+                  process.stderr.write(`  SOP analysis failed: ${err.message}\n`);
                 } else {
-                  process.stderr.write(`  Analyse-Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+                  process.stderr.write(`  Analysis error: ${err instanceof Error ? err.message : String(err)}\n`);
                 }
               }
             } else if (!opts.autoSop && completed.total_actions > 0) {
-              process.stderr.write('  Tipp: Verwende --auto-sop oder "shadowing analyze" für automatische SOP-Generierung.\n');
+              process.stderr.write('  Tip: Use --auto-sop or "shadowing analyze" for automatic SOP generation.\n');
             }
           }
           running = false;
@@ -854,17 +854,17 @@ program
         }
         case 'pause':
           observer.pause();
-          process.stderr.write('  Beobachtung pausiert.\n');
+          process.stderr.write('  Observation paused.\n');
           break;
         case 'resume':
           observer.resume();
-          process.stderr.write('  Beobachtung fortgesetzt.\n');
+          process.stderr.write('  Observation resumed.\n');
           break;
         case 'note': {
-          const note = await input({ message: 'Notiz:' }).catch(() => '');
+          const note = await input({ message: 'Note:' }).catch(() => '');
           if (note.trim()) {
             observer.logManualAction(note.trim());
-            process.stderr.write('  Notiz erfasst.\n');
+            process.stderr.write('  Note captured.\n');
           }
           break;
         }
@@ -874,14 +874,14 @@ program
             const summary = db.getActionSummary(s.id);
             process.stderr.write(`  Session: ${s.id.substring(0, 8)} | Status: ${s.status}\n`);
             for (const item of summary) {
-              process.stderr.write(`    ${item.source}: ${item.count} Aktionen (${formatDuration(item.total_seconds)})\n`);
+              process.stderr.write(`    ${item.source}: ${item.count} actions (${formatDuration(item.total_seconds)})\n`);
             }
           }
           break;
         }
         default:
           if (trimmed) {
-            process.stderr.write('  Unbekannter Befehl. Verfügbar: stop, pause, resume, note, status\n');
+            process.stderr.write('  Unknown command. Available: stop, pause, resume, note, status\n');
           }
       }
     }
@@ -896,9 +896,9 @@ program
 
 program
   .command('timeline [session-id]')
-  .description('Zeitachse einer Beobachtungssession anzeigen')
-  .option('--source <source>', 'Filter nach Quelle (window/shell/git/file/manual)')
-  .option('--limit <n>', 'Maximale Anzahl Einträge', '50')
+  .description('Show timeline of an observation session')
+  .option('--source <source>', 'Filter by source (window/shell/git/file/manual)')
+  .option('--limit <n>', 'Maximum number of entries', '50')
   .action((sessionId: string | undefined, opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -917,7 +917,7 @@ program
       }
 
       if (!session) {
-        process.stderr.write('  Keine Beobachtungssession gefunden.\n');
+        process.stderr.write('  No observation session found.\n');
         db.close();
         return;
       }
@@ -931,19 +931,19 @@ program
     });
 
     if (actions.length === 0) {
-      process.stderr.write('  Keine Aktionen aufgezeichnet.\n\n');
+      process.stderr.write('  No actions recorded.\n\n');
       db.close();
       return;
     }
 
     // Summary first
     const summary = db.getActionSummary(session.id);
-    process.stderr.write('\n  Zusammenfassung:\n');
+    process.stderr.write('\n  Summary:\n');
     for (const item of summary) {
-      process.stderr.write(`    ${item.source.padEnd(8)} ${String(item.count).padStart(4)} Aktionen  ${formatDuration(item.total_seconds)}\n`);
+      process.stderr.write(`    ${item.source.padEnd(8)} ${String(item.count).padStart(4)} actions  ${formatDuration(item.total_seconds)}\n`);
     }
 
-    process.stderr.write(`\n  Letzte ${actions.length} Aktionen:\n\n`);
+    process.stderr.write(`\n  Last ${actions.length} actions:\n\n`);
 
     for (const action of actions.reverse()) {
       const time = action.started_at.substring(11, 19);
@@ -974,7 +974,7 @@ program
 
 program
   .command('sessions')
-  .description('Beobachtungssessions auflisten')
+  .description('List observation sessions')
   .action(() => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -982,7 +982,7 @@ program
     const sessions = db.listObservationSessions();
 
     if (sessions.length === 0) {
-      process.stderr.write('\n  Keine Beobachtungssessions vorhanden.\n\n');
+      process.stderr.write('\n  No observation sessions available.\n\n');
       db.close();
       return;
     }
@@ -992,7 +992,7 @@ program
       const statusIcon = s.status === 'active' ? '[>>]' :
                          s.status === 'paused' ? '[||]' : '[ok]';
       process.stderr.write(
-        `  ${s.id.substring(0, 8)}  ${statusIcon}  ${s.started_at}  ${String(s.total_actions).padStart(4)} Aktionen  ${s.title ?? ''}\n`
+        `  ${s.id.substring(0, 8)}  ${statusIcon}  ${s.started_at}  ${String(s.total_actions).padStart(4)} actions  ${s.title ?? ''}\n`
       );
     }
     process.stderr.write('\n');
@@ -1003,8 +1003,8 @@ program
 
 program
   .command('analyze [session-id]')
-  .description('Beobachtungssession analysieren → Tasks erkennen → SOPs generieren')
-  .option('--silence <seconds>', 'Schwellenwert für Aktivitätsblöcke in Sekunden', '300')
+  .description('Analyze observation session -> detect tasks -> generate SOPs')
+  .option('--silence <seconds>', 'Threshold for activity blocks in seconds', '300')
   .action(async (sessionId: string | undefined, opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -1018,8 +1018,8 @@ program
       if (completed) {
         targetSessionId = completed.id;
       } else {
-        process.stderr.write('\n  Keine abgeschlossene Beobachtungssession gefunden.\n');
-        process.stderr.write('  Starte zuerst eine Beobachtung mit: shadowing observe\n\n');
+        process.stderr.write('\n  No completed observation session found.\n');
+        process.stderr.write('  Start an observation first with: shadowing observe\n\n');
         db.close();
         return;
       }
@@ -1030,7 +1030,7 @@ program
       if (matches.length === 1) {
         targetSessionId = matches[0]!.id;
       } else if (matches.length === 0) {
-        process.stderr.write(`\n  Session "${sessionId}" nicht gefunden.\n\n`);
+        process.stderr.write(`\n  Session "${sessionId}" not found.\n\n`);
         db.close();
         return;
       }
@@ -1038,19 +1038,19 @@ program
 
     const session = db.getObservationSession(targetSessionId);
     if (!session) {
-      process.stderr.write(`\n  Session "${targetSessionId}" nicht gefunden.\n\n`);
+      process.stderr.write(`\n  Session "${targetSessionId}" not found.\n\n`);
       db.close();
       return;
     }
 
     const actions = db.getActionTimeline(targetSessionId);
     if (actions.length === 0) {
-      process.stderr.write(`\n  Session ${targetSessionId.substring(0, 8)} enthält keine Aktionen.\n\n`);
+      process.stderr.write(`\n  Session ${targetSessionId.substring(0, 8)} contains no actions.\n\n`);
       db.close();
       return;
     }
 
-    process.stderr.write(`\n  Analysiere Session ${targetSessionId.substring(0, 8)} (${actions.length} Aktionen)...\n`);
+    process.stderr.write(`\n  Analyzing session ${targetSessionId.substring(0, 8)} (${actions.length} actions)...\n`);
 
     try {
       const config = loadConfig();
@@ -1060,30 +1060,30 @@ program
       process.stderr.write(`\n  ${result.summary}\n\n`);
 
       if (result.clusters.length > 0) {
-        process.stderr.write('  Erkannte Tasks:\n');
+        process.stderr.write('  Detected tasks:\n');
         for (const cluster of result.clusters) {
-          process.stderr.write(`    ● ${cluster.title} (${formatDuration(cluster.duration_seconds)}, Komplexität: ${cluster.complexity}/5)\n`);
+          process.stderr.write(`    ● ${cluster.title} (${formatDuration(cluster.duration_seconds)}, Complexity: ${cluster.complexity}/5)\n`);
           process.stderr.write(`      ${cluster.description}\n`);
         }
         process.stderr.write('\n');
       }
 
       if (result.sops_generated.length > 0) {
-        process.stderr.write('  Generierte SOPs:\n');
+        process.stderr.write('  Generated SOPs:\n');
         for (const sop of result.sops_generated) {
           process.stderr.write(`    ● ${sop.title} (${sop.sop_id.substring(0, 8)})\n`);
         }
         process.stderr.write('\n');
-        process.stderr.write('  Tipp: "shadowing list" zeigt alle SOPs. "shadowing show <id>" zeigt Details.\n\n');
+        process.stderr.write('  Tip: "shadowing list" shows all SOPs. "shadowing show <id>" shows details.\n\n');
       }
     } catch (err) {
       if (err instanceof SOPGenerationError) {
-        process.stderr.write(`\n  Analyse fehlgeschlagen: ${err.message}\n`);
+        process.stderr.write(`\n  Analysis failed: ${err.message}\n`);
         if (err.code === 'missing_api_key') {
-          process.stderr.write('  Setze ANTHROPIC_API_KEY für die KI-basierte Analyse.\n');
+          process.stderr.write('  Set ANTHROPIC_API_KEY for AI-based analysis.\n');
         }
       } else {
-        process.stderr.write(`\n  Fehler: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(`\n  Error: ${err instanceof Error ? err.message : String(err)}\n`);
       }
       process.stderr.write('\n');
     }
@@ -1095,10 +1095,10 @@ program
 
 program
   .command('consent')
-  .description('Zustimmungsmanagement für Beobachtung')
-  .option('--grant <scope>', 'Zustimmung erteilen (window/shell/git/file/all)')
-  .option('--revoke <scope>', 'Zustimmung widerrufen')
-  .option('--log', 'Consent-Protokoll anzeigen')
+  .description('Consent management for observation')
+  .option('--grant <scope>', 'Grant consent (window/shell/git/file/all)')
+  .option('--revoke <scope>', 'Revoke consent')
+  .option('--log', 'Show consent log')
   .action((opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -1107,16 +1107,16 @@ program
 
     if (opts.grant) {
       privacy.grantConsent(opts.grant);
-      process.stderr.write(`  Zustimmung erteilt: ${opts.grant}\n`);
+      process.stderr.write(`  Consent granted: ${opts.grant}\n`);
     } else if (opts.revoke) {
       privacy.revokeConsent(opts.revoke);
-      process.stderr.write(`  Zustimmung widerrufen: ${opts.revoke}\n`);
+      process.stderr.write(`  Consent revoked: ${opts.revoke}\n`);
     } else if (opts.log) {
       const log = privacy.getConsentLog();
       if (log.length === 0) {
-        process.stderr.write('\n  Kein Consent-Protokoll vorhanden.\n\n');
+        process.stderr.write('\n  No consent log available.\n\n');
       } else {
-        process.stderr.write('\n  Consent-Protokoll:\n\n');
+        process.stderr.write('\n  Consent log:\n\n');
         for (const entry of log) {
           const icon = entry.action === 'granted' ? '[+]' : '[-]';
           process.stderr.write(`  ${entry.recorded_at}  ${icon}  ${entry.scope}\n`);
@@ -1126,12 +1126,12 @@ program
     } else {
       // Show current status
       const status = privacy.getConsentStatus();
-      process.stderr.write('\n  Aktueller Consent-Status:\n\n');
+      process.stderr.write('\n  Current consent status:\n\n');
       for (const [scope, granted] of Object.entries(status)) {
         const icon = granted ? '[+]' : '[-]';
         process.stderr.write(`  ${icon}  ${scope}\n`);
       }
-      process.stderr.write('\n  Nutze --grant <scope> oder --revoke <scope> zum Ändern.\n\n');
+      process.stderr.write('\n  Use --grant <scope> or --revoke <scope> to change.\n\n');
     }
 
     db.close();
@@ -1141,11 +1141,11 @@ program
 
 program
   .command('exclude')
-  .description('Ausschlussregeln für die Beobachtung verwalten')
-  .option('--add <pattern>', 'Neue Ausschlussregel hinzufügen')
-  .option('--type <type>', 'Regeltyp: app, title_pattern, url_pattern, path_pattern', 'title_pattern')
-  .option('--remove <id>', 'Ausschlussregel entfernen')
-  .option('--defaults', 'Standard-Ausschlussregeln laden')
+  .description('Manage exclusion rules for observation')
+  .option('--add <pattern>', 'Add new exclusion rule')
+  .option('--type <type>', 'Rule type: app, title_pattern, url_pattern, path_pattern', 'title_pattern')
+  .option('--remove <id>', 'Remove exclusion rule')
+  .option('--defaults', 'Load default exclusion rules')
   .action((opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -1155,10 +1155,10 @@ program
     if (opts.add) {
       const ruleType = opts.type as ExclusionRule['rule_type'];
       const rule = privacy.addExclusion(ruleType, opts.add);
-      process.stderr.write(`  Regel hinzugefügt: [${ruleType}] "${opts.add}" (ID: ${rule.id.substring(0, 8)})\n`);
+      process.stderr.write(`  Rule added: [${ruleType}] "${opts.add}" (ID: ${rule.id.substring(0, 8)})\n`);
     } else if (opts.remove) {
       privacy.removeExclusion(opts.remove);
-      process.stderr.write(`  Regel entfernt.\n`);
+      process.stderr.write(`  Rule removed.\n`);
     } else if (opts.defaults) {
       const defaults = getDefaultExclusions();
       let added = 0;
@@ -1166,15 +1166,15 @@ program
         privacy.addExclusion(def.rule_type, def.pattern);
         added++;
       }
-      process.stderr.write(`  ${added} Standard-Ausschlussregeln geladen.\n`);
+      process.stderr.write(`  ${added} default exclusion rules loaded.\n`);
     } else {
       // List all rules
       const rules = privacy.listExclusions();
       if (rules.length === 0) {
-        process.stderr.write('\n  Keine Ausschlussregeln definiert.\n');
-        process.stderr.write('  Nutze --defaults zum Laden der Standardregeln.\n\n');
+        process.stderr.write('\n  No exclusion rules defined.\n');
+        process.stderr.write('  Use --defaults to load default rules.\n\n');
       } else {
-        process.stderr.write(`\n  ${rules.length} Ausschlussregel(n):\n\n`);
+        process.stderr.write(`\n  ${rules.length} exclusion rule(s):\n\n`);
         for (const rule of rules) {
           process.stderr.write(`  ${rule.id.substring(0, 8)}  [${rule.rule_type.padEnd(14)}]  ${rule.pattern}\n`);
         }
@@ -1189,23 +1189,23 @@ program
 
 program
   .command('infra [dir]')
-  .description('Infrastruktur-Kontext aus Projektverzeichnis extrahieren')
+  .description('Extract infrastructure context from project directory')
   .action((dir?: string) => {
     const projectDir = dir ?? process.cwd();
 
     if (!existsSync(projectDir)) {
-      process.stderr.write(`  Verzeichnis nicht gefunden: ${projectDir}\n`);
+      process.stderr.write(`  Directory not found: ${projectDir}\n`);
       return;
     }
 
     const graph = buildInfraGraph(projectDir);
 
     if (graph.nodes.length === 0) {
-      process.stderr.write('\n  Keine Infrastruktur-Informationen gefunden.\n\n');
+      process.stderr.write('\n  No infrastructure information found.\n\n');
       return;
     }
 
-    process.stderr.write(`\n  Infrastruktur-Kontext (${graph.nodes.length} Knoten, ${graph.edges.length} Kanten):\n\n`);
+    process.stderr.write(`\n  Infrastructure context (${graph.nodes.length} nodes, ${graph.edges.length} edges):\n\n`);
     process.stderr.write(formatInfraGraph(graph) + '\n\n');
   });
 
@@ -1213,8 +1213,8 @@ program
 
 program
   .command('guide')
-  .description('Komplette Anleitung und Workflow-Beschreibung')
-  .option('--topic <topic>', 'Spezifisches Thema: quickstart, tasks, observe, sops, export, privacy, api')
+  .description('Complete guide and workflow description')
+  .option('--topic <topic>', 'Specific topic: quickstart, tasks, observe, sops, export, privacy, api')
   .action((opts) => {
     const topic = opts.topic ?? 'all';
     const w = process.stderr.write.bind(process.stderr);
@@ -1222,98 +1222,98 @@ program
     if (topic === 'all' || topic === 'quickstart') {
       w(`
   ╔══════════════════════════════════════════════════════════════════════╗
-  ║              Agentic AI Shadowing — Benutzerhandbuch               ║
+  ║                Agentic AI Shadowing — User Guide                   ║
   ╚══════════════════════════════════════════════════════════════════════╝
 
-  Shadowing beobachtet deine Arbeitsabläufe und generiert daraus
-  automatisch Standard Operating Procedures (SOPs). Vollständig lokal,
-  anonymisiert, unter deiner Kontrolle.
+  Shadowing observes your workflows and automatically generates
+  Standard Operating Procedures (SOPs). Fully local, anonymized,
+  under your control.
 
-  ── Schnellstart ────────────────────────────────────────────────────
+  ── Quick Start ───────────────────────────────────────────────────
 
-  1. Initialisieren:     shadowing init
-  2. Task starten:       shadowing start
-  3. SOPs ansehen:       shadowing list
-  4. SOP anzeigen:       shadowing show <id>
-  5. SOPs exportieren:   shadowing export --all
-  6. Web-Dashboard:      shadowing ui
+  1. Initialize:         shadowing init
+  2. Start task:         shadowing start
+  3. View SOPs:          shadowing list
+  4. Show SOP:           shadowing show <id>
+  5. Export SOPs:        shadowing export --all
+  6. Web Dashboard:      shadowing ui
 
 `);
     }
 
     if (topic === 'all' || topic === 'tasks') {
-      w(`  ── Tasks (manueller Modus) ──────────────────────────────────────────
+      w(`  ── Tasks (manual mode) ──────────────────────────────────────────────
 
-  "shadowing start" startet einen interaktiven Modus:
-  - Du gibst einen Task-Titel und optionale Beschreibung ein
-  - Während der Arbeit kannst du Notizen hinzufügen
-  - Beim Abschluss wird automatisch eine SOP per Claude AI generiert
-  - Du kannst die SOP akzeptieren, bearbeiten oder neu generieren
+  "shadowing start" launches an interactive mode:
+  - Enter a task title and optional description
+  - Add notes during your work
+  - On completion, a SOP is automatically generated via Claude AI
+  - Accept, edit, or regenerate the SOP
 
-  Weitere Task-Befehle:
-    shadowing status          Aktuellen Task und Statistiken anzeigen
-    shadowing stats           Detaillierte Metriken im Terminal
+  More task commands:
+    shadowing status          Show current task and statistics
+    shadowing stats           Detailed metrics in terminal
 
 `);
     }
 
     if (topic === 'all' || topic === 'observe') {
-      w(`  ── Beobachtungsmodus (automatisch) ──────────────────────────────────
+      w(`  ── Observation mode (automatic) ─────────────────────────────────────
 
-  "shadowing observe" startet die automatische Workflow-Erfassung:
-  - Erfasst aktive Fenster, Shell-Befehle und Dateiänderungen
-  - Nutzt Heartbeat-Deduplikation: gleiche Aktivität wird nicht
-    mehrfach gespeichert, sondern die Dauer verlängert
-  - Erfordert einmalige Zustimmung (Consent)
+  "shadowing observe" starts automatic workflow capture:
+  - Captures active windows, shell commands, and file changes
+  - Uses heartbeat deduplication: identical activity is not
+    stored multiple times, but duration is extended
+  - Requires one-time consent
 
-  Befehle im Observe-Modus:
-    status     Aktuelle Session-Zusammenfassung
-    note       Manuelle Notiz hinzufügen
-    pause      Beobachtung pausieren
-    resume     Beobachtung fortsetzen
-    stop       Session beenden
+  Commands in observe mode:
+    status     Current session summary
+    note       Add manual note
+    pause      Pause observation
+    resume     Resume observation
+    stop       End session
 
-  Optionen:
-    --interval <ms>    Poll-Intervall (default: 5000ms)
-    --no-shell         Shell-History nicht erfassen
-    --no-window        Fenster-Erkennung deaktivieren
-    --work-hours       Nur 8-18 Uhr erfassen
-    --auto-sop         Nach Beobachtung automatisch Tasks + SOPs erstellen
+  Options:
+    --interval <ms>    Poll interval (default: 5000ms)
+    --no-shell         Do not capture shell history
+    --no-window        Disable window detection
+    --work-hours       Only capture 8am-6pm
+    --auto-sop         Auto-create tasks + SOPs after observation
 
-  Automatische Analyse:
-    Wenn --auto-sop aktiv ist, werden nach "stop" die Aktionen
-    per KI in logische Tasks gruppiert und SOPs generiert.
-    Alternativ: "shadowing analyze [session-id]" für manuelle Analyse.
+  Automatic analysis:
+    When --auto-sop is active, actions are grouped into logical
+    tasks by AI and SOPs are generated after "stop".
+    Alternatively: "shadowing analyze [session-id]" for manual analysis.
 
-  Session-Verwaltung:
-    shadowing sessions               Alle Sessions auflisten
-    shadowing timeline [session-id]  Zeitachse einer Session anzeigen
-    shadowing analyze [session-id]   Session analysieren → Tasks + SOPs
-    shadowing timeline --source shell  Nach Quelle filtern
+  Session management:
+    shadowing sessions               List all sessions
+    shadowing timeline [session-id]  Show session timeline
+    shadowing analyze [session-id]   Analyze session → tasks + SOPs
+    shadowing timeline --source shell  Filter by source
 
 `);
     }
 
     if (topic === 'all' || topic === 'sops') {
-      w(`  ── SOPs verwalten ───────────────────────────────────────────────────
+      w(`  ── Manage SOPs ──────────────────────────────────────────────────────
 
-  SOPs durchlaufen einen Status-Workflow:
+  SOPs follow a status workflow:
     draft → reviewed → approved → exported
 
-  Befehle:
-    shadowing list                    Alle SOPs auflisten
-    shadowing list --status draft     Nach Status filtern
-    shadowing list --tag buchhaltung  Nach Tag filtern
-    shadowing list --search SAP       Freitextsuche
-    shadowing show <id>               SOP im Terminal anzeigen
-    shadowing edit <id>               SOP im Editor bearbeiten
-    shadowing delete <id>             SOP löschen
-    shadowing tag <id> +neu -alt      Tags hinzufügen/entfernen
-    shadowing history <id>            Versionshistorie anzeigen
-    shadowing diff <id>               Diff zur Vorgängerversion
-    shadowing diff <id> 1             Diff zu Version 1
+  Commands:
+    shadowing list                    List all SOPs
+    shadowing list --status draft     Filter by status
+    shadowing list --tag accounting   Filter by tag
+    shadowing list --search SAP       Free text search
+    shadowing show <id>               Display SOP in terminal
+    shadowing edit <id>               Edit SOP in editor
+    shadowing delete <id>             Delete SOP
+    shadowing tag <id> +new -old      Add/remove tags
+    shadowing history <id>            Show version history
+    shadowing diff <id>               Diff to previous version
+    shadowing diff <id> 1             Diff to version 1
 
-  Tipp: SOP-IDs können abgekürzt werden (erste 4-8 Zeichen reichen).
+  Tip: SOP IDs can be abbreviated (first 4-8 characters are enough).
 
 `);
     }
@@ -1321,72 +1321,72 @@ program
     if (topic === 'all' || topic === 'export') {
       w(`  ── Export ────────────────────────────────────────────────────────────
 
-  Exportiert SOPs als anonymisierte Markdown-Dateien mit Manifest.
+  Exports SOPs as anonymized Markdown files with manifest.
 
-    shadowing export           Interaktive Auswahl
-    shadowing export --all     Alle approved SOPs exportieren
+    shadowing export           Interactive selection
+    shadowing export --all     Export all approved SOPs
 
-  Export-Verzeichnis: ~/.datasynx/shadowing/exports/
-  Struktur:
+  Export directory: ~/.datasynx/shadowing/exports/
+  Structure:
     export_YYYY-MM-DD_HH-mm/
-    ├── manifest.json          Metadaten, Tags, Metriken
+    ├── manifest.json          Metadata, tags, metrics
     └── sops/
         ├── sop_001.md
         └── sop_002.md
 
-  Automatische Anonymisierung:
-  - E-Mail-Adressen, IPs, URLs, Telefonnummern
-  - Dateipfade, IBANs, Kreditkarten, Steuer-IDs
-  - Konfigurierbar über "shadowing config"
+  Automatic anonymization:
+  - Email addresses, IPs, URLs, phone numbers
+  - File paths, IBANs, credit cards, tax IDs
+  - Configurable via "shadowing config"
 
 `);
     }
 
     if (topic === 'all' || topic === 'privacy') {
-      w(`  ── Datenschutz & Privacy ─────────────────────────────────────────────
+      w(`  ── Data Protection & Privacy ────────────────────────────────────────
 
-  Alle Daten bleiben lokal. Keine Cloud-Übertragung (außer Claude API
-  für SOP-Generierung).
+  All data stays local. No cloud transmission (except Claude API
+  for SOP generation).
 
-  Consent (Zustimmung):
-    shadowing consent                 Status anzeigen
-    shadowing consent --grant all     Zustimmung für alles erteilen
-    shadowing consent --revoke shell  Shell-Erfassung widerrufen
-    shadowing consent --log           Audit-Trail anzeigen
+  Consent:
+    shadowing consent                 Show status
+    shadowing consent --grant all     Grant consent for everything
+    shadowing consent --revoke shell  Revoke shell capture
+    shadowing consent --log           Show audit trail
 
-  Ausschlussregeln (was NICHT erfasst wird):
-    shadowing exclude                         Regeln anzeigen
-    shadowing exclude --defaults              Standardregeln laden
-                                              (Passwort-Manager, Banking, etc.)
+  Exclusion rules (what is NOT captured):
+    shadowing exclude                         Show rules
+    shadowing exclude --defaults              Load default rules
+                                              (password managers, banking, etc.)
     shadowing exclude --add "1Password" --type app
     shadowing exclude --add "*banking*" --type title_pattern
     shadowing exclude --add "*.env*" --type path_pattern
     shadowing exclude --remove <id>
 
-  Daten-Lebenszyklus:
-    0-7 Tage:    Volle Details (Fenstertitel, Befehle, Pfade)
-    7-30 Tage:   Nur App-Namen + Dauer (Details gelöscht)
-    >90 Tage:    Daten komplett gelöscht
+  Data lifecycle:
+    0-7 days:    Full details (window titles, commands, paths)
+    7-30 days:   Only app names + duration (details deleted)
+    >90 days:    Data completely deleted
 
 `);
     }
 
     if (topic === 'all' || topic === 'api') {
-      w(`  ── Web-Dashboard & API ──────────────────────────────────────────────
+      w(`  ── Web Dashboard & API ──────────────────────────────────────────────
 
-    shadowing ui               Dashboard starten (default: Port 3847)
-    shadowing ui --port 8080   Anderen Port verwenden
+    shadowing ui               Start dashboard (default: port 3847)
+    shadowing ui --port 8080   Use different port
 
-  REST-API-Endpunkte:
-    GET  /api/stats             Globale Statistiken
-    GET  /api/tasks             Task-Liste (?status=active)
-    GET  /api/tasks/active      Aktiver Task
-    GET  /api/sops              SOP-Liste (?status=, ?tag=, ?search=)
-    GET  /api/sops/:id          SOP-Detail mit Metriken + Versionen
-    PUT  /api/sops/:id/status   Status ändern
-    GET  /api/sops/:id/diff     Diff zur Vorgängerversion
-    GET  /api/tags              Alle Tags
-    GET  /api/exports           Export-Historie
+  REST API endpoints:
+    GET  /api/stats             Global statistics
+    GET  /api/tasks             Task list (?status=active)
+    GET  /api/tasks/active      Active task
+    GET  /api/sops              SOP list (?status=, ?tag=, ?search=)
+    GET  /api/sops/:id          SOP detail with metrics + versions
+    PUT  /api/sops/:id/status   Change status
+    GET  /api/sops/:id/diff     Diff to previous version
+    GET  /api/tags              All tags
+    GET  /api/exports           Export history
 
 `);
     }
@@ -1394,66 +1394,66 @@ program
     if (topic === 'all' || topic === 'claude-code') {
       w(`  ── Claude Code Integration ──────────────────────────────────────────
 
-  Shadowing integriert sich nahtlos mit Claude Code über zwei Mechanismen:
+  Shadowing integrates seamlessly with Claude Code via two mechanisms:
 
-  1. MCP-Server (Model Context Protocol)
-     Claude Code kann Shadowing-Tools direkt aufrufen:
+  1. MCP Server (Model Context Protocol)
+     Claude Code can call Shadowing tools directly:
 
-     Verfügbare MCP-Tools (17):
-       shadowing_start_task       Task starten
-       shadowing_complete_task    Task abschließen (SOP generieren)
-       shadowing_pause_task       Task pausieren
-       shadowing_resume_task      Task fortsetzen
-       shadowing_get_status       Status abfragen
-       shadowing_list_sops        SOPs auflisten
-       shadowing_get_sop          SOP-Detail abrufen
-       shadowing_update_sop       SOP bearbeiten
-       shadowing_approve_sop      SOP genehmigen
-       shadowing_add_tags         Tags hinzufügen
-       shadowing_log_observation  Aktion erfassen
-       shadowing_start_observation  Session starten
-       shadowing_stop_observation   Session beenden
-       shadowing_get_stats        Statistiken
-       shadowing_export_sops      SOPs exportieren
-       shadowing_list_tasks       Tasks auflisten
-       shadowing_get_timeline     Timeline abrufen
+     Available MCP Tools (17):
+       shadowing_start_task       Start task
+       shadowing_complete_task    Complete task (generate SOP)
+       shadowing_pause_task       Pause task
+       shadowing_resume_task      Resume task
+       shadowing_get_status       Get status
+       shadowing_list_sops        List SOPs
+       shadowing_get_sop          Get SOP detail
+       shadowing_update_sop       Edit SOP
+       shadowing_approve_sop      Approve SOP
+       shadowing_add_tags         Add tags
+       shadowing_log_observation  Log action
+       shadowing_start_observation  Start session
+       shadowing_stop_observation   End session
+       shadowing_get_stats        Statistics
+       shadowing_export_sops      Export SOPs
+       shadowing_list_tasks       List tasks
+       shadowing_get_timeline     Get timeline
 
-  2. Hooks (automatische Erfassung)
-     Claude Code Hooks loggen Tool-Aufrufe automatisch:
-       PostToolUse → Jeder Tool-Aufruf wird als ObservedAction erfasst
-       Stop        → Session-Ende wird protokolliert
+  2. Hooks (automatic capture)
+     Claude Code Hooks log tool calls automatically:
+       PostToolUse → Every tool call is captured as ObservedAction
+       Stop        → Session end is logged
 
-  Einrichtung:
-    shadowing setup-hooks              Alles automatisch konfigurieren
-    shadowing setup-hooks --project-dir /pfad/zum/projekt
+  Setup:
+    shadowing setup-hooks              Auto-configure everything
+    shadowing setup-hooks --project-dir /path/to/project
 
-  Manuell starten:
-    shadowing mcp                      MCP-Server starten (stdio)
+  Start manually:
+    shadowing mcp                      Start MCP server (stdio)
 
-  Die Konfiguration wird in .claude/settings.json gespeichert.
+  Configuration is stored in .claude/settings.json.
 
 `);
     }
 
     if (topic === 'all') {
-      w(`  ── Weitere Befehle ──────────────────────────────────────────────────
+      w(`  ── More Commands ────────────────────────────────────────────────────
 
-    shadowing infra [dir]      Infrastruktur-Kontext extrahieren
+    shadowing infra [dir]      Extract infrastructure context
                                (package.json, docker-compose, .env, Makefile)
-    shadowing import-graph <p> Cartography-Graph importieren (JSON)
-    shadowing config           Konfiguration im Editor öffnen
-    shadowing reset            Alle Daten löschen (mit Bestätigung)
+    shadowing import-graph <p> Import Cartography graph (JSON)
+    shadowing config           Open configuration in editor
+    shadowing reset            Delete all data (with confirmation)
 
-  ── Hilfe zu einzelnen Themen ────────────────────────────────────────
+  ── Help for specific topics ─────────────────────────────────────────
 
-    shadowing guide --topic quickstart   Schnellstart
-    shadowing guide --topic tasks        Manueller Task-Modus
-    shadowing guide --topic observe      Automatischer Beobachtungsmodus
-    shadowing guide --topic sops         SOP-Verwaltung
-    shadowing guide --topic export       Export & Anonymisierung
-    shadowing guide --topic privacy      Datenschutz & Consent
-    shadowing guide --topic api          Web-Dashboard & REST-API
-    shadowing guide --topic claude-code  Claude Code Integration
+    shadowing guide --topic quickstart   Quick start
+    shadowing guide --topic tasks        Manual task mode
+    shadowing guide --topic observe      Automatic observation mode
+    shadowing guide --topic sops         SOP management
+    shadowing guide --topic export       Export & anonymization
+    shadowing guide --topic privacy      Data protection & consent
+    shadowing guide --topic api          Web dashboard & REST API
+    shadowing guide --topic claude-code  Claude Code integration
 
 `);
     }
@@ -1463,7 +1463,7 @@ program
 
 program
   .command('mcp')
-  .description('MCP-Server starten (stdio-Transport für Claude Code)')
+  .description('Start MCP server (stdio transport for Claude Code)')
   .action(() => {
     startMCPServer();
   });
@@ -1472,8 +1472,8 @@ program
 
 program
   .command('hook')
-  .description('Claude Code Hook-Events verarbeiten (intern)')
-  .option('--event <type>', 'Event-Typ (PostToolUse, Stop, SessionStart)')
+  .description('Process Claude Code hook events (internal)')
+  .option('--event <type>', 'Event type (PostToolUse, Stop, SessionStart)')
   .action(async (opts: { event?: string }) => {
     await runHookHandler(opts.event);
   });
@@ -1482,8 +1482,8 @@ program
 
 program
   .command('setup-hooks')
-  .description('Claude Code Hooks + MCP-Server konfigurieren')
-  .option('--project-dir <path>', 'Projektverzeichnis (default: cwd)')
+  .description('Configure Claude Code hooks + MCP server')
+  .option('--project-dir <path>', 'Project directory (default: cwd)')
   .action((opts: { projectDir?: string }) => {
     const projectDir = opts.projectDir ?? process.cwd();
     const claudeDir = join(projectDir, '.claude');
@@ -1539,18 +1539,18 @@ program
 
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
 
-    process.stderr.write(`\nClaude Code Integration konfiguriert.\n\n`);
+    process.stderr.write(`\nClaude Code integration configured.\n\n`);
     process.stderr.write(`  Hooks:\n`);
-    process.stderr.write(`    PostToolUse → shadowing hook (alle Tool-Aufrufe loggen)\n`);
-    process.stderr.write(`    Stop        → shadowing hook --event stop (Session beenden)\n\n`);
-    process.stderr.write(`  MCP-Server:\n`);
-    process.stderr.write(`    shadowing   → npx shadowing mcp (17 Shadowing-Tools)\n\n`);
-    process.stderr.write(`  Konfigurationsdatei: ${settingsPath}\n\n`);
-    process.stderr.write(`  Claude Code kann jetzt:\n`);
-    process.stderr.write(`    - Tasks starten/beenden via MCP-Tools\n`);
-    process.stderr.write(`    - SOPs lesen, bearbeiten und exportieren\n`);
-    process.stderr.write(`    - Workflow-Aktionen automatisch erfassen\n`);
-    process.stderr.write(`    - Observation-Sessions verwalten\n\n`);
+    process.stderr.write(`    PostToolUse → shadowing hook (log all tool calls)\n`);
+    process.stderr.write(`    Stop        → shadowing hook --event stop (End session)\n\n`);
+    process.stderr.write(`  MCP Server:\n`);
+    process.stderr.write(`    shadowing   → npx shadowing mcp (17 shadowing tools)\n\n`);
+    process.stderr.write(`  Configuration file: ${settingsPath}\n\n`);
+    process.stderr.write(`  Claude Code can now:\n`);
+    process.stderr.write(`    - Start/complete tasks via MCP tools\n`);
+    process.stderr.write(`    - Read, edit, and export SOPs\n`);
+    process.stderr.write(`    - Automatically capture workflow actions\n`);
+    process.stderr.write(`    - Manage observation sessions\n\n`);
   });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1565,11 +1565,11 @@ function findSOP(db: ShadowingDB, idPrefix: string) {
   const matches = all.filter(s => s.id.startsWith(idPrefix));
   if (matches.length === 1) return matches[0]!;
   if (matches.length > 1) {
-    process.stderr.write(`  Mehrere SOPs gefunden für "${idPrefix}". Bitte genauere ID angeben.\n`);
+    process.stderr.write(`  Multiple SOPs found for "${idPrefix}". Please provide a more specific ID.\n`);
     return null;
   }
 
-  process.stderr.write(`  SOP nicht gefunden: ${idPrefix}\n`);
+  process.stderr.write(`  SOP not found: ${idPrefix}\n`);
   return null;
 }
 
@@ -1589,12 +1589,12 @@ function editSOPInEditorSync(db: ShadowingDB, sopId: string, editor: string): vo
     const updated = readFileSync(tmpFile, 'utf8');
     if (updated !== sop.content_md) {
       db.updateSOP(sopId, { content_md: updated });
-      process.stderr.write('  SOP aktualisiert (neue Version).\n');
+      process.stderr.write('  SOP updated (new version).\n');
     } else {
-      process.stderr.write('  Keine Änderungen.\n');
+      process.stderr.write('  No changes.\n');
     }
   } catch {
-    process.stderr.write(`  Editor konnte nicht gestartet werden: ${editor}\n`);
+    process.stderr.write(`  Could not start editor: ${editor}\n`);
   } finally {
     try { unlinkSync(tmpFile); } catch { /* ok */ }
   }

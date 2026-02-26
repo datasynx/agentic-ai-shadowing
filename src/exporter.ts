@@ -19,7 +19,7 @@ export class Exporter {
   }
 
   exportSOPs(sopIds: string[]): ExportResult {
-    if (sopIds.length === 0) throw new Error('Keine SOPs zum Exportieren ausgewählt.');
+    if (sopIds.length === 0) throw new Error('No SOPs selected for export.');
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
     const exportDir = join(this.exportBaseDir, `export_${timestamp}`);
@@ -109,7 +109,7 @@ export class Exporter {
 
   exportAll(): ExportResult {
     const approved = this.db.listSOPs({ status: 'approved' });
-    if (approved.length === 0) throw new Error('Keine approved SOPs zum Exportieren vorhanden.');
+    if (approved.length === 0) throw new Error('No approved SOPs available for export.');
     return this.exportSOPs(approved.map(s => s.id));
   }
 }

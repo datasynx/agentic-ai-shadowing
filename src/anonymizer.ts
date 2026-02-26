@@ -54,14 +54,14 @@ export class Anonymizer {
           octets[0] === 127 ||
           (octets[0] === 169 && octets[1] === 254);
         // Public IPs with first octet >= 10 are also likely real IPs
-        if (isPrivate || octets[0]! >= 10) return '[interne-ip]';
+        if (isPrivate || octets[0]! >= 10) return '[internal-ip]';
         return match; // Likely a version number (e.g. 1.2.3.4)
       },
     );
     // IPv6 (simplified: 2+ hex groups with colons)
     result = result.replace(
       /\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b/g,
-      '[interne-ip-v6]',
+      '[internal-ip-v6]',
     );
     return result;
   }
@@ -72,9 +72,9 @@ export class Anonymizer {
       (match) => {
         try {
           const url = new URL(match);
-          return `[internes-system]${url.pathname}`;
+          return `[internal-system]${url.pathname}`;
         } catch {
-          return '[internes-system]';
+          return '[internal-system]';
         }
       },
     );
@@ -84,7 +84,7 @@ export class Anonymizer {
     // German format: +49 170 1234567, 0170/1234567, (089) 1234-5678
     return text.replace(
       /(?:\+?\d{1,3}[-.\s/]?)?\(?\d{2,4}\)?[-.\s/]?\d{3,4}[-.\s/]?\d{3,4}/g,
-      '[Telefonnummer]',
+      '[phone-number]',
     );
   }
 
@@ -122,7 +122,7 @@ export class Anonymizer {
         if (!/^[345]/.test(digits)) return match;
         // Luhn checksum validation
         if (!this.validateLuhn(digits)) return match;
-        return '[Kreditkartennummer]';
+        return '[credit-card-number]';
       },
     );
   }
@@ -147,12 +147,12 @@ export class Anonymizer {
     // German Steuer-ID: 11 digits
     let result = text.replace(
       /\bSteuer-?ID[:\s]+\d{11}\b/gi,
-      'Steuer-ID: [Steuer-ID]',
+      'Steuer-ID: [tax-id]',
     );
     // German Sozialversicherungsnummer: 12 digits
     result = result.replace(
       /\bSV-?(?:Nr|Nummer)[.:\s]+\d{2}\s?\d{6}\s?[A-Z]\s?\d{3}\b/gi,
-      'SV-Nr.: [SV-Nummer]',
+      'SV-Nr.: [social-security-number]',
     );
     return result;
   }

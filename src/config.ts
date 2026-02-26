@@ -126,7 +126,7 @@ export function loadConfig(): ShadowingConfig {
     // Validation failed — log warning and fall back to merge with defaults
     process.stderr.write(
       `  Warnung: Config-Validierung fehlgeschlagen: ${result.error.issues.map(i => i.message).join(', ')}\n` +
-      `  Verwende Defaults für ungültige Felder.\n`,
+      `  Using defaults for invalid fields.\n`,
     );
     const loaded = data as Partial<ShadowingConfig>;
     return {

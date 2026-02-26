@@ -131,7 +131,7 @@ export function buildGraphContext(graph: CartographyGraph, maxLength = 2000): st
     nodesByType.get(type)!.push(node);
   }
 
-  lines.push('Verfügbare Systeme und Komponenten:');
+  lines.push('Available systems and components:');
   for (const [type, nodes] of nodesByType) {
     lines.push(`\n[${type}]`);
     for (const node of nodes) {
@@ -152,7 +152,7 @@ export function buildGraphContext(graph: CartographyGraph, maxLength = 2000): st
   }
 
   const text = lines.join('\n');
-  return text.length > maxLength ? text.substring(0, maxLength) + '\n...(gekürzt)' : text;
+  return text.length > maxLength ? text.substring(0, maxLength) + '\n...(truncated)' : text;
 }
 
 /**
@@ -190,7 +190,7 @@ export function buildFocusedContext(
     return buildGraphContext(graph, 1000); // fallback: general overview
   }
 
-  const lines = ['Relevante Systeme für diesen Task:'];
+  const lines = ['Relevant systems for this task:'];
   const nodeIds = new Set(relevant.map(n => n.id));
 
   for (const node of relevant) {
@@ -204,7 +204,7 @@ export function buildFocusedContext(
 
   if (relevantEdges.length > 0) {
     const nodeMap = new Map(graph.nodes.map(n => [n.id, n.label]));
-    lines.push('\nZugehörige Verbindungen:');
+    lines.push('\nRelated connections:');
     for (const edge of relevantEdges) {
       const src = nodeMap.get(edge.source) ?? edge.source;
       const tgt = nodeMap.get(edge.target) ?? edge.target;

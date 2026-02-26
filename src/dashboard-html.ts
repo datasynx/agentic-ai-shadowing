@@ -2,7 +2,7 @@ import type { ShadowingConfig } from './types.js';
 
 export function getDashboardHTML(config: ShadowingConfig): string {
   return `<!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -321,7 +321,7 @@ tr.selected td { background: var(--accent-bg); }
     <div><h1>Shadowing</h1><small>Enterprise Dashboard</small></div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-section">Allgemein</div>
+    <div class="nav-section">General</div>
     <div class="nav-item active" onclick="navigate('dashboard')" data-page="dashboard">
       <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
       Dashboard
@@ -534,17 +534,17 @@ async function renderDashboard() {
     html += '<div class="active-banner" id="active-banner">' +
       '<div class="task-info"><div class="pulse"></div>' +
       '<div><div class="task-title">' + esc(activeTask.title) + '</div>' +
-      '<div style="font-size:12px;color:var(--fg-muted)">' + (activeTask.description ? esc(activeTask.description.substring(0, 120)) : 'Kein Beschreibung') + '</div></div></div>' +
+      '<div style="font-size:12px;color:var(--fg-muted)">' + (activeTask.description ? esc(activeTask.description.substring(0, 120)) : 'No description') + '</div></div></div>' +
       '<div class="task-duration" id="task-timer">--:--</div></div>';
   }
 
   // Stats
   html += '<div class="stats-grid">';
-  html += statCard(stats.total_tasks, 'Tasks Gesamt', 'accent');
-  html += statCard(stats.completed_tasks, 'Abgeschlossen', 'green');
+  html += statCard(stats.total_tasks, 'Total Tasks', 'accent');
+  html += statCard(stats.completed_tasks, 'Completed', 'green');
   html += statCard(stats.total_sops, 'SOPs', 'accent');
   html += statCard(stats.approved_sops, 'Approved', 'green');
-  html += statCard(stats.total_executions, 'Ausf\\u00fchrungen', 'purple');
+  html += statCard(stats.total_executions, 'Executions', 'purple');
   html += statCard(stats.total_exports, 'Exports', 'yellow');
   html += '</div>';
 
@@ -552,19 +552,19 @@ async function renderDashboard() {
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">';
 
   // Quality overview
-  html += '<div class="card"><div class="card-header"><span class="card-title">Qualit\\u00e4ts-\\u00dcbersicht</span></div>';
+  html += '<div class="card"><div class="card-header"><span class="card-title">Quality Overview</span></div>';
   if (stats.avg_quality_score > 0) {
     html += '<div style="display:flex;align-items:center;gap:20px">';
     html += qualityRing(stats.avg_quality_score, 80);
-    html += '<div><div style="font-size:12px;color:var(--fg-muted)">Durchschn. Qualit\\u00e4t</div>';
+    html += '<div><div style="font-size:12px;color:var(--fg-muted)">Avg. Quality</div>';
     html += '<div style="font-size:24px;font-weight:700;color:' + qColor(stats.avg_quality_score) + '">' + Math.round(stats.avg_quality_score) + '%</div></div></div>';
   } else {
-    html += '<div style="color:var(--fg-muted);font-size:13px">Noch keine Qualit\\u00e4tsdaten vorhanden</div>';
+    html += '<div style="color:var(--fg-muted);font-size:13px">No quality data available yet</div>';
   }
   html += '</div>';
 
   // SOP status distribution
-  html += '<div class="card"><div class="card-header"><span class="card-title">SOP Status-Verteilung</span></div>';
+  html += '<div class="card"><div class="card-header"><span class="card-title">SOP Status Distribution</span></div>';
   const total = stats.total_sops || 1;
   html += statusBar('Draft', stats.draft_sops, total, 'var(--yellow)');
   html += statusBar('Reviewed', stats.reviewed_sops, total, 'var(--accent)');
@@ -573,11 +573,11 @@ async function renderDashboard() {
   html += '</div></div>';
 
   // Recent SOPs
-  html += '<div class="card"><div class="card-header"><span class="card-title">Neueste SOPs</span>' +
-    '<button class="btn btn-sm" onclick="navigate(\\\'sops\\\')">Alle anzeigen</button></div>';
+  html += '<div class="card"><div class="card-header"><span class="card-title">Recent SOPs</span>' +
+    '<button class="btn btn-sm" onclick="navigate(\\\'sops\\\')">Show all</button></div>';
   const recentSOPs = sops.slice(0, 5);
   if (recentSOPs.length === 0) {
-    html += '<div class="empty-state"><p>Noch keine SOPs vorhanden. Starte einen Task mit <code>shadowing start</code></p></div>';
+    html += '<div class="empty-state"><p>No SOPs available yet. Start a task with <code>shadowing start</code></p></div>';
   } else {
     recentSOPs.forEach(function(s) {
       html += '<div class="sop-row" onclick="navigate(\\\'sop-detail\\\',\\'' + s.id + '\\')">' +
@@ -649,9 +649,9 @@ async function renderSOPList() {
   // Filter Bar
   html += '<div class="filter-bar">';
   html += '<div class="search-box"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>';
-  html += '<input class="input" id="sop-search" placeholder="SOPs durchsuchen..." oninput="filterSOPs()" value="' + esc(sopListFilter.search) + '"></div>';
+  html += '<input class="input" id="sop-search" placeholder="Search SOPs..." oninput="filterSOPs()" value="' + esc(sopListFilter.search) + '"></div>';
   html += '<select class="select" style="width:auto" id="sop-status-filter" onchange="filterSOPs()">' +
-    '<option value="">Alle Status</option><option value="draft">Draft</option>' +
+    '<option value="">All Statuses</option><option value="draft">Draft</option>' +
     '<option value="reviewed">Reviewed</option><option value="approved">Approved</option>' +
     '<option value="exported">Exported</option><option value="archived">Archived</option></select>';
   html += '</div>';
@@ -680,7 +680,7 @@ async function renderSOPList() {
 
 function renderSOPRows(sops) {
   if (sops.length === 0) {
-    return '<div class="empty-state"><p>Keine SOPs gefunden</p></div>';
+    return '<div class="empty-state"><p>No SOPs found</p></div>';
   }
   return sops.map(function(s) {
     return '<div class="sop-row" onclick="navigate(\\\'sop-detail\\\',\\'' + s.id + '\\')">' +
@@ -734,8 +734,8 @@ async function renderSOPDetail(id) {
 
   // Topbar actions
   document.getElementById('topbar-actions').innerHTML =
-    '<button class="btn" onclick="navigate(\\\'sops\\\')">&larr; Zur\\u00fcck</button>' +
-    '<button class="btn btn-primary" onclick="navigate(\\\'sop-edit\\\',\\'' + id + '\\')">Bearbeiten</button>' +
+    '<button class="btn" onclick="navigate(\\\'sops\\\')">&larr; Back</button>' +
+    '<button class="btn btn-primary" onclick="navigate(\\\'sop-edit\\\',\\'' + id + '\\')">Edit</button>' +
     statusActions(id, data.status);
 
   const q = data.metrics?.overall_quality_score ?? 0;
@@ -744,24 +744,24 @@ async function renderSOPDetail(id) {
   // Header
   html += '<div style="display:flex;gap:20px;margin-bottom:20px">';
   html += '<div style="flex:1"><h2 style="font-size:20px;margin-bottom:8px">' + esc(data.title) + ' ' + badgeHTML(data.status) + '</h2>';
-  html += '<div style="font-size:12px;color:var(--fg-muted)">Version ' + data.version + ' | Erstellt ' + fmtDateTime(data.created_at) + ' | Aktualisiert ' + fmtDateTime(data.updated_at) + '</div>';
+  html += '<div style="font-size:12px;color:var(--fg-muted)">Version ' + data.version + ' | Created ' + fmtDateTime(data.created_at) + ' | Updated ' + fmtDateTime(data.updated_at) + '</div>';
   html += '<div style="margin-top:8px" id="sop-tags">' + tagsHTML(data.tags, true, id) + '</div>';
-  html += '<div style="margin-top:8px"><input class="input" style="width:200px;display:inline-block" id="new-tag-input" placeholder="Tag hinzuf\\u00fcgen..." onkeydown="if(event.key===\\\'Enter\\\')addTag(\\'' + id + '\\')">' +
+  html += '<div style="margin-top:8px"><input class="input" style="width:200px;display:inline-block" id="new-tag-input" placeholder="Add tag..." onkeydown="if(event.key===\\\'Enter\\\')addTag(\\'' + id + '\\')">' +
     ' <button class="btn btn-sm" onclick="addTag(\\'' + id + '\\')">+</button></div>';
   html += '</div>';
   if (data.metrics?.execution_count > 0) {
     html += '<div style="text-align:center">' + qualityRing(q, 80) +
-      '<div style="font-size:11px;color:var(--fg-muted);margin-top:4px">Qualit\\u00e4t</div></div>';
+      '<div style="font-size:11px;color:var(--fg-muted);margin-top:4px">Quality</div></div>';
   }
   html += '</div>';
 
   // Tabs
   html += '<div class="tabs">';
-  html += '<div class="tab active" onclick="showSOPTab(\\\'content\\\',this)">Inhalt</div>';
-  html += '<div class="tab" onclick="showSOPTab(\\\'metrics\\\',this)">Metriken</div>';
-  html += '<div class="tab" onclick="showSOPTab(\\\'versions\\\',this)">Versionen (' + (data.versions?.length || 0) + ')</div>';
+  html += '<div class="tab active" onclick="showSOPTab(\\\'content\\\',this)">Content</div>';
+  html += '<div class="tab" onclick="showSOPTab(\\\'metrics\\\',this)">Metrics</div>';
+  html += '<div class="tab" onclick="showSOPTab(\\\'versions\\\',this)">Versions (' + (data.versions?.length || 0) + ')</div>';
   html += '<div class="tab" onclick="showSOPTab(\\\'diff\\\',this)">Diff</div>';
-  html += '<div class="tab" onclick="showSOPTab(\\\'preview\\\',this)">Export-Preview</div>';
+  html += '<div class="tab" onclick="showSOPTab(\\\'preview\\\',this)">Export Preview</div>';
   html += '</div>';
 
   // Tab: Content
@@ -772,33 +772,33 @@ async function renderSOPDetail(id) {
   if (data.metrics?.execution_count > 0) {
     const m = data.metrics;
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">';
-    html += metricCard('Ausf\\u00fchrungen', m.execution_count, '');
-    html += metricCard('Avg. Dauer', fmtDur(m.avg_duration_seconds), '');
-    html += metricCard('Min. Dauer', fmtDur(m.min_duration_seconds), '');
-    html += metricCard('Max. Dauer', fmtDur(m.max_duration_seconds), '');
-    html += metricCard('Komplexit\\u00e4t', m.avg_complexity ? m.avg_complexity.toFixed(1) + '/5' : '-', '');
+    html += metricCard('Executions', m.execution_count, '');
+    html += metricCard('Avg. Duration', fmtDur(m.avg_duration_seconds), '');
+    html += metricCard('Min. Duration', fmtDur(m.min_duration_seconds), '');
+    html += metricCard('Max. Duration', fmtDur(m.max_duration_seconds), '');
+    html += metricCard('Complexity', m.avg_complexity ? m.avg_complexity.toFixed(1) + '/5' : '-', '');
     html += '</div>';
     html += '<div style="margin-top:16px">';
-    html += scoreRow('Konsistenz', m.consistency_score);
-    html += scoreRow('Reife', m.maturity_score);
-    html += scoreRow('Aktualit\\u00e4t', m.freshness_score);
-    html += scoreRow('Gesamt', m.overall_quality_score);
+    html += scoreRow('Consistency', m.consistency_score);
+    html += scoreRow('Maturity', m.maturity_score);
+    html += scoreRow('Freshness', m.freshness_score);
+    html += scoreRow('Overall', m.overall_quality_score);
     html += '</div>';
   } else {
-    html += '<div class="empty-state"><p>Noch keine Ausf\\u00fchrungsdaten vorhanden</p></div>';
+    html += '<div class="empty-state"><p>No execution data available yet</p></div>';
   }
   html += '</div>';
 
   // Tab: Versions
   html += '<div id="tab-versions" style="display:none">';
   if (data.versions?.length > 0) {
-    html += '<div class="card" style="padding:0"><table><thead><tr><th>Version</th><th>Titel</th><th>Ge\\u00e4ndert</th><th>Zusammenfassung</th></tr></thead><tbody>';
+    html += '<div class="card" style="padding:0"><table><thead><tr><th>Version</th><th>Title</th><th>Changed</th><th>Summary</th></tr></thead><tbody>';
     data.versions.forEach(function(v) {
       html += '<tr><td>v' + v.version + '</td><td>' + esc(v.title) + '</td><td>' + fmtDateTime(v.changed_at) + '</td><td>' + esc(v.change_summary || '-') + '</td></tr>';
     });
     html += '</tbody></table></div>';
   } else {
-    html += '<div class="card empty-state"><p>Keine fr\\u00fcheren Versionen</p></div>';
+    html += '<div class="card empty-state"><p>No previous versions</p></div>';
   }
   html += '</div>';
 
@@ -813,9 +813,9 @@ async function renderSOPDetail(id) {
 
 function statusActions(id, status) {
   let html = '';
-  if (status === 'draft') html += '<button class="btn btn-success btn-sm" onclick="changeSOPStatus(\\'' + id + '\\',\\\'reviewed\\\')">Als Reviewed markieren</button>';
+  if (status === 'draft') html += '<button class="btn btn-success btn-sm" onclick="changeSOPStatus(\\'' + id + '\\',\\\'reviewed\\\')">Mark as Reviewed</button>';
   if (status === 'reviewed') html += '<button class="btn btn-success btn-sm" onclick="changeSOPStatus(\\'' + id + '\\',\\\'approved\\\')">Approve</button>';
-  if (status === 'approved') html += '<button class="btn btn-primary btn-sm" onclick="exportSingleSOP(\\'' + id + '\\')">Exportieren</button>';
+  if (status === 'approved') html += '<button class="btn btn-primary btn-sm" onclick="exportSingleSOP(\\'' + id + '\\')">Export</button>';
   return html;
 }
 
@@ -835,7 +835,7 @@ async function loadDiff(id) {
   const diff = await API.get('/api/sops/' + id + '/diff');
   const el = document.getElementById('diff-content');
   if (!diff.lines || diff.lines.length === 0) {
-    el.innerHTML = '<div class="empty-state"><p>Kein Diff verf\\u00fcgbar (erste Version)</p></div>';
+    el.innerHTML = '<div class="empty-state"><p>No diff available (first version)</p></div>';
     return;
   }
   let html = '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:8px">v' + diff.fromVersion + ' &rarr; v' + diff.toVersion +
@@ -851,7 +851,7 @@ async function loadDiff(id) {
 async function loadPreview(id) {
   const preview = await API.get('/api/sops/' + id + '/preview');
   const el = document.getElementById('preview-content');
-  el.innerHTML = '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:12px">Anonymisierte Vorschau f\\u00fcr Export:</div>' +
+  el.innerHTML = '<div style="font-size:12px;color:var(--fg-muted);margin-bottom:12px">Anonymized preview for export:</div>' +
     '<h3 style="margin-bottom:8px">' + esc(preview.title) + '</h3>' +
     '<div class="md-content">' + renderMD(preview.content_md) + '</div>';
 }
@@ -871,7 +871,7 @@ function scoreRow(label, score) {
 
 async function changeSOPStatus(id, status) {
   await API.put('/api/sops/' + id + '/status', { status: status });
-  toast('Status ge\\u00e4ndert: ' + status, 'success');
+  toast('Status changed: ' + status, 'success');
   navigate('sop-detail', id);
 }
 
@@ -881,29 +881,29 @@ async function addTag(id) {
   if (!tag) return;
   await API.put('/api/sops/' + id + '/tags', { add: [tag] });
   input.value = '';
-  toast('Tag hinzugef\\u00fcgt: #' + tag, 'success');
+  toast('Tag added: #' + tag, 'success');
   navigate('sop-detail', id);
 }
 
 async function removeTag(id, tag) {
   await API.put('/api/sops/' + id + '/tags', { remove: [tag] });
-  toast('Tag entfernt: #' + tag, 'info');
+  toast('Tag removed: #' + tag, 'info');
   navigate('sop-detail', id);
 }
 
 async function exportSingleSOP(id) {
   const result = await API.post('/api/exports', { sop_ids: [id] });
-  toast('Export erstellt: ' + result.export_path, 'success');
+  toast('Export created: ' + result.export_path, 'success');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Page: SOP Editor
    ═══════════════════════════════════════════════════════════════════════════ */
 async function renderSOPEditor(id) {
-  document.getElementById('page-title').textContent = 'SOP bearbeiten';
+  document.getElementById('page-title').textContent = 'Edit SOP';
   document.getElementById('topbar-actions').innerHTML =
-    '<button class="btn" onclick="navigate(\\\'sop-detail\\\',\\'' + id + '\\')">Abbrechen</button>' +
-    '<button class="btn btn-primary" onclick="saveSOPEdit(\\'' + id + '\\')">Speichern</button>';
+    '<button class="btn" onclick="navigate(\\\'sop-detail\\\',\\'' + id + '\\')">Cancel</button>' +
+    '<button class="btn btn-primary" onclick="saveSOPEdit(\\'' + id + '\\')">Save</button>';
 
   const data = await API.get('/api/sops/' + id);
 
@@ -923,7 +923,7 @@ function updateEditorPreview() {
 async function saveSOPEdit(id) {
   const content = document.getElementById('editor-textarea').value;
   await API.put('/api/sops/' + id, { content_md: content });
-  toast('SOP gespeichert', 'success');
+  toast('SOP saved', 'success');
   navigate('sop-detail', id);
 }
 
@@ -943,13 +943,13 @@ async function renderExport() {
   let html = '';
 
   // Export Selection
-  html += '<div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">SOPs f\\u00fcr Export ausw\\u00e4hlen</span>';
-  html += '<button class="btn btn-primary btn-sm" onclick="triggerExport()" id="export-btn" disabled>Exportieren (0)</button></div>';
+  html += '<div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">Select SOPs for Export</span>';
+  html += '<button class="btn btn-primary btn-sm" onclick="triggerExport()" id="export-btn" disabled>Export (0)</button></div>';
 
   if (sops.length === 0) {
-    html += '<div class="empty-state"><p>Keine approved SOPs verf\\u00fcgbar. SOPs m\\u00fcssen erst den Status "approved" haben.</p></div>';
+    html += '<div class="empty-state"><p>No approved SOPs available. SOPs must have the status "approved" first.</p></div>';
   } else {
-    html += '<div style="margin-bottom:8px"><label class="checkbox"><input type="checkbox" onchange="toggleAllExport(this.checked)"> Alle ausw\\u00e4hlen</label></div>';
+    html += '<div style="margin-bottom:8px"><label class="checkbox"><input type="checkbox" onchange="toggleAllExport(this.checked)"> Select all</label></div>';
     sops.forEach(function(s) {
       html += '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">';
       html += '<label class="checkbox"><input type="checkbox" data-sop-id="' + s.id + '" onchange="updateExportSelection()"></label>';
@@ -963,18 +963,18 @@ async function renderExport() {
 
   // Export Preview Panel
   html += '<div class="card" id="export-preview-panel" style="display:none;margin-bottom:16px">';
-  html += '<div class="card-header"><span class="card-title">Anonymisierte Vorschau</span>';
-  html += '<button class="btn btn-sm btn-ghost" onclick="document.getElementById(\\\'export-preview-panel\\\').style.display=\\\'none\\\'">&times; Schlie\\u00dfen</button></div>';
+  html += '<div class="card-header"><span class="card-title">Anonymized Preview</span>';
+  html += '<button class="btn btn-sm btn-ghost" onclick="document.getElementById(\\\'export-preview-panel\\\').style.display=\\\'none\\\'">&times; Close</button></div>';
   html += '<div id="export-preview-content"></div></div>';
 
   // Export History
-  html += '<div class="card"><div class="card-header"><span class="card-title">Export-Historie</span></div>';
+  html += '<div class="card"><div class="card-header"><span class="card-title">Export History</span></div>';
   if (exports.length === 0) {
-    html += '<div style="color:var(--fg-muted);font-size:13px">Noch keine Exports durchgef\\u00fchrt</div>';
+    html += '<div style="color:var(--fg-muted);font-size:13px">No exports performed yet</div>';
   } else {
-    html += '<table><thead><tr><th>Datum</th><th>SOPs</th><th>Pfad</th><th>Anonymisiert</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Date</th><th>SOPs</th><th>Path</th><th>Anonymized</th></tr></thead><tbody>';
     exports.forEach(function(e) {
-      html += '<tr><td>' + fmtDateTime(e.exported_at) + '</td><td>' + e.sop_count + '</td><td style="font-family:var(--font-mono);font-size:12px">' + esc(e.export_path) + '</td><td>' + (e.anonymized ? 'Ja' : 'Nein') + '</td></tr>';
+      html += '<tr><td>' + fmtDateTime(e.exported_at) + '</td><td>' + e.sop_count + '</td><td style="font-family:var(--font-mono);font-size:12px">' + esc(e.export_path) + '</td><td>' + (e.anonymized ? 'Yes' : 'No') + '</td></tr>';
     });
     html += '</tbody></table>';
   }
@@ -997,7 +997,7 @@ function updateExportSelection() {
   const btn = document.getElementById('export-btn');
   if (btn) {
     btn.disabled = exportSelection.size === 0;
-    btn.textContent = 'Exportieren (' + exportSelection.size + ')';
+    btn.textContent = 'Export (' + exportSelection.size + ')';
   }
 }
 
@@ -1005,7 +1005,7 @@ async function triggerExport() {
   if (exportSelection.size === 0) return;
   const ids = Array.from(exportSelection);
   const result = await API.post('/api/exports', { sop_ids: ids });
-  toast('Export erstellt: ' + result.sop_count + ' SOPs nach ' + result.export_path, 'success');
+  toast('Export created: ' + result.sop_count + ' SOPs to ' + result.export_path, 'success');
   renderExport();
 }
 
@@ -1030,17 +1030,17 @@ async function renderTimeline() {
   let html = '';
 
   if (sessions.length === 0) {
-    html += '<div class="card empty-state"><p>Keine Observation Sessions vorhanden.<br>Starte eine mit <code>shadowing observe</code></p></div>';
+    html += '<div class="card empty-state"><p>No observation sessions available.<br>Start one with <code>shadowing observe</code></p></div>';
     document.getElementById('content').innerHTML = html;
     return;
   }
 
   // Session List
   html += '<div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">Sessions</span></div>';
-  html += '<table><thead><tr><th>Status</th><th>Titel</th><th>Start</th><th>Aktionen</th><th></th></tr></thead><tbody>';
+  html += '<table><thead><tr><th>Status</th><th>Title</th><th>Start</th><th>Actions</th><th></th></tr></thead><tbody>';
   sessions.forEach(function(s) {
     html += '<tr><td>' + badgeHTML(s.status) + '</td><td>' + esc(s.title || 'Session ' + s.id.substring(0,8)) + '</td><td>' + fmtDateTime(s.started_at) + '</td><td>' + s.total_actions + '</td>' +
-      '<td><button class="btn btn-sm" onclick="loadSessionTimeline(\\'' + s.id + '\\')">Anzeigen</button></td></tr>';
+      '<td><button class="btn btn-sm" onclick="loadSessionTimeline(\\'' + s.id + '\\')">View</button></td></tr>';
   });
   html += '</tbody></table></div>';
 
@@ -1062,7 +1062,7 @@ async function loadSessionTimeline(sessionId) {
   let html = '';
 
   // Summary
-  html += '<div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">Session-\\u00dcbersicht</span></div>';
+  html += '<div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">Session Overview</span></div>';
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">';
   if (summary && typeof summary === 'object') {
     Object.entries(summary).forEach(function(entry) {
@@ -1076,8 +1076,8 @@ async function loadSessionTimeline(sessionId) {
   // Source filter
   html += '<div class="filter-bar">';
   html += '<div class="btn-group">';
-  ['Alle','window','shell','git','file','manual'].forEach(function(src) {
-    html += '<button class="btn btn-sm' + (src === 'Alle' ? ' active' : '') + '" onclick="filterTimeline(\\'' + sessionId + '\\',\\'' + (src === 'Alle' ? '' : src) + '\\',this)">' + src + '</button>';
+  ['All','window','shell','git','file','manual'].forEach(function(src) {
+    html += '<button class="btn btn-sm' + (src === 'All' ? ' active' : '') + '" onclick="filterTimeline(\\'' + sessionId + '\\',\\'' + (src === 'All' ? '' : src) + '\\',this)">' + src + '</button>';
   });
   html += '</div></div>';
 
@@ -1090,9 +1090,9 @@ async function loadSessionTimeline(sessionId) {
 }
 
 function renderTimelineItems(items) {
-  if (items.length === 0) return '<div class="empty-state"><p>Keine Aktionen in dieser Session</p></div>';
+  if (items.length === 0) return '<div class="empty-state"><p>No actions in this session</p></div>';
   return items.map(function(a) {
-    const title = a.app_name || a.command || a.file_path || a.window_title || '(unbekannt)';
+    const title = a.app_name || a.command || a.file_path || a.window_title || '(unknown)';
     const detail = a.window_title && a.app_name ? a.window_title : (a.command || a.file_path || '');
     return '<div class="timeline-item">' +
       '<div class="timeline-dot ' + (a.source || '') + '"></div>' +

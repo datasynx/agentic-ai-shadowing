@@ -94,42 +94,42 @@ describe('buildActionDescription', () => {
 
   it('formats Read actions', () => {
     expect(buildActionDescription('Read', { file_path: '/src/main.ts' }))
-      .toBe('Lesen: /src/main.ts');
+      .toBe('Read: /src/main.ts');
   });
 
   it('formats Edit actions', () => {
     expect(buildActionDescription('Edit', { file_path: '/src/main.ts' }))
-      .toBe('Bearbeiten: /src/main.ts');
+      .toBe('Edit: /src/main.ts');
   });
 
   it('formats Write actions', () => {
     expect(buildActionDescription('Write', { file_path: '/src/new.ts' }))
-      .toBe('Schreiben: /src/new.ts');
+      .toBe('Write: /src/new.ts');
   });
 
   it('formats Glob actions', () => {
     expect(buildActionDescription('Glob', { pattern: '**/*.ts' }))
-      .toBe('Dateisuche: **/*.ts');
+      .toBe('File search: **/*.ts');
   });
 
   it('formats Grep actions', () => {
     expect(buildActionDescription('Grep', { pattern: 'TODO' }))
-      .toBe('Code-Suche: TODO');
+      .toBe('Code search: TODO');
   });
 
   it('formats WebFetch actions', () => {
     expect(buildActionDescription('WebFetch', { url: 'https://example.com' }))
-      .toBe('Web-Fetch: https://example.com');
+      .toBe('Web fetch: https://example.com');
   });
 
   it('formats WebSearch actions', () => {
     expect(buildActionDescription('WebSearch', { query: 'TypeScript MCP' }))
-      .toBe('Web-Suche: TypeScript MCP');
+      .toBe('Web search: TypeScript MCP');
   });
 
   it('formats Task actions', () => {
     expect(buildActionDescription('Task', { description: 'Find config files' }))
-      .toBe('Subagent: Find config files');
+      .toBe('Sub-agent: Find config files');
   });
 
   it('falls back to JSON for unknown tools', () => {
@@ -256,7 +256,7 @@ describe('processHookEvent', () => {
     const session = db.getActiveObservationSession()!;
     const actions = db.getObservedActions(session.id, {});
     expect(actions).toHaveLength(2);
-    const stopAction = actions.find(a => a.window_title?.includes('beendet'));
+    const stopAction = actions.find(a => a.window_title?.includes('ended'));
     expect(stopAction).toBeTruthy();
     expect(stopAction!.source).toBe('manual');
   });

@@ -345,7 +345,7 @@ export class MCPServer {
           this.db.addTagToSOP(id, tag, false);
         }
         const allTags = this.db.getTagsForSOP(id).map(t => t.name);
-        return { success: true, tags: allTags, message: `${tags.length} Tag(s) hinzugefügt.` };
+        return { success: true, tags: allTags, message: `${tags.length} tag(s) added.` };
       }
 
       case 'shadowing_log_observation': {

@@ -20,13 +20,13 @@ describe('Anonymizer', () => {
   it('redacts IP addresses', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Server at 192.168.1.100 port 8080');
-    expect(result).toBe('Server at [interne-ip] port 8080');
+    expect(result).toBe('Server at [internal-ip] port 8080');
   });
 
   it('redacts URLs', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Open https://internal.company.com/dashboard');
-    expect(result).toBe('Open [internes-system]/dashboard');
+    expect(result).toBe('Open [internal-system]/dashboard');
   });
 
   it('redacts file paths', () => {
@@ -85,19 +85,19 @@ describe('Anonymizer', () => {
   it('redacts credit card numbers', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Karte: 4111-1111-1111-1111');
-    expect(result).toBe('Karte: [Kreditkartennummer]');
+    expect(result).toBe('Karte: [credit-card-number]');
   });
 
   it('redacts credit card numbers with spaces', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Visa: 4111 1111 1111 1111');
-    expect(result).toBe('Visa: [Kreditkartennummer]');
+    expect(result).toBe('Visa: [credit-card-number]');
   });
 
   it('redacts German Steuer-ID', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Steuer-ID: 12345678901');
-    expect(result).toBe('Steuer-ID: [Steuer-ID]');
+    expect(result).toBe('Steuer-ID: [tax-id]');
   });
 
   it('redacts Windows file paths on C: drive', () => {
@@ -124,34 +124,34 @@ describe('Anonymizer', () => {
   it('redacts phone numbers (German format)', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Anruf bei +49 170 1234567');
-    expect(result).toContain('[Telefonnummer]');
+    expect(result).toContain('[phone-number]');
     expect(result).not.toContain('1234567');
   });
 
   it('redacts phone numbers (local format)', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Büro: (089) 1234-5678');
-    expect(result).toContain('[Telefonnummer]');
+    expect(result).toContain('[phone-number]');
     expect(result).not.toContain('1234');
   });
 
   it('redacts IPv6 addresses', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('Server: 2001:0db8:85a3:0000:0000:8a2e:0370:7334');
-    expect(result).toContain('[interne-ip-v6]');
+    expect(result).toContain('[internal-ip-v6]');
     expect(result).not.toContain('2001:0db8');
   });
 
   it('redacts SV-Nummer', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('SV-Nr.: 12 345678 A 123');
-    expect(result).toBe('SV-Nr.: [SV-Nummer]');
+    expect(result).toBe('SV-Nr.: [social-security-number]');
   });
 
   it('redacts Steuer-ID with hyphen variant', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('SteuerID: 12345678901');
-    expect(result).toBe('Steuer-ID: [Steuer-ID]');
+    expect(result).toBe('Steuer-ID: [tax-id]');
   });
 
   it('handles multiple PII types in one text', () => {
@@ -162,7 +162,7 @@ describe('Anonymizer', () => {
     expect(result).not.toContain('10.0.0.5');
     expect(result).not.toContain('DE893704');
     expect(result).toContain('[email@example.com]');
-    expect(result).toContain('[interne-ip]');
+    expect(result).toContain('[internal-ip]');
     expect(result).toContain('[IBAN]');
   });
 
@@ -176,9 +176,9 @@ describe('Anonymizer', () => {
 
   it('redacts private IPs (10.x, 192.168.x, 172.16.x)', () => {
     const anon = new Anonymizer(defaultConfig);
-    expect(anon.anonymize('Server: 10.0.0.1')).toContain('[interne-ip]');
-    expect(anon.anonymize('Gateway: 192.168.1.1')).toContain('[interne-ip]');
-    expect(anon.anonymize('VPN: 172.16.0.1')).toContain('[interne-ip]');
+    expect(anon.anonymize('Server: 10.0.0.1')).toContain('[internal-ip]');
+    expect(anon.anonymize('Gateway: 192.168.1.1')).toContain('[internal-ip]');
+    expect(anon.anonymize('VPN: 172.16.0.1')).toContain('[internal-ip]');
   });
 
   it('credit card: does not redact year sequences (Luhn-invalid)', () => {
@@ -195,6 +195,6 @@ describe('Anonymizer', () => {
     // 4111 1111 1111 1111 is a standard Visa test number (Luhn-valid)
     const text = 'Card: 4111 1111 1111 1111';
     const result = anon.anonymize(text);
-    expect(result).toContain('[Kreditkartennummer]');
+    expect(result).toContain('[credit-card-number]');
   });
 });

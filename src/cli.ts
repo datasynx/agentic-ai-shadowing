@@ -1,3 +1,5 @@
+// Hinweis: Alle Benutzerausgaben gehen auf stderr (gemäß CLAUDE.md Regel "Terminal auf stderr").
+// Nur Daten-Output (SOP Markdown in "show") geht auf stdout für Piping-Kompatibilität.
 import { Command } from 'commander';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

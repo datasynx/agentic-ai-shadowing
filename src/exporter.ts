@@ -1,4 +1,4 @@
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ShadowingDB } from './db.js';
 import type { Anonymizer } from './anonymizer.js';
@@ -21,7 +21,7 @@ export class Exporter {
   exportSOPs(sopIds: string[]): ExportResult {
     if (sopIds.length === 0) throw new Error('No SOPs selected for export.');
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('Z', '');
     const exportDir = join(this.exportBaseDir, `export_${timestamp}`);
     const tmpDir = join(this.exportBaseDir, `.export_${timestamp}.tmp`);
     const sopsDir = join(tmpDir, 'sops');
@@ -91,17 +91,24 @@ export class Exporter {
     writeFileSync(join(tmpDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
 
     // Atomic rename: tmp → final (prevents partial exports)
-    renameSync(tmpDir, exportDir);
+    // Collision-safe: append counter suffix if dir already exists
+    let finalDir = exportDir;
+    if (existsSync(exportDir)) {
+      let counter = 1;
+      while (existsSync(`${exportDir}_${counter}`)) counter++;
+      finalDir = `${exportDir}_${counter}`;
+    }
+    renameSync(tmpDir, finalDir);
 
     // Log export in DB (only actually exported SOP IDs)
     this.db.logExport({
       sop_count: manifestSOPs.length,
-      export_path: exportDir,
+      export_path: finalDir,
       sop_ids: exportedSopIds,
     });
 
     return {
-      export_path: exportDir,
+      export_path: finalDir,
       sop_count: manifestSOPs.length,
       manifest,
     };

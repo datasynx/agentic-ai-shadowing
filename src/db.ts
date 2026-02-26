@@ -815,18 +815,18 @@ export class ShadowingDB {
     const tasks = this.db.prepare(`
       SELECT
         COUNT(*) as total_tasks,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_tasks,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks
+        COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) as active_tasks,
+        COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed_tasks
       FROM tasks
     `).get() as { total_tasks: number; active_tasks: number; completed_tasks: number };
 
     const sops = this.db.prepare(`
       SELECT
         COUNT(*) as total_sops,
-        SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft_sops,
-        SUM(CASE WHEN status = 'reviewed' THEN 1 ELSE 0 END) as reviewed_sops,
-        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_sops,
-        SUM(CASE WHEN status = 'exported' THEN 1 ELSE 0 END) as exported_sops
+        COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) as draft_sops,
+        COALESCE(SUM(CASE WHEN status = 'reviewed' THEN 1 ELSE 0 END), 0) as reviewed_sops,
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END), 0) as approved_sops,
+        COALESCE(SUM(CASE WHEN status = 'exported' THEN 1 ELSE 0 END), 0) as exported_sops
       FROM sops
     `).get() as { total_sops: number; draft_sops: number; reviewed_sops: number; approved_sops: number; exported_sops: number };
 

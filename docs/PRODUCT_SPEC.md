@@ -171,7 +171,7 @@ exports/export_YYYY-MM-DDTHH-mm-ss/
   "source": "agentic-ai-shadowing",
   "sop_count": 5,
   "anonymized": true,
-  "tags_summary": ["buchhaltung", "sap"],
+  "tags_summary": ["accounting", "sap"],
   "metrics_summary": {
     "avg_completion_time_seconds": 1800,
     "avg_quality_score": 75,

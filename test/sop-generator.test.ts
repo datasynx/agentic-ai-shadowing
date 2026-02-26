@@ -105,7 +105,7 @@ A clear goal description.
 ## Prerequisites
 SAP access.`;
 
-    const goalMatch = md.match(/##\s+(?:Ziel|Objective)\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    const goalMatch = md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
     expect(goalMatch).not.toBeNull();
     expect(goalMatch![1]!.trim()).toBe('A clear goal description.');
   });
@@ -120,7 +120,7 @@ SAP access.`;
     const md = `# Title
 ## Prerequisites
 None.`;
-    const goalMatch = md.match(/##\s+(?:Ziel|Objective)\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    const goalMatch = md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
     expect(goalMatch).toBeNull();
   });
 

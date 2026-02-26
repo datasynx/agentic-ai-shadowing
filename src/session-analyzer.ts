@@ -213,7 +213,7 @@ export class SessionAnalyzer {
     activitySummary: string,
     rawGroups: ObservedAction[][],
   ): Promise<ActionCluster[]> {
-    const lang = this.config.sop_generation.sop_language === 'de' ? 'Deutsch' : 'English';
+    const lang = this.config.sop_generation.sop_language === 'de' ? 'German' : 'English';
 
     const systemPrompt = `You are a workflow analyst. You receive a list of observed actions
 from an employee (shell commands, active windows, file operations, Git actions).
@@ -328,7 +328,7 @@ Respond ONLY with a JSON array:
     task: Task,
     cluster: ActionCluster,
   ): Promise<{ title: string; description: string; content_md: string; tags: string[] }> {
-    const lang = this.config.sop_generation.sop_language === 'de' ? 'Deutsch' : 'English';
+    const lang = this.config.sop_generation.sop_language === 'de' ? 'German' : 'English';
     const actionSummary = summarizeActionGroup(cluster.actions);
 
     const systemPrompt = `You are an SOP analyst. Create a Standard Operating Procedure (SOP) in ${lang}.
@@ -396,7 +396,7 @@ ${actionSummary}`;
     const titleMatch = content_md.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1]!.trim() : task.title;
 
-    const goalMatch = content_md.match(/##\s+(?:Ziel|Objective)\s*\n([\s\S]*?)(?=\n##|\n$)/);
+    const goalMatch = content_md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
     const description = goalMatch ? goalMatch[1]!.trim() : cluster.description;
 
     return { title, description, content_md, tags };

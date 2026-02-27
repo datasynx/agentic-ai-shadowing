@@ -808,25 +808,25 @@ describe('E2E: CLI Smoke Tests', () => {
 
   it('should initialize successfully', () => {
     const { stderr } = runCLI('init');
-    expect(stderr).toContain('initialisiert');
+    expect(stderr).toContain('initialized');
   });
 
   it('should show status after init', { timeout: 15000 }, () => {
     runCLI('init');
     const { stderr } = runCLI('status');
-    expect(stderr).toContain('Kein aktiver Task');
+    expect(stderr).toContain('No active task');
   });
 
   it('should show empty list after init', { timeout: 15000 }, () => {
     runCLI('init');
     const { stderr } = runCLI('list');
-    expect(stderr).toContain('Keine SOPs');
+    expect(stderr).toContain('No SOPs found');
   });
 
   it('should show stats after init', { timeout: 15000 }, () => {
     runCLI('init');
     const { stderr } = runCLI('stats');
-    expect(stderr).toContain('Statistiken');
+    expect(stderr).toContain('Statistics');
   });
 
   it('should show guide', { timeout: 15000 }, () => {
@@ -837,13 +837,13 @@ describe('E2E: CLI Smoke Tests', () => {
 
   it('should fail gracefully without init', () => {
     const { stderr } = runCLI('status');
-    expect(stderr).toContain('nicht gefunden');
+    expect(stderr).toContain('not found');
   });
 
   it('should show sessions (empty)', { timeout: 15000 }, () => {
     runCLI('init');
     const { stderr } = runCLI('sessions');
-    expect(stderr).toContain('Keine');
+    expect(stderr).toContain('No ');
   });
 
   it('should handle export --all with no approved SOPs', { timeout: 15000 }, () => {
@@ -866,7 +866,7 @@ describe('E2E: Config validation', () => {
   it('should create valid default config', () => {
     const config = getDefaultConfig();
     expect(config.version).toBe('1.0.0');
-    expect(config.language).toBe('de');
+    expect(config.language).toBe('en');
     expect(config.ui_port).toBe(3847);
     expect(config.sop_generation.model).toBe('claude-sonnet-4-20250514');
     expect(config.sop_generation.temperature).toBe(0.3);

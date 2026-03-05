@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { z } from 'zod';
 import type { ShadowingDB } from './db.js';
 import type { ShadowingConfig, SOPStatus } from './types.js';
 import { calculateSOPMetrics } from './metrics.js';
@@ -7,6 +8,31 @@ import { diffTexts } from './diff.js';
 import { Anonymizer } from './anonymizer.js';
 import { Exporter } from './exporter.js';
 import { getDashboardHTML } from './dashboard-html.js';
+
+// ── Request Body Schemas ──────────────────────────────────────────────────────
+
+const UpdateSOPSchema = z.object({
+  content_md: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+}).refine(data => data.content_md !== undefined || data.title !== undefined || data.description !== undefined, {
+  message: 'At least one field (content_md, title, description) must be provided',
+});
+
+const UpdateSOPStatusSchema = z.object({
+  status: z.enum(['draft', 'reviewed', 'approved', 'exported', 'archived']),
+});
+
+const UpdateSOPTagsSchema = z.object({
+  add: z.array(z.string().min(1)).optional(),
+  remove: z.array(z.string().min(1)).optional(),
+}).refine(data => (data.add && data.add.length > 0) || (data.remove && data.remove.length > 0), {
+  message: 'At least one of add or remove must be provided with entries',
+});
+
+const ExportSOPsSchema = z.object({
+  sop_ids: z.array(z.string().min(1)).min(1, 'At least one SOP ID is required'),
+});
 
 // ── REST API Router ──────────────────────────────────────────────────────────
 
@@ -59,19 +85,23 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig) {
         // Update SOP content (for in-browser editing)
         const id = path.split('/').pop()!;
         const body = await readBody(req);
-        const data = JSON.parse(body) as { content_md?: string; title?: string; description?: string };
-        const sop = db.updateSOP(id, data);
+        const parsed = UpdateSOPSchema.safeParse(JSON.parse(body));
+        if (!parsed.success) { badRequest(res, parsed.error.issues[0]?.message ?? 'Invalid request body'); return; }
+        const sop = db.updateSOP(id, parsed.data);
         json(res, sop);
       } else if (path.match(/^\/api\/sops\/[a-f0-9]+\/status$/) && req.method === 'PUT') {
         const id = path.split('/')[3]!;
         const body = await readBody(req);
-        const { status } = JSON.parse(body) as { status: string };
-        const sop = db.updateSOPStatus(id, status as SOPStatus);
+        const parsed = UpdateSOPStatusSchema.safeParse(JSON.parse(body));
+        if (!parsed.success) { badRequest(res, parsed.error.issues[0]?.message ?? 'Invalid status'); return; }
+        const sop = db.updateSOPStatus(id, parsed.data.status as SOPStatus);
         json(res, sop);
       } else if (path.match(/^\/api\/sops\/[a-f0-9]+\/tags$/) && req.method === 'PUT') {
         const id = path.split('/')[3]!;
         const body = await readBody(req);
-        const { add, remove } = JSON.parse(body) as { add?: string[]; remove?: string[] };
+        const parsed = UpdateSOPTagsSchema.safeParse(JSON.parse(body));
+        if (!parsed.success) { badRequest(res, parsed.error.issues[0]?.message ?? 'Invalid tags request'); return; }
+        const { add, remove } = parsed.data;
         if (add) for (const tag of add) db.addTagToSOP(id, tag, false);
         if (remove) {
           const sopTags = db.getTagsForSOP(id);
@@ -106,7 +136,9 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig) {
       } else if (path === '/api/exports' && req.method === 'POST') {
         // Trigger export from dashboard
         const body = await readBody(req);
-        const { sop_ids } = JSON.parse(body) as { sop_ids: string[] };
+        const parsed = ExportSOPsSchema.safeParse(JSON.parse(body));
+        if (!parsed.success) { badRequest(res, parsed.error.issues[0]?.message ?? 'Invalid export request'); return; }
+        const { sop_ids } = parsed.data;
         const anonymizer = new Anonymizer(config.anonymization);
         const exporter = new Exporter(db, anonymizer, config);
         const result = exporter.exportSOPs(sop_ids);
@@ -146,6 +178,11 @@ function json(res: ServerResponse, data: unknown) {
 function notFound(res: ServerResponse) {
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
+}
+
+function badRequest(res: ServerResponse, message: string) {
+  res.writeHead(400, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: message }));
 }
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB

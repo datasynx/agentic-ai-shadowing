@@ -161,7 +161,7 @@ describe('UI Server — Additional Routes', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sop_ids: [] }),
     });
-    expect(res.status).toBe(500); // Exporter throws "No SOPs selected"
+    expect(res.status).toBe(400); // Validation rejects empty sop_ids
   });
 
   // GET /api/sessions/:id/timeline

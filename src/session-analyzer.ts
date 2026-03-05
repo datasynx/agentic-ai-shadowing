@@ -14,6 +14,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { ShadowingConfig, Task, ObservedAction } from './types.js';
 import type { ShadowingDB } from './db.js';
 import { SOPGenerationError } from './sop-generator.js';
+import { withRetry } from './retry.js';
+import { parseSOPResponse } from './sop-parser.js';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -246,13 +248,15 @@ Respond ONLY with a JSON array:
 "action_blocks" is an array of activity block numbers (0-based) that belong to this task.`;
 
     try {
-      const response = await this.client.messages.create({
-        model: this.config.sop_generation.model,
-        max_tokens: 2048,
-        temperature: 0.2,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: activitySummary }],
-      });
+      const response = await withRetry(() =>
+        this.client.messages.create({
+          model: this.config.sop_generation.model,
+          max_tokens: 2048,
+          temperature: 0.2,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: activitySummary }],
+        }),
+      );
 
       const text = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === 'text')
@@ -262,7 +266,7 @@ Respond ONLY with a JSON array:
       return this.parseTaskIdentification(text, rawGroups);
     } catch (err) {
       if (err instanceof Anthropic.RateLimitError) {
-        throw new SOPGenerationError('API rate limit reached.', 'rate_limited', true, 429);
+        throw new SOPGenerationError('API rate limit reached after retries.', 'rate_limited', true, 429);
       }
       if (err instanceof Anthropic.AuthenticationError) {
         throw new SOPGenerationError('API key invalid.', 'auth_failed', false, 401);
@@ -366,39 +370,21 @@ Complexity: ${cluster.complexity}/5
 Observed actions:
 ${actionSummary}`;
 
-    const response = await this.client.messages.create({
-      model: this.config.sop_generation.model,
-      max_tokens: this.config.sop_generation.max_tokens,
-      temperature: this.config.sop_generation.temperature,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    });
+    const response = await withRetry(() =>
+      this.client.messages.create({
+        model: this.config.sop_generation.model,
+        max_tokens: this.config.sop_generation.max_tokens,
+        temperature: this.config.sop_generation.temperature,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    );
 
     const text = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === 'text')
       .map(block => block.text)
       .join('');
 
-    // Parse response (same logic as SOPGenerator)
-    let tags: string[] = [];
-    let content_md = text;
-
-    const tagMatch = text.match(/```json\s*\n?\{[\s\S]*?"tags"\s*:\s*\[[\s\S]*?\]\s*\}\s*\n?```/);
-    if (tagMatch) {
-      try {
-        const jsonStr = tagMatch[0].replace(/```json\s*\n?/, '').replace(/\n?```/, '');
-        const parsed = JSON.parse(jsonStr) as { tags: string[] };
-        tags = parsed.tags.map(t => t.toLowerCase().replace(/^#/, ''));
-      } catch { /* no tags */ }
-      content_md = text.replace(tagMatch[0], '').trim();
-    }
-
-    const titleMatch = content_md.match(/^#\s+(.+)$/m);
-    const title = titleMatch ? titleMatch[1]!.trim() : task.title;
-
-    const goalMatch = content_md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
-    const description = goalMatch ? goalMatch[1]!.trim() : cluster.description;
-
-    return { title, description, content_md, tags };
+    return parseSOPResponse(text, task.title, cluster.description);
   }
 }

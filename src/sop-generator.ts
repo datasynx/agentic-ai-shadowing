@@ -3,6 +3,8 @@ import type { ShadowingConfig, Task, SOP } from './types.js';
 import type { ShadowingDB } from './db.js';
 import { formatDuration } from './task-manager.js';
 import { loadJGFFile, loadCartographyGraph, buildFocusedContext } from './cartography.js';
+import { withRetry } from './retry.js';
+import { parseSOPResponse } from './sop-parser.js';
 
 export class SOPGenerationError extends Error {
   constructor(
@@ -84,13 +86,15 @@ Generate 3-8 relevant tags (lowercase, without #).`;
 
     let text: string;
     try {
-      const response = await this.client.messages.create({
-        model: this.config.sop_generation.model,
-        max_tokens: this.config.sop_generation.max_tokens,
-        temperature: this.config.sop_generation.temperature,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      });
+      const response = await withRetry(() =>
+        this.client.messages.create({
+          model: this.config.sop_generation.model,
+          max_tokens: this.config.sop_generation.max_tokens,
+          temperature: this.config.sop_generation.temperature,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      );
 
       text = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === 'text')
@@ -105,7 +109,7 @@ Generate 3-8 relevant tags (lowercase, without #).`;
       }
       if (err instanceof Anthropic.RateLimitError) {
         throw new SOPGenerationError(
-          'API rate limit reached. Try again in a few minutes.',
+          'API rate limit reached after retries. Try again in a few minutes.',
           'rate_limited', true, 429,
         );
       }
@@ -153,31 +157,7 @@ Generate 3-8 relevant tags (lowercase, without #).`;
     content_md: string;
     tags: string[];
   } {
-    // Extract tags JSON block
-    let tags: string[] = [];
-    let content_md = text;
-
-    const jsonMatch = text.match(/```json\s*\n?\{[\s\S]*?"tags"\s*:\s*\[[\s\S]*?\]\s*\}\s*\n?```/);
-    if (jsonMatch) {
-      try {
-        const jsonStr = jsonMatch[0].replace(/```json\s*\n?/, '').replace(/\n?```/, '');
-        const parsed = JSON.parse(jsonStr) as { tags: string[] };
-        tags = parsed.tags.map(t => t.toLowerCase().replace(/^#/, ''));
-      } catch {
-        // JSON parse failed — no tags
-      }
-      content_md = text.replace(jsonMatch[0], '').trim();
-    }
-
-    // Extract title from first heading
-    const titleMatch = content_md.match(/^#\s+(.+)$/m);
-    const title = titleMatch ? titleMatch[1]!.trim() : fallbackTitle;
-
-    // Extract description from "## Objective" section
-    const goalMatch = content_md.match(/##\s+Objective\s*\n([\s\S]*?)(?=\n##|\n$)/);
-    const description = goalMatch ? goalMatch[1]!.trim() : '';
-
-    return { title, description, content_md, tags };
+    return parseSOPResponse(text, fallbackTitle);
   }
 }
 

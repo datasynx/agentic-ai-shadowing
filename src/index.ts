@@ -30,6 +30,14 @@ export { TaskManager, formatDuration } from './task-manager.js';
 // SOP Generation
 export { SOPGenerator, SOPGenerationError, buildSOPPreview, countSteps } from './sop-generator.js';
 
+// SOP Response Parser
+export { parseSOPResponse } from './sop-parser.js';
+export type { ParsedSOPResponse } from './sop-parser.js';
+
+// Retry Logic
+export { withRetry } from './retry.js';
+export type { RetryOptions } from './retry.js';
+
 // Metrics
 export {
   calculateSOPMetrics,

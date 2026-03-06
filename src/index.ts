@@ -18,6 +18,14 @@ export type {
 
 export { TASK_STATUSES, SOP_STATUSES, ACTION_SOURCES } from './types.js';
 
+// Errors
+export { ShadowingError, SOPGenerationError } from './errors.js';
+export type { ShadowingErrorCode } from './errors.js';
+
+// Logger
+export { createLogger, noopLogger, getLogger, setDefaultLogger } from './logger.js';
+export type { Logger, LogLevel, LoggerOptions } from './logger.js';
+
 // Database
 export { ShadowingDB } from './db.js';
 
@@ -28,7 +36,7 @@ export { loadConfig, saveConfig, getDefaultConfig, getConfigDir, getDbPath, ensu
 export { TaskManager, formatDuration } from './task-manager.js';
 
 // SOP Generation
-export { SOPGenerator, SOPGenerationError, buildSOPPreview, countSteps } from './sop-generator.js';
+export { SOPGenerator, buildSOPPreview, countSteps } from './sop-generator.js';
 
 // SOP Response Parser
 export { parseSOPResponse } from './sop-parser.js';
@@ -49,6 +57,7 @@ export {
 
 // Anonymization
 export { Anonymizer } from './anonymizer.js';
+export type { RedactionSummary } from './anonymizer.js';
 
 // Diff
 export { diffTexts, formatDiff } from './diff.js';
@@ -77,7 +86,8 @@ export { buildInfraGraph, formatInfraGraph, listProjectFiles } from './infra-con
 export { PrivacyManager, getDefaultExclusions } from './privacy.js';
 
 // UI Server
-export { createUIServer } from './ui-server.js';
+export { createUIServer, getServerAuthToken } from './ui-server.js';
+export type { UIServerOptions } from './ui-server.js';
 
 // Export
 export { Exporter } from './exporter.js';

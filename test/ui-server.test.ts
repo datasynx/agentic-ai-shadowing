@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { unlinkSync } from 'node:fs';
 
 const DB_PATH = join(tmpdir(), `shadowing-ui-test-${Date.now()}.db`);
+const TEST_AUTH_TOKEN = 'test-ui-token';
 let db: ShadowingDB;
 let server: Server;
 let baseUrl: string;
@@ -16,7 +17,7 @@ beforeEach(async () => {
   db = new ShadowingDB(DB_PATH);
   db.initialize();
   const config = getDefaultConfig();
-  server = createUIServer(db, config);
+  server = createUIServer(db, config, { authToken: TEST_AUTH_TOKEN });
 
   await new Promise<void>((resolve) => {
     server.listen(0, () => {
@@ -35,8 +36,10 @@ afterEach(async () => {
   try { unlinkSync(DB_PATH); } catch { /* ok */ }
 });
 
+const authHeaders = { 'Authorization': `Bearer ${TEST_AUTH_TOKEN}`, 'Content-Type': 'application/json' };
+
 async function get(path: string) {
-  const res = await fetch(`${baseUrl}${path}`);
+  const res = await fetch(`${baseUrl}${path}`, { headers: authHeaders });
   return { status: res.status, data: await res.json() };
 }
 
@@ -120,7 +123,7 @@ describe('UI Server — API', () => {
 
     const res = await fetch(`${baseUrl}/api/sops/${sop.id}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ status: 'reviewed' }),
     });
     expect(res.status).toBe(200);

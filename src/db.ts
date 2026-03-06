@@ -5,6 +5,10 @@ import type {
   ObservedAction, ActionSource, ObservationSession,
   ConsentRecord, ExclusionRule,
 } from './types.js';
+import { ShadowingError } from './errors.js';
+import { getLogger } from './logger.js';
+
+const log = getLogger('db');
 
 // ── Schema ───────────────────────────────────────────────────────────────────
 
@@ -124,6 +128,27 @@ CREATE TABLE IF NOT EXISTS exclusion_rules (
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS audit_log (
+    id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    entity_type     TEXT NOT NULL,
+    entity_id       TEXT NOT NULL,
+    action          TEXT NOT NULL,
+    old_value       TEXT,
+    new_value       TEXT,
+    source          TEXT NOT NULL DEFAULT 'cli',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS api_usage (
+    id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    sop_id          TEXT,
+    model           TEXT NOT NULL,
+    input_tokens    INTEGER NOT NULL DEFAULT 0,
+    output_tokens   INTEGER NOT NULL DEFAULT 0,
+    duration_ms     INTEGER,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_sops_task_id ON sops(task_id);
 CREATE INDEX IF NOT EXISTS idx_sops_status ON sops(status);
 CREATE INDEX IF NOT EXISTS idx_task_executions_sop_id ON task_executions(sop_id);
@@ -132,6 +157,8 @@ CREATE INDEX IF NOT EXISTS idx_sop_versions_sop_id ON sop_versions(sop_id);
 CREATE INDEX IF NOT EXISTS idx_observed_actions_session ON observed_actions(session_id);
 CREATE INDEX IF NOT EXISTS idx_observed_actions_source ON observed_actions(source);
 CREATE INDEX IF NOT EXISTS idx_observation_sessions_status ON observation_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_api_usage_sop ON api_usage(sop_id);
 
 -- Enforce at most one active task at any time
 CREATE UNIQUE INDEX IF NOT EXISTS idx_single_active_task
@@ -171,6 +198,35 @@ export class ShadowingDB {
     if (!colNames.has('paused_total_seconds')) {
       try { this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_total_seconds INTEGER NOT NULL DEFAULT 0`); } catch { /* column may already exist */ }
     }
+
+    // Migration 2: Add audit_log table
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+          entity_type TEXT NOT NULL, entity_id TEXT NOT NULL,
+          action TEXT NOT NULL, old_value TEXT, new_value TEXT,
+          source TEXT NOT NULL DEFAULT 'cli',
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
+      `);
+    } catch { /* already exists */ }
+
+    // Migration 3: Add api_usage table
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS api_usage (
+          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+          sop_id TEXT, model TEXT NOT NULL,
+          input_tokens INTEGER NOT NULL DEFAULT 0,
+          output_tokens INTEGER NOT NULL DEFAULT 0,
+          duration_ms INTEGER,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_api_usage_sop ON api_usage(sop_id);
+      `);
+    } catch { /* already exists */ }
   }
 
   close(): void {
@@ -224,15 +280,15 @@ export class ShadowingDB {
     values.push(id);
     const stmt = this.db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ? RETURNING *`);
     const row = stmt.get(...values) as RawTask | undefined;
-    if (!row) throw new Error(`Task ${id} not found`);
+    if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
     return this.mapTask(row);
   }
 
   completeTask(id: string): Task {
     const current = this.getTask(id);
-    if (!current) throw new Error(`Task ${id} not found`);
-    if (current.status === 'completed') throw new Error(`Task ${id} is already completed`);
-    if (current.status === 'cancelled') throw new Error(`Task ${id} is cancelled`);
+    if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+    if (current.status === 'completed') throw new ShadowingError(`Task ${id} is already completed`, 'task_already_completed', { taskId: id });
+    if (current.status === 'cancelled') throw new ShadowingError(`Task ${id} is cancelled`, 'task_cancelled', { taskId: id });
 
     // Duration = wall-clock time - total paused time (including current pause if paused)
     const stmt = this.db.prepare(`
@@ -251,14 +307,14 @@ export class ShadowingDB {
       RETURNING *
     `);
     const row = stmt.get(id) as RawTask | undefined;
-    if (!row) throw new Error(`Task ${id} not found`);
+    if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
     return this.mapTask(row);
   }
 
   pauseTask(id: string): Task {
     const current = this.getTask(id);
-    if (!current) throw new Error(`Task ${id} not found`);
-    if (current.status !== 'active') throw new Error(`Task ${id} is not active (status: ${current.status})`);
+    if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+    if (current.status !== 'active') throw new ShadowingError(`Task ${id} is not active (status: ${current.status})`, 'task_not_active', { taskId: id, status: current.status });
 
     const stmt = this.db.prepare(`
       UPDATE tasks
@@ -269,14 +325,14 @@ export class ShadowingDB {
       RETURNING *
     `);
     const row = stmt.get(id) as RawTask | undefined;
-    if (!row) throw new Error(`Task ${id} not found`);
+    if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
     return this.mapTask(row);
   }
 
   resumeTask(id: string): Task {
     const current = this.getTask(id);
-    if (!current) throw new Error(`Task ${id} not found`);
-    if (current.status !== 'paused') throw new Error(`Task ${id} is not paused (status: ${current.status})`);
+    if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+    if (current.status !== 'paused') throw new ShadowingError(`Task ${id} is not paused (status: ${current.status})`, 'task_not_paused', { taskId: id, status: current.status });
 
     // Add the pause gap to paused_total_seconds, then clear paused_at
     const stmt = this.db.prepare(`
@@ -293,7 +349,7 @@ export class ShadowingDB {
       RETURNING *
     `);
     const row = stmt.get(id) as RawTask | undefined;
-    if (!row) throw new Error(`Task ${id} not found`);
+    if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
     return this.mapTask(row);
   }
 
@@ -399,7 +455,7 @@ export class ShadowingDB {
     values.push(id);
     const stmt = this.db.prepare(`UPDATE sops SET ${fields.join(', ')} WHERE id = ? RETURNING *`);
     const row = stmt.get(...values) as RawSOP | undefined;
-    if (!row) throw new Error(`SOP ${id} not found`);
+    if (!row) throw new ShadowingError(`SOP ${id} not found`, 'sop_not_found', { sopId: id });
     return this.mapSOP(row);
   }
 
@@ -410,7 +466,7 @@ export class ShadowingDB {
       `UPDATE sops SET status = ?, updated_at = datetime('now')${extra} WHERE id = ? RETURNING *`
     );
     const row = stmt.get(status, id) as RawSOP | undefined;
-    if (!row) throw new Error(`SOP ${id} not found`);
+    if (!row) throw new ShadowingError(`SOP ${id} not found`, 'sop_not_found', { sopId: id });
     return this.mapSOP(row);
   }
 
@@ -565,7 +621,7 @@ export class ShadowingDB {
       RETURNING *
     `);
     const row = stmt.get(id, id) as ObservationSession | undefined;
-    if (!row) throw new Error(`Session ${id} not found`);
+    if (!row) throw new ShadowingError(`Session ${id} not found`, 'session_not_found', { sessionId: id });
     return row;
   }
 
@@ -574,7 +630,7 @@ export class ShadowingDB {
       UPDATE observation_sessions SET status = 'paused' WHERE id = ? RETURNING *
     `);
     const row = stmt.get(id) as ObservationSession | undefined;
-    if (!row) throw new Error(`Session ${id} not found`);
+    if (!row) throw new ShadowingError(`Session ${id} not found`, 'session_not_found', { sessionId: id });
     return row;
   }
 
@@ -583,7 +639,7 @@ export class ShadowingDB {
       UPDATE observation_sessions SET status = 'active' WHERE id = ? RETURNING *
     `);
     const row = stmt.get(id) as ObservationSession | undefined;
-    if (!row) throw new Error(`Session ${id} not found`);
+    if (!row) throw new ShadowingError(`Session ${id} not found`, 'session_not_found', { sessionId: id });
     return row;
   }
 
@@ -843,6 +899,108 @@ export class ShadowingDB {
       total_exports: exportCount,
       avg_quality_score: 0, // calculated externally via metrics module
     };
+  }
+
+  // ── Audit Log ──────────────────────────────────────────────────────────
+
+  logAudit(data: {
+    entity_type: string;
+    entity_id: string;
+    action: string;
+    old_value?: string;
+    new_value?: string;
+    source?: string;
+  }): void {
+    this.db.prepare(`
+      INSERT INTO audit_log (entity_type, entity_id, action, old_value, new_value, source)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      data.entity_type,
+      data.entity_id,
+      data.action,
+      data.old_value ?? null,
+      data.new_value ?? null,
+      data.source ?? 'cli',
+    );
+    log.info('Audit entry recorded', {
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      action: data.action,
+      source: data.source ?? 'cli',
+    });
+  }
+
+  getAuditLog(entityType?: string, entityId?: string): Array<{
+    id: string;
+    entity_type: string;
+    entity_id: string;
+    action: string;
+    old_value: string | null;
+    new_value: string | null;
+    source: string;
+    created_at: string;
+  }> {
+    let sql = 'SELECT * FROM audit_log';
+    const conditions: string[] = [];
+    const params: string[] = [];
+    if (entityType) { conditions.push('entity_type = ?'); params.push(entityType); }
+    if (entityId) { conditions.push('entity_id = ?'); params.push(entityId); }
+    if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
+    sql += ' ORDER BY created_at DESC';
+    return this.db.prepare(sql).all(...params) as Array<{
+      id: string; entity_type: string; entity_id: string;
+      action: string; old_value: string | null; new_value: string | null;
+      source: string; created_at: string;
+    }>;
+  }
+
+  // ── API Usage ─────────────────────────────────────────────────────────
+
+  logApiUsage(data: {
+    sop_id?: string;
+    model: string;
+    input_tokens: number;
+    output_tokens: number;
+    duration_ms?: number;
+  }): void {
+    this.db.prepare(`
+      INSERT INTO api_usage (sop_id, model, input_tokens, output_tokens, duration_ms)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      data.sop_id ?? null,
+      data.model,
+      data.input_tokens,
+      data.output_tokens,
+      data.duration_ms ?? null,
+    );
+  }
+
+  getApiUsageSummary(): {
+    total_calls: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    avg_input_tokens: number;
+    avg_output_tokens: number;
+    avg_duration_ms: number;
+  } {
+    const row = this.db.prepare(`
+      SELECT
+        COUNT(*) as total_calls,
+        COALESCE(SUM(input_tokens), 0) as total_input_tokens,
+        COALESCE(SUM(output_tokens), 0) as total_output_tokens,
+        COALESCE(AVG(input_tokens), 0) as avg_input_tokens,
+        COALESCE(AVG(output_tokens), 0) as avg_output_tokens,
+        COALESCE(AVG(duration_ms), 0) as avg_duration_ms
+      FROM api_usage
+    `).get() as {
+      total_calls: number;
+      total_input_tokens: number;
+      total_output_tokens: number;
+      avg_input_tokens: number;
+      avg_output_tokens: number;
+      avg_duration_ms: number;
+    };
+    return row;
   }
 
   // ── Mapping helpers ──────────────────────────────────────────────────────

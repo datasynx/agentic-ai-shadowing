@@ -1,0 +1,50 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [0.2.0] - 2026-03-06
+
+### Added
+
+- **Structured Logging** (TASK-01): `src/logger.ts` with `debug`/`info`/`warn`/`error` levels, ISO-8601 timestamps, module names, NDJSON and human-readable modes. Configurable via `LOG_LEVEL` env var.
+- **Unified Error Codes** (TASK-12): `ShadowingError` base class with 20+ machine-readable codes, HTTP status mapping, and `retryable` flag. `SOPGenerationError` extends it for backward compatibility.
+- **Bearer Token Auth** (TASK-04): UI server requires `Authorization: Bearer <token>` for all `/api/*` routes. Token auto-generated if not configured.
+- **Rate Limiting** (TASK-05): In-memory sliding-window rate limiter with configurable read/write limits per IP.
+- **Central Error Handler** (TASK-06): Consistent JSON error responses. `ShadowingError` → proper HTTP status, `ZodError` → 422 with issues, unknown → 500 without stack traces.
+- **PII Redaction Summary** (TASK-07): `anonymizeWithSummary()` returns per-category redaction counts. Export manifests include `redaction_summary`.
+- **Request Tracing** (TASK-08): `X-Request-Id` header generated per request and included in responses and logs.
+- **Input Validation** (TASK-14): Zod validation for all API query parameters and request bodies. Invalid input returns 422 with structured error details.
+- **Audit Log** (TASK-09): `audit_log` table tracks SOP create/update/delete/status-change with old/new values.
+- **API Usage Tracking** (TASK-10): `api_usage` table logs Claude API calls with model, token counts, and duration. Aggregated via `getApiUsageSummary()`.
+- **Response Size Guard** (TASK-11): SOP generator validates API responses don't exceed 500KB before persisting.
+- **API Cost Visibility** (TASK-10): `/api/stats` includes `api_usage_summary` with total tokens and costs.
+- **Documentation**: `docs/ARCHITECTURE_DECISIONS.md`, `docs/ERRORS.md`, `CHANGELOG.md`
+
+### Changed
+
+- All `throw new Error(...)` in `src/db.ts`, `src/task-manager.ts` replaced with `ShadowingError` using specific error codes.
+- `anonymize()` is now a backward-compatible wrapper around `anonymizeWithSummary()`.
+- `createUIServer()` accepts optional `UIServerOptions` with `authToken` and `rateLimitPerMinute`.
+- Export manifest includes `redaction_summary` field.
+- SOP detail endpoint includes `audit_history` array.
+- Config schema extended with `ui_auth_token`, `ui_rate_limit_per_minute`, `log_level` fields.
+
+### Fixed
+
+- No stack traces leaked to API clients on 500 errors.
+
+## [0.1.0] - 2026-03-05
+
+### Added
+
+- Initial release: CLI tool for task tracking and SOP generation
+- SQLite database with WAL mode
+- Claude API integration for SOP generation
+- PII anonymization (emails, IPs, URLs, phone numbers, file paths, IBANs, credit cards)
+- Markdown export with manifest.json
+- Web dashboard with REST API
+- Observation sessions and shell history integration
+- Cartography graph integration
+- Metrics: consistency, maturity, freshness, quality scores
+- MCP server for tool integration

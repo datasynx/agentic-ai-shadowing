@@ -5,18 +5,15 @@ import { formatDuration } from './task-manager.js';
 import { loadJGFFile, loadCartographyGraph, buildFocusedContext } from './cartography.js';
 import { withRetry } from './retry.js';
 import { parseSOPResponse } from './sop-parser.js';
+import { SOPGenerationError } from './errors.js';
+import { getLogger } from './logger.js';
 
-export class SOPGenerationError extends Error {
-  constructor(
-    message: string,
-    public readonly code: 'missing_api_key' | 'auth_failed' | 'rate_limited' | 'api_error' | 'parse_error' | 'unknown',
-    public readonly retryable: boolean,
-    public readonly statusCode?: number,
-  ) {
-    super(message);
-    this.name = 'SOPGenerationError';
-  }
-}
+export { SOPGenerationError } from './errors.js';
+
+const log = getLogger('sop-generator');
+
+const DEFAULT_MAX_RESPONSE_BYTES = 512_000; // 500 KB
+const SLOW_THRESHOLD_MS = 30_000;
 
 export class SOPGenerator {
   private client: Anthropic;
@@ -85,6 +82,10 @@ Generate 3-8 relevant tags (lowercase, without #).`;
     }
 
     let text: string;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    const startTime = performance.now();
+
     try {
       const response = await withRetry(() =>
         this.client.messages.create({
@@ -95,6 +96,9 @@ Generate 3-8 relevant tags (lowercase, without #).`;
           messages: [{ role: 'user', content: userPrompt }],
         }),
       );
+
+      inputTokens = response.usage?.input_tokens ?? 0;
+      outputTokens = response.usage?.output_tokens ?? 0;
 
       text = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === 'text')
@@ -125,9 +129,49 @@ Generate 3-8 relevant tags (lowercase, without #).`;
       );
     }
 
+    const durationMs = Math.round(performance.now() - startTime);
+
+    // Log API usage and performance
+    log.info('Claude API call completed', {
+      model: this.config.sop_generation.model,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      duration_ms: durationMs,
+    });
+
+    if (durationMs > SLOW_THRESHOLD_MS) {
+      log.warn('Slow SOP generation detected', { duration_ms: durationMs, task_id: task.id });
+    }
+
+    // Validate response size before DB persistence
+    const maxBytes = DEFAULT_MAX_RESPONSE_BYTES;
+    const responseBytes = Buffer.byteLength(text, 'utf-8');
+    if (responseBytes > maxBytes) {
+      throw new SOPGenerationError(
+        `API response exceeds size limit (${responseBytes} bytes > ${maxBytes} bytes)`,
+        'response_too_large', false,
+      );
+    }
+
     try {
-      return this.parseResponse(text, task.title);
+      const result = this.parseResponse(text, task.title);
+
+      // Log API usage to DB (non-blocking — don't fail SOP gen if this fails)
+      try {
+        this.db.logApiUsage({
+          sop_id: undefined,
+          model: this.config.sop_generation.model,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          duration_ms: durationMs,
+        });
+      } catch (e) {
+        log.warn('Failed to log API usage', { error: e instanceof Error ? e.message : String(e) });
+      }
+
+      return result;
     } catch (err) {
+      if (err instanceof SOPGenerationError) throw err;
       throw new SOPGenerationError(
         `Error parsing the API response: ${err instanceof Error ? err.message : String(err)}`,
         'parse_error', false,

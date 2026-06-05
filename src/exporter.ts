@@ -1,10 +1,13 @@
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ShadowingDB } from './db.js';
-import type { Anonymizer } from './anonymizer.js';
+import { Anonymizer, type RedactionSummary } from './anonymizer.js';
 import type { ShadowingConfig, ExportResult, ExportManifest, ExportManifestSOP } from './types.js';
 import { calculateSOPMetrics } from './metrics.js';
 import { getExportsDir } from './config.js';
+import { getLogger } from './logger.js';
+
+const log = getLogger('exporter');
 
 export class Exporter {
   private exportBaseDir: string;
@@ -34,6 +37,12 @@ export class Exporter {
     let totalExecutions = 0;
     let totalQuality = 0;
 
+    // Aggregate redaction summary
+    const totalRedaction: RedactionSummary = {
+      email_count: 0, ip_count: 0, url_count: 0, phone_count: 0,
+      filepath_count: 0, iban_count: 0, credit_card_count: 0, custom_count: 0,
+    };
+
     for (let i = 0; i < sopIds.length; i++) {
       const sopId = sopIds[i]!;
       const sop = this.db.getSOP(sopId);
@@ -46,20 +55,25 @@ export class Exporter {
 
       const metrics = calculateSOPMetrics(this.db, sopId, this.config.metrics.quality_score_weights);
 
-      // Anonymize content
-      const anonymizedContent = this.anonymizer.anonymize(sop.content_md);
-      const anonymizedTitle = this.anonymizer.anonymize(sop.title);
+      // Anonymize content with summary tracking
+      const contentResult = this.anonymizer.anonymizeWithSummary(sop.content_md);
+      const titleResult = this.anonymizer.anonymizeWithSummary(sop.title);
+
+      // Aggregate redaction counts
+      for (const key of Object.keys(totalRedaction) as (keyof RedactionSummary)[]) {
+        totalRedaction[key] += contentResult.summary[key] + titleResult.summary[key];
+      }
 
       // Write SOP file
       const filename = `sop_${String(i + 1).padStart(3, '0')}.md`;
-      writeFileSync(join(sopsDir, filename), anonymizedContent, 'utf8');
+      writeFileSync(join(sopsDir, filename), contentResult.text, 'utf8');
 
       // Mark SOP as exported
       this.db.updateSOPStatus(sopId, 'exported');
 
       manifestSOPs.push({
         file: filename,
-        title: anonymizedTitle,
+        title: titleResult.text,
         tags,
         executions: metrics.execution_count,
         avg_duration_seconds: metrics.avg_duration_seconds,
@@ -71,6 +85,12 @@ export class Exporter {
       totalQuality += metrics.overall_quality_score;
     }
 
+    // Log redaction summary for compliance
+    log.info('PII redaction completed for export', {
+      sop_count: manifestSOPs.length,
+      ...totalRedaction,
+    });
+
     const manifest: ExportManifest = {
       version: '1.0.0',
       exported_at: new Date().toISOString(),
@@ -78,6 +98,7 @@ export class Exporter {
       sop_count: manifestSOPs.length,
       anonymized: true,
       tags_summary: [...allTags].sort(),
+      redaction_summary: totalRedaction,
       metrics_summary: {
         avg_completion_time_seconds: manifestSOPs.length > 0
           ? Math.round(totalDuration / manifestSOPs.length) : 0,
@@ -91,7 +112,6 @@ export class Exporter {
     writeFileSync(join(tmpDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
 
     // Atomic rename: tmp → final (prevents partial exports)
-    // Collision-safe: append counter suffix if dir already exists
     let finalDir = exportDir;
     if (existsSync(exportDir)) {
       let counter = 1;
@@ -100,7 +120,7 @@ export class Exporter {
     }
     renameSync(tmpDir, finalDir);
 
-    // Log export in DB (only actually exported SOP IDs)
+    // Log export in DB
     this.db.logExport({
       sop_count: manifestSOPs.length,
       export_path: finalDir,

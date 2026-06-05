@@ -9,6 +9,9 @@ import { createUIServer } from '../src/ui-server.js';
 import { getHistoryFilePath } from '../src/shell-history.js';
 import { matchesPattern, isWithinWorkHours } from '../src/observer.js';
 
+const TEST_AUTH_TOKEN = 'test-coverage-token';
+const authHeaders: Record<string, string> = { 'Authorization': `Bearer ${TEST_AUTH_TOKEN}`, 'Content-Type': 'application/json' };
+
 // ── UI Server: untested routes ────────────────────────────────────────────────
 
 describe('UI Server — Additional Routes', () => {
@@ -22,7 +25,7 @@ describe('UI Server — Additional Routes', () => {
     db = new ShadowingDB(join(tmpDir, 'test.db'));
     db.initialize();
     const config = getDefaultConfig();
-    server = createUIServer(db, config);
+    server = createUIServer(db, config, { authToken: TEST_AUTH_TOKEN });
 
     await new Promise<void>((resolve) => {
       server.listen(0, () => {
@@ -54,7 +57,7 @@ describe('UI Server — Additional Routes', () => {
     const sop = createSOP();
     const res = await fetch(`${baseUrl}/api/sops/${sop.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ content_md: '# Updated Content', title: 'New Title' }),
     });
     expect(res.status).toBe(200);
@@ -68,7 +71,7 @@ describe('UI Server — Additional Routes', () => {
     const sop = createSOP();
     const res = await fetch(`${baseUrl}/api/sops/${sop.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ title: 'Only Title Update' }),
     });
     expect(res.status).toBe(200);
@@ -82,7 +85,7 @@ describe('UI Server — Additional Routes', () => {
     const sop = createSOP();
     const res = await fetch(`${baseUrl}/api/sops/${sop.id}/tags`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ add: ['deploy', 'production'] }),
     });
     expect(res.status).toBe(200);
@@ -98,7 +101,7 @@ describe('UI Server — Additional Routes', () => {
 
     const res = await fetch(`${baseUrl}/api/sops/${sop.id}/tags`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ remove: ['remove-me'] }),
     });
     expect(res.status).toBe(200);
@@ -113,7 +116,7 @@ describe('UI Server — Additional Routes', () => {
 
     const res = await fetch(`${baseUrl}/api/sops/${sop.id}/tags`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ add: ['new-tag'], remove: ['old-tag'] }),
     });
     expect(res.status).toBe(200);
@@ -126,7 +129,7 @@ describe('UI Server — Additional Routes', () => {
   it('GET /api/sops/:id/preview returns anonymized content', async () => {
     const sop = createSOP('Contact john@company.com', '# SOP\nEmail: john@company.com at 192.168.1.1');
 
-    const res = await fetch(`${baseUrl}/api/sops/${sop.id}/preview`);
+    const res = await fetch(`${baseUrl}/api/sops/${sop.id}/preview`, { headers: authHeaders });
     expect(res.status).toBe(200);
     const data = await res.json() as { title: string; content_md: string };
     expect(data.title).toContain('[email@example.com]');
@@ -136,7 +139,7 @@ describe('UI Server — Additional Routes', () => {
   });
 
   it('GET /api/sops/:id/preview returns 404 for unknown SOP', async () => {
-    const res = await fetch(`${baseUrl}/api/sops/deadbeef/preview`);
+    const res = await fetch(`${baseUrl}/api/sops/deadbeef/preview`, { headers: authHeaders });
     expect(res.status).toBe(404);
   });
 
@@ -146,7 +149,7 @@ describe('UI Server — Additional Routes', () => {
 
     const res = await fetch(`${baseUrl}/api/exports`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ sop_ids: [sop.id] }),
     });
     expect(res.status).toBe(200);
@@ -158,10 +161,10 @@ describe('UI Server — Additional Routes', () => {
   it('POST /api/exports returns error for empty array', async () => {
     const res = await fetch(`${baseUrl}/api/exports`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ sop_ids: [] }),
     });
-    expect(res.status).toBe(400); // Validation rejects empty sop_ids
+    expect(res.status).toBe(422); // Validation rejects empty sop_ids
   });
 
   // GET /api/sessions/:id/timeline
@@ -170,7 +173,7 @@ describe('UI Server — Additional Routes', () => {
     db.logObservedAction(session.id, { source: 'shell', command: 'ls' });
     db.logObservedAction(session.id, { source: 'window', app_name: 'VS Code' });
 
-    const res = await fetch(`${baseUrl}/api/sessions/${session.id}/timeline`);
+    const res = await fetch(`${baseUrl}/api/sessions/${session.id}/timeline`, { headers: authHeaders });
     expect(res.status).toBe(200);
     const data = await res.json() as unknown[];
     expect(data).toHaveLength(2);
@@ -181,7 +184,7 @@ describe('UI Server — Additional Routes', () => {
     db.logObservedAction(session.id, { source: 'shell', command: 'ls' });
     db.logObservedAction(session.id, { source: 'window', app_name: 'Chrome' });
 
-    const res = await fetch(`${baseUrl}/api/sessions/${session.id}/timeline?source=shell`);
+    const res = await fetch(`${baseUrl}/api/sessions/${session.id}/timeline?source=shell`, { headers: authHeaders });
     const data = await res.json() as { source: string }[];
     expect(data).toHaveLength(1);
     expect(data[0]!.source).toBe('shell');
@@ -194,7 +197,7 @@ describe('UI Server — Additional Routes', () => {
     db.logObservedAction(session.id, { source: 'shell', command: 'pwd', duration_seconds: 5 });
     db.logObservedAction(session.id, { source: 'window', app_name: 'Chrome', duration_seconds: 30 });
 
-    const res = await fetch(`${baseUrl}/api/sessions/${session.id}/summary`);
+    const res = await fetch(`${baseUrl}/api/sessions/${session.id}/summary`, { headers: authHeaders });
     expect(res.status).toBe(200);
     const data = await res.json() as { source: string; count: number; total_seconds: number }[];
     expect(data.length).toBeGreaterThanOrEqual(2);
@@ -216,7 +219,7 @@ describe('UI Server — Additional Routes', () => {
     const sop2 = createSOP('Reviewed SOP');
     db.updateSOPStatus(sop2.id, 'reviewed');
 
-    const res = await fetch(`${baseUrl}/api/sops?status=reviewed`);
+    const res = await fetch(`${baseUrl}/api/sops?status=reviewed`, { headers: authHeaders });
     const data = await res.json() as { id: string }[];
     expect(data).toHaveLength(1);
     expect(data[0]!.id).toBe(sop2.id);
@@ -226,7 +229,7 @@ describe('UI Server — Additional Routes', () => {
     createSOP('Deploy Guide', '# Deploy\nkubectl apply');
     createSOP('Other SOP', '# Other\nSomething else');
 
-    const res = await fetch(`${baseUrl}/api/sops?search=kubectl`);
+    const res = await fetch(`${baseUrl}/api/sops?search=kubectl`, { headers: authHeaders });
     const data = await res.json() as { title: string }[];
     expect(data).toHaveLength(1);
     expect(data[0]!.title).toBe('Deploy Guide');
@@ -235,7 +238,7 @@ describe('UI Server — Additional Routes', () => {
   it('GET /api/sessions returns session list', async () => {
     db.startObservationSession('Test Session');
 
-    const res = await fetch(`${baseUrl}/api/sessions`);
+    const res = await fetch(`${baseUrl}/api/sessions`, { headers: authHeaders });
     const data = await res.json() as unknown[];
     expect(data).toHaveLength(1);
   });

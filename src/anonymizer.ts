@@ -1,75 +1,107 @@
 import type { AnonymizationConfig } from './types.js';
 
+export interface RedactionSummary {
+  email_count: number;
+  ip_count: number;
+  url_count: number;
+  phone_count: number;
+  filepath_count: number;
+  iban_count: number;
+  credit_card_count: number;
+  custom_count: number;
+}
+
+function emptyRedactionSummary(): RedactionSummary {
+  return { email_count: 0, ip_count: 0, url_count: 0, phone_count: 0, filepath_count: 0, iban_count: 0, credit_card_count: 0, custom_count: 0 };
+}
+
 export class Anonymizer {
   constructor(private config: AnonymizationConfig) {}
 
-  anonymize(text: string): string {
+  /** Anonymize text and return both the result and a redaction summary. */
+  anonymizeWithSummary(text: string): { text: string; summary: RedactionSummary } {
+    const summary = emptyRedactionSummary();
     let result = text;
 
     // Custom replacements first (most specific)
-    result = this.applyCustomReplacements(result);
+    result = this.applyCustomReplacements(result, summary);
 
-    if (this.config.redact_emails) result = this.redactEmails(result);
-    if (this.config.redact_ips) result = this.redactIPs(result);
-    if (this.config.redact_urls) result = this.redactURLs(result);
-    if (this.config.redact_file_paths) result = this.redactFilePaths(result);
+    if (this.config.redact_emails) result = this.redactEmails(result, summary);
+    if (this.config.redact_ips) result = this.redactIPs(result, summary);
+    if (this.config.redact_urls) result = this.redactURLs(result, summary);
+    if (this.config.redact_file_paths) result = this.redactFilePaths(result, summary);
 
     // Specific number patterns BEFORE generic phone pattern (more specific first)
-    result = this.redactIBANs(result);
-    result = this.redactCreditCards(result);
+    result = this.redactIBANs(result, summary);
+    result = this.redactCreditCards(result, summary);
     result = this.redactGermanIDs(result);
 
     // Phone last — broadest numeric pattern
-    if (this.config.redact_phone_numbers) result = this.redactPhoneNumbers(result);
+    if (this.config.redact_phone_numbers) result = this.redactPhoneNumbers(result, summary);
 
-    return result;
+    return { text: result, summary };
   }
 
-  private applyCustomReplacements(text: string): string {
+  /** Backward-compatible: returns only the anonymized string. */
+  anonymize(text: string): string {
+    return this.anonymizeWithSummary(text).text;
+  }
+
+  private applyCustomReplacements(text: string, summary: RedactionSummary): string {
     let result = text;
     for (const [search, replacement] of Object.entries(this.config.custom_replacements)) {
+      const before = result;
       result = result.replaceAll(search, replacement);
+      if (result !== before) {
+        // Count occurrences that were replaced
+        const count = (before.split(search).length - 1);
+        summary.custom_count += count;
+      }
     }
     return result;
   }
 
-  private redactEmails(text: string): string {
-    return text.replace(
+  private redactEmails(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
       /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-      '[email@example.com]',
+      () => { count++; return '[email@example.com]'; },
     );
+    summary.email_count += count;
+    return result;
   }
 
-  private redactIPs(text: string): string {
+  private redactIPs(text: string, summary: RedactionSummary): string {
+    let count = 0;
     // IPv4 — strict: each octet must be 0-255 to avoid matching version numbers
     let result = text.replace(
       /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g,
       (match) => {
-        // Skip common version-like patterns (e.g., 1.2.3.4 where first octet < 10)
         const octets = match.split('.').map(Number);
-        // Private/internal ranges: 10.x, 172.16-31.x, 192.168.x, 127.x, 169.254.x
         const isPrivate = octets[0] === 10 ||
           (octets[0] === 172 && octets[1]! >= 16 && octets[1]! <= 31) ||
           (octets[0] === 192 && octets[1] === 168) ||
           octets[0] === 127 ||
           (octets[0] === 169 && octets[1] === 254);
-        // Public IPs with first octet >= 10 are also likely real IPs
-        if (isPrivate || octets[0]! >= 10) return '[internal-ip]';
-        return match; // Likely a version number (e.g. 1.2.3.4)
+        if (isPrivate || octets[0]! >= 10) { count++; return '[internal-ip]'; }
+        return match;
       },
     );
     // IPv6 (simplified: 2+ hex groups with colons)
     result = result.replace(
       /\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b/g,
-      '[internal-ip-v6]',
+      () => { count++; return '[internal-ip-v6]'; },
     );
+    summary.ip_count += count;
     return result;
   }
 
-  private redactURLs(text: string): string {
-    return text.replace(
+  private redactURLs(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
       /https?:\/\/[^\s)>\]]+/g,
       (match) => {
+        count++;
         try {
           const url = new URL(match);
           return `[internal-system]${url.pathname}`;
@@ -78,20 +110,26 @@ export class Anonymizer {
         }
       },
     );
+    summary.url_count += count;
+    return result;
   }
 
-  private redactPhoneNumbers(text: string): string {
-    // German format: +49 170 1234567, 0170/1234567, (089) 1234-5678
-    return text.replace(
+  private redactPhoneNumbers(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
       /(?:\+?\d{1,3}[-.\s/]?)?\(?\d{2,4}\)?[-.\s/]?\d{3,4}[-.\s/]?\d{3,4}/g,
-      '[phone-number]',
+      () => { count++; return '[phone-number]'; },
     );
+    summary.phone_count += count;
+    return result;
   }
 
-  private redactFilePaths(text: string): string {
-    return text.replace(
+  private redactFilePaths(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
       /(?:\/Users\/|\/home\/|[A-Z]:\\Users\\)[^\s"')>]+/g,
       (match) => {
+        count++;
         const parts = match.split(/[/\\]/);
         const userIdx = parts.findIndex(p => p === 'Users' || p === 'home');
         if (userIdx >= 0 && userIdx + 1 < parts.length) {
@@ -100,31 +138,36 @@ export class Anonymizer {
         return parts.join(match.includes('\\') ? '\\' : '/');
       },
     );
+    summary.filepath_count += count;
+    return result;
   }
 
   // ── Always-on patterns ─────────────────────────────────────────────────────
 
-  private redactIBANs(text: string): string {
-    // IBAN: 2 letters + 2 digits + 12-30 alphanumeric (with optional spaces)
-    return text.replace(
+  private redactIBANs(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
       /\b[A-Z]{2}\d{2}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{0,4}[\s]?[\dA-Z]{0,4}[\s]?[\dA-Z]{0,4}[\s]?[\dA-Z]{0,2}\b/g,
-      '[IBAN]',
+      () => { count++; return '[IBAN]'; },
     );
+    summary.iban_count += count;
+    return result;
   }
 
-  private redactCreditCards(text: string): string {
-    // Visa, Mastercard, Amex patterns — validated with Luhn checksum
-    return text.replace(
+  private redactCreditCards(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
       /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
       (match) => {
         const digits = match.replace(/[\s-]/g, '');
-        // Must start with known issuer prefix: 4 (Visa), 5 (MC), 3 (Amex/Diners)
         if (!/^[345]/.test(digits)) return match;
-        // Luhn checksum validation
         if (!this.validateLuhn(digits)) return match;
+        count++;
         return '[credit-card-number]';
       },
     );
+    summary.credit_card_count += count;
+    return result;
   }
 
   private validateLuhn(digits: string): boolean {
@@ -143,13 +186,10 @@ export class Anonymizer {
   }
 
   private redactGermanIDs(text: string): string {
-    // German Personalausweis: 9-10 alphanumeric (e.g., T220001293)
-    // German Steuer-ID: 11 digits
     let result = text.replace(
       /\bSteuer-?ID[:\s]+\d{11}\b/gi,
       'Steuer-ID: [tax-id]',
     );
-    // German Sozialversicherungsnummer: 12 digits
     result = result.replace(
       /\bSV-?(?:Nr|Nummer)[.:\s]+\d{2}\s?\d{6}\s?[A-Z]\s?\d{3}\b/gi,
       'SV-Nr.: [social-security-number]',

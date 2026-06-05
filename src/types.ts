@@ -113,6 +113,9 @@ export interface ShadowingConfig {
   polling_interval_minutes: number;
   editor: string;
   ui_port: number;
+  ui_auth_token?: string;
+  ui_rate_limit_per_minute?: number;
+  log_level?: string;
   cartography_graph_path: string | null;
   anonymization: AnonymizationConfig;
   sop_generation: SOPGenerationConfig;
@@ -164,6 +167,16 @@ export interface ExportManifest {
   sop_count: number;
   anonymized: boolean;
   tags_summary: string[];
+  redaction_summary?: {
+    email_count: number;
+    ip_count: number;
+    url_count: number;
+    phone_count: number;
+    filepath_count: number;
+    iban_count: number;
+    credit_card_count: number;
+    custom_count: number;
+  };
   metrics_summary: {
     avg_completion_time_seconds: number;
     avg_quality_score: number;

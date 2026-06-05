@@ -1,5 +1,6 @@
 import type { ShadowingDB } from './db.js';
 import type { Task } from './types.js';
+import { ShadowingError } from './errors.js';
 
 export class TaskManager {
   constructor(private db: ShadowingDB) {}
@@ -7,9 +8,10 @@ export class TaskManager {
   startTask(title: string, description?: string): Task {
     const active = this.db.getActiveTask();
     if (active) {
-      throw new Error(
-        `A task is already running: "${active.title}" (ID: ${active.id.substring(0, 8)}). ` +
-        `Complete or cancel it first.`
+      throw new ShadowingError(
+        `A task is already running: "${active.title}" (ID: ${active.id.substring(0, 8)}). Complete or cancel it first.`,
+        'task_already_active',
+        { activeTaskId: active.id, activeTaskTitle: active.title },
       );
     }
     return this.db.createTask(title, description);
@@ -21,30 +23,28 @@ export class TaskManager {
 
   pauseTask(): Task {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('No active task to pause.');
+    if (!active) throw new ShadowingError('No active task to pause.', 'no_active_task');
     return this.db.pauseTask(active.id);
   }
 
   resumeTask(id?: string): Task {
     if (id) {
       const task = this.db.getTask(id);
-      if (!task) throw new Error(`Task ${id} not found.`);
-      if (task.status !== 'paused') throw new Error(`Task "${task.title}" is not paused.`);
+      if (!task) throw new ShadowingError(`Task ${id} not found.`, 'task_not_found', { taskId: id });
+      if (task.status !== 'paused') throw new ShadowingError(`Task "${task.title}" is not paused.`, 'task_not_paused', { taskId: id, status: task.status });
       return this.db.resumeTask(task.id);
     }
-    // Resume the most recent paused task
     const paused = this.db.listTasks({ status: 'paused' });
-    if (paused.length === 0) throw new Error('No paused task to resume.');
+    if (paused.length === 0) throw new ShadowingError('No paused task to resume.', 'no_paused_task');
     return this.db.resumeTask(paused[0]!.id);
   }
 
   completeTask(complexityRating?: number): { task: Task; duration: string } {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('No active task to complete.');
+    if (!active) throw new ShadowingError('No active task to complete.', 'no_active_task');
 
     const task = this.db.completeTask(active.id);
 
-    // Log execution on all SOPs linked to this task
     const sops = this.db.listSOPs().filter(s => s.task_id === task.id);
     for (const sop of sops) {
       if (task.duration_seconds) {
@@ -63,13 +63,13 @@ export class TaskManager {
 
   cancelTask(): Task {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('No active task to cancel.');
+    if (!active) throw new ShadowingError('No active task to cancel.', 'no_active_task');
     return this.db.cancelTask(active.id);
   }
 
   addNote(note: string): Task {
     const active = this.db.getActiveTask();
-    if (!active) throw new Error('No active task for notes.');
+    if (!active) throw new ShadowingError('No active task for notes.', 'no_active_task');
 
     const existing = active.description ?? '';
     const updated = existing ? `${existing}\n- ${note}` : `- ${note}`;

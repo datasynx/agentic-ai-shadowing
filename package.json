@@ -1,6 +1,6 @@
 {
   "name": "@datasynx/agentic-ai-shadowing",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Agentic AI Shadowing — observes tasks, generates SOPs, fully local and anonymized",
   "type": "module",
   "bin": {
@@ -39,14 +39,19 @@
   ],
   "author": {
     "name": "Datasynx AI",
-    "url": "https://github.com/datasynx-ai"
+    "url": "https://github.com/datasynx"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/datasynx-ai/agentic-ai-shadowing.git"
+    "url": "https://github.com/datasynx/agentic-ai-shadowing.git"
   },
   "homepage": "https://www.linkedin.com/company/datasynx-ai/",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org"
+  },
   "peerDependencies": {
     "@datasynx/agentic-ai-cartography": ">=0.3.0"
   },
@@ -68,6 +73,6 @@
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.2",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.8"
   }
 }

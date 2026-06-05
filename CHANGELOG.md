@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-06-05
+
+### Added
+
+- **GitHub Actions CI/CD**: `ci.yml` (lint, test, build on Node 20+22, security audit, license compliance, SBOM) and `publish.yml` (idempotent npm auto-publish with provenance signing, git tags, GitHub Releases)
+
+### Changed
+
+- Upgraded `vitest` from v3 to v4 (fixes critical security vulnerability GHSA-5xrq-8626-4rwp)
+- Fixed `npm audit` to pass cleanly (0 vulnerabilities across all dependencies)
+- Security audit in CI scoped to production dependencies only (`--omit=dev`)
+
 ## [0.2.0] - 2026-03-06
 
 ### Added

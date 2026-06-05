@@ -1,6 +1,6 @@
 {
   "name": "@datasynx/agentic-ai-shadowing",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Agentic AI Shadowing — observes tasks, generates SOPs, fully local and anonymized",
   "type": "module",
   "bin": {
@@ -68,6 +68,6 @@
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.2",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.8"
   }
 }

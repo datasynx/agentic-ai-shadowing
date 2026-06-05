@@ -1,0 +1,80 @@
+name: Publish
+
+# Auto-publishes to npm when a new version lands on main. The job is idempotent:
+# it only publishes when the version in package.json is not already on npm, so
+# doc-only or refactor merges are safe no-ops. Bump the version, merge → release.
+#
+# Requires repository secret NPM_TOKEN (npm "Automation" or granular token with
+# publish rights for the @datasynx scope). Provenance is signed via the workflow's
+# OIDC identity (id-token: write) — no extra secret needed.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # push the version tag + create the GitHub Release
+  id-token: write   # npm provenance (Sigstore OIDC)
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify (lint, test, build)
+        run: |
+          npm run lint
+          npm test
+          npm run build
+
+      - name: Resolve version & check npm
+        id: check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION is already published — skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Publishing $NAME@$VERSION."
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.exists == 'false'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Tag and GitHub Release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.check.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — skipping tag/release."
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+          NOTES_FLAG=$([ -f CHANGELOG.md ] && echo "--notes-file CHANGELOG.md" || echo "--generate-notes")
+          gh release create "$TAG" --title "$TAG" $NOTES_FLAG

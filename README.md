@@ -539,6 +539,16 @@ npm run build  # tsup
 
 ---
 
+## Star History
+
+<div align="center">
+
+[![Star History Chart](https://api.star-history.com/svg?repos=datasynx/agentic-ai-shadowing&type=Date)](https://www.star-history.com/#datasynx/agentic-ai-shadowing&Date)
+
+</div>
+
+---
+
 <div align="center">
 
 ## Built by

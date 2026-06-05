@@ -782,7 +782,7 @@ describe('E2E: CLI Smoke Tests', () => {
   // output unintuitive. Only --help and --version go to stdout (via commander).
   const runCLI = (args: string): { stdout: string; stderr: string; combined: string } => {
     const result = spawnSync('npx', ['tsx', 'src/cli.ts', ...args.split(' ')], {
-      cwd: '/home/user/agentic-ai-shadowing',
+      cwd: process.cwd(),
       encoding: 'utf8',
       timeout: 30000,
       env: { ...process.env, HOME: testHome },

@@ -8,8 +8,8 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
@@ -43,7 +43,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/datasynx/agentic-ai-shadowing.git"
+    "url": "git+https://github.com/datasynx/agentic-ai-shadowing.git"
   },
   "homepage": "https://www.linkedin.com/company/datasynx-ai/",
   "license": "MIT",

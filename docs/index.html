@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datasynx Shadowing — Documentation</title>
+  <meta name="description" content="Agentic AI Shadowing observes daily workflows and generates anonymized Standard Operating Procedures via Claude. Fully local, fully anonymized." />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg2: #161b22;
+      --bg3: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --orange: #ffa657;
+      --code-bg: #1f2937;
+      --sidebar-w: 260px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 12px; padding-top: 40px; scroll-margin-top: 24px; }
+    h2 { font-size: 20px; font-weight: 600; margin: 40px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--accent); scroll-margin-top: 24px; }
+    h3 { font-size: 16px; font-weight: 600; color: var(--orange); margin: 24px 0 8px; }
+    h4 { font-size: 14px; font-weight: 600; color: var(--purple); margin: 16px 0 6px; }
+    p { margin: 10px 0; }
+    ul, ol { margin: 10px 0 10px 22px; }
+    li { margin: 4px 0; }
+
+    code { background: var(--code-bg); color: var(--green); padding: 1px 6px; border-radius: 4px; font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: none; color: var(--text); padding: 0; font-size: 12.5px; line-height: 1.55; }
+
+    .layout { display: flex; min-height: 100vh; }
+
+    nav {
+      width: var(--sidebar-w);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 0; bottom: 0; left: 0;
+      overflow-y: auto;
+      padding: 24px 0;
+      z-index: 10;
+    }
+    .nav-logo { padding: 0 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .nav-logo h1 { font-size: 14px; font-weight: 700; padding-top: 0; margin-bottom: 2px; }
+    .nav-logo span { font-size: 12px; color: var(--muted); }
+    .nav-ext { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .nav-ext a {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px; font-size: 11px; font-weight: 600;
+      color: var(--muted); background: var(--bg3);
+      border: 1px solid var(--border); border-radius: 12px;
+    }
+    .nav-ext a:hover { color: var(--text); border-color: var(--accent); text-decoration: none; }
+    .nav-section { padding: 12px 20px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    nav a.nav-link { display: block; padding: 5px 20px; font-size: 13px; color: var(--muted); border-left: 3px solid transparent; transition: all .15s; }
+    nav a.nav-link:hover, nav a.nav-link.active { color: var(--text); border-left-color: var(--accent); background: rgba(88, 166, 255, .06); text-decoration: none; }
+
+    main { margin-left: var(--sidebar-w); padding: 40px 48px; max-width: 980px; width: 100%; }
+
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+    th { background: var(--bg3); text-align: left; padding: 8px 12px; border: 1px solid var(--border); font-weight: 600; color: var(--muted); }
+    td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+    tr:hover td { background: rgba(255, 255, 255, .02); }
+
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin: 12px 0; }
+    .card h3 { margin-top: 0; }
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    @media (max-width: 700px) { .card-grid { grid-template-columns: 1fr; } }
+
+    .alert { padding: 12px 16px; border-radius: 6px; margin: 16px 0; font-size: 13px; }
+    .alert-blue { background: rgba(88, 166, 255, .1); border-left: 3px solid var(--accent); }
+    .alert-green { background: rgba(63, 185, 80, .1); border-left: 3px solid var(--green); }
+    .alert-yellow { background: rgba(210, 153, 34, .1); border-left: 3px solid var(--yellow); }
+    .alert-red { background: rgba(248, 81, 73, .1); border-left: 3px solid var(--red); }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+    .badge-green { background: rgba(63, 185, 80, .15); color: var(--green); border: 1px solid rgba(63, 185, 80, .3); }
+    .badge-blue { background: rgba(88, 166, 255, .15); color: var(--accent); border: 1px solid rgba(88, 166, 255, .3); }
+    .badge-yellow { background: rgba(210, 153, 34, .15); color: var(--yellow); border: 1px solid rgba(210, 153, 34, .3); }
+    .badge-red { background: rgba(248, 81, 73, .15); color: var(--red); border: 1px solid rgba(248, 81, 73, .3); }
+    .badge-purple { background: rgba(188, 140, 255, .15); color: var(--purple); border: 1px solid rgba(188, 140, 255, .3); }
+
+    .hero-tagline { font-size: 17px; color: var(--muted); margin: 6px 0 18px; }
+
+    details { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin: 10px 0; }
+    details summary { cursor: pointer; font-weight: 600; color: var(--text); }
+    details[open] summary { margin-bottom: 8px; }
+
+    footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+    footer a { color: var(--muted); }
+
+    .menu-toggle { display: none; }
+    @media (max-width: 900px) {
+      nav { transform: translateX(-100%); transition: transform .2s; }
+      nav.open { transform: translateX(0); }
+      main { margin-left: 0; padding: 24px; }
+      .menu-toggle {
+        display: block; position: fixed; top: 12px; right: 12px; z-index: 20;
+        background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+        border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="menu-toggle" onclick="document.querySelector('nav').classList.toggle('open')">☰ Menu</button>
+  <div class="layout">
+    <nav>
+      <div class="nav-logo">
+        <h1>Datasynx Shadowing</h1>
+        <span>shadowing · enterprise edition</span>
+        <div class="nav-ext">
+          <a href="https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing">npm</a>
+          <a href="https://github.com/datasynx/agentic-ai-shadowing">GitHub</a>
+          <a href="https://www.linkedin.com/company/datasynx-ai/">LinkedIn</a>
+        </div>
+      </div>
+
+      <div class="nav-section">Getting Started</div>
+      <a class="nav-link" href="#overview">Overview</a>
+      <a class="nav-link" href="#quickstart">Quickstart</a>
+      <a class="nav-link" href="#install">Installation</a>
+      <a class="nav-link" href="#architecture">Architecture</a>
+
+      <div class="nav-section">CLI Reference</div>
+      <a class="nav-link" href="#cmd-tasks">Task Management</a>
+      <a class="nav-link" href="#cmd-sops">SOP Management</a>
+      <a class="nav-link" href="#cmd-observe">Observation</a>
+      <a class="nav-link" href="#cmd-export">Metrics &amp; Export</a>
+      <a class="nav-link" href="#cmd-integration">Integration</a>
+
+      <div class="nav-section">Reference</div>
+      <a class="nav-link" href="#metrics">Quality Metrics</a>
+      <a class="nav-link" href="#anonymization">Anonymization</a>
+      <a class="nav-link" href="#api">REST API</a>
+      <a class="nav-link" href="#config">Configuration</a>
+
+      <div class="nav-section">Ecosystem</div>
+      <a class="nav-link" href="#suite">Datasynx Agentic Suite</a>
+      <a class="nav-link" href="#faq">FAQ</a>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <h1>Datasynx Shadowing</h1>
+        <p class="hero-tagline">The SOPs your team never has time to write — observed, generated, anonymized.</p>
+        <p>
+          <span class="badge badge-green">100% local</span>
+          <span class="badge badge-blue">MCP-native</span>
+          <span class="badge badge-purple">Claude-powered</span>
+          <span class="badge badge-yellow">PII-anonymized</span>
+        </p>
+        <p>
+          <strong>Shadowing</strong> observes daily workflows like a silent shadow — shell commands, active
+          windows, git commits, file changes — and automatically generates structured Standard Operating
+          Procedures (SOPs) via Claude. Everything stays on the employee's machine: a local SQLite database,
+          no cloud sync, no daemon. Every export is automatically scrubbed of PII.
+        </p>
+        <div class="alert alert-green">
+          <strong>5-minute quickstart.</strong> <code>npm i -g @datasynx/agentic-ai-shadowing</code> →
+          <code>shadowing init</code> → <code>shadowing start</code>. Complete a task, get a reviewable SOP.
+        </div>
+      </section>
+
+      <section id="quickstart">
+        <h2>Quickstart</h2>
+        <pre><code># 1. Setup (create DB + config)
+shadowing init
+
+# 2. Manual mode: start task → generate SOP
+shadowing start
+
+# 3. Automatic mode: observe workflow → auto-generate SOPs
+shadowing observe --auto-sop
+
+# 4. View SOPs
+shadowing list
+shadowing show &lt;sop-id&gt;
+
+# 5. Start the web dashboard
+shadowing ui
+
+# 6. Export with anonymization
+shadowing export --all</code></pre>
+
+        <div class="card-grid">
+          <div class="card">
+            <h3>Two capture modes</h3>
+            <p><strong>Manual</strong> — the employee starts, pauses and completes tasks, then rates complexity. <strong>Automatic</strong> — <code>observe</code> captures windows, shell history and git, then clusters activity into tasks.</p>
+          </div>
+          <div class="card">
+            <h3>Reviewable output</h3>
+            <p>Each SOP is versioned Markdown with <em>Objective → Prerequisites → Steps → Expected Result → Notes</em>, AI-generated tags, and a status workflow: Draft → Reviewed → Approved → Exported.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="install">
+        <h2>Installation</h2>
+        <pre><code>npm install -g @datasynx/agentic-ai-shadowing</code></pre>
+        <h3>Requirements</h3>
+        <ul>
+          <li><strong>Node.js &ge; 20</strong> (Linux, macOS, or Windows)</li>
+          <li><code>ANTHROPIC_API_KEY</code> environment variable (for SOP generation)</li>
+          <li><strong>@datasynx/agentic-ai-cartography</strong> (optional, for infrastructure context)</li>
+        </ul>
+        <pre><code>export ANTHROPIC_API_KEY=sk-ant-...</code></pre>
+        <div class="alert alert-blue">
+          Shadowing also works <strong>without</strong> Cartography — SOPs are then generated without the
+          system-landscape context. See <a href="#suite">Datasynx Agentic Suite</a>.
+        </div>
+      </section>
+
+      <section id="architecture">
+        <h2>Architecture</h2>
+        <pre><code>CLI (Commander.js — 27 commands)
+  └─ shadowing init / start / observe / list / export / ui / ...
+      ├─ TaskManager      Task lifecycle (start → pause → resume → complete)
+      ├─ Observer         Heartbeat-based workflow capture
+      │   ├─ WindowDetector   xdotool (Linux) / osascript (macOS) / P/Invoke (Win)
+      │   ├─ ShellHistory     Zsh / Bash / Fish / PowerShell parser
+      │   └─ Git + File       Commit tracking + file changes
+      ├─ SessionAnalyzer  Silence clustering → task detection (LLM)
+      ├─ SOPGenerator     Claude API → structured SOPs + tags
+      ├─ Anonymizer       PII redaction (8+ patterns)
+      ├─ Exporter         Markdown + manifest.json (atomic operations)
+      ├─ Metrics          Consistency · Maturity · Freshness · Quality
+      ├─ PrivacyManager   Consent + exclusion rules + degradation
+      └─ ShadowingDB      SQLite WAL (11 tables, constraints, indices)
+
+  Integrations:
+      ├─ UIServer         REST API (17 endpoints) + HTML dashboard
+      ├─ MCPServer        Model Context Protocol (17 tools, stdio)
+      ├─ HookHandler      Claude Code event processing
+      └─ Cartography      JGF graph import from agentic-ai-cartography</code></pre>
+      </section>
+
+      <section id="cmd-tasks">
+        <h2>Task Management</h2>
+        <table>
+          <tr><th>Command</th><th>Description</th></tr>
+          <tr><td><code>shadowing init</code></td><td>Initial setup (DB + config)</td></tr>
+          <tr><td><code>shadowing start</code></td><td>Start interactive shadowing mode</td></tr>
+          <tr><td><code>shadowing status</code></td><td>Show current task and statistics</td></tr>
+        </table>
+      </section>
+
+      <section id="cmd-sops">
+        <h2>SOP Management</h2>
+        <table>
+          <tr><th>Command</th><th>Description</th></tr>
+          <tr><td><code>shadowing list [--status --tag --search]</code></td><td>List SOPs with filters</td></tr>
+          <tr><td><code>shadowing show &lt;sop-id&gt;</code></td><td>Display SOP in terminal</td></tr>
+          <tr><td><code>shadowing edit &lt;sop-id&gt;</code></td><td>Edit SOP in default editor</td></tr>
+          <tr><td><code>shadowing delete &lt;sop-id&gt;</code></td><td>Permanently delete SOP</td></tr>
+          <tr><td><code>shadowing history &lt;sop-id&gt;</code></td><td>Show version history</td></tr>
+          <tr><td><code>shadowing diff &lt;sop-id&gt; [version]</code></td><td>Diff between versions</td></tr>
+          <tr><td><code>shadowing tag &lt;sop-id&gt; &lt;tags...&gt;</code></td><td>Add (<code>+tag</code>) / remove (<code>-tag</code>) tags</td></tr>
+        </table>
+      </section>
+
+      <section id="cmd-observe">
+        <h2>Automatic Observation</h2>
+        <table>
+          <tr><th>Command</th><th>Description</th></tr>
+          <tr><td><code>shadowing observe [--auto-sop --no-window --no-shell]</code></td><td>Start observation mode</td></tr>
+          <tr><td><code>shadowing sessions</code></td><td>List observation sessions</td></tr>
+          <tr><td><code>shadowing timeline [session-id]</code></td><td>Show session timeline</td></tr>
+          <tr><td><code>shadowing analyze [session-id]</code></td><td>Session → detect tasks → generate SOPs</td></tr>
+        </table>
+        <h3>Cross-platform capture</h3>
+        <table>
+          <tr><th>Capability</th><th>Linux</th><th>macOS</th><th>Windows</th></tr>
+          <tr><td>Window Detection</td><td><code>xdotool</code> (X11)</td><td><code>osascript</code></td><td>PowerShell P/Invoke</td></tr>
+          <tr><td>Shell History</td><td>Zsh / Bash</td><td>Zsh / Bash</td><td>PSReadLine</td></tr>
+          <tr><td>Git Tracking</td><td><code>git log</code></td><td><code>git log</code></td><td><code>git log</code></td></tr>
+        </table>
+      </section>
+
+      <section id="cmd-export">
+        <h2>Metrics &amp; Export</h2>
+        <table>
+          <tr><th>Command</th><th>Description</th></tr>
+          <tr><td><code>shadowing stats</code></td><td>Metrics dashboard in terminal</td></tr>
+          <tr><td><code>shadowing export</code></td><td>Interactive export wizard</td></tr>
+          <tr><td><code>shadowing export --all</code></td><td>Export all approved SOPs</td></tr>
+          <tr><td><code>shadowing ui [--port &lt;n&gt;]</code></td><td>Start web dashboard (default: 3847)</td></tr>
+          <tr><td><code>shadowing consent</code></td><td>Consent management for observation</td></tr>
+          <tr><td><code>shadowing exclude</code></td><td>Manage exclusion rules</td></tr>
+        </table>
+        <h3>Export structure</h3>
+        <pre><code>exports/export_2026-02-24T14-30-00/
+├── manifest.json          Metadata, tags, metrics summary
+└── sops/
+    ├── sop_001.md         Anonymized SOP (Markdown)
+    └── sop_002.md</code></pre>
+      </section>
+
+      <section id="cmd-integration">
+        <h2>Integration</h2>
+        <table>
+          <tr><th>Command</th><th>Description</th></tr>
+          <tr><td><code>shadowing import-graph &lt;path&gt;</code></td><td>Import Cartography graph (JGF)</td></tr>
+          <tr><td><code>shadowing infra [dir]</code></td><td>Extract infrastructure context</td></tr>
+          <tr><td><code>shadowing mcp</code></td><td>Start MCP server (stdio transport)</td></tr>
+          <tr><td><code>shadowing setup-hooks</code></td><td>Configure Claude Code hooks + MCP</td></tr>
+          <tr><td><code>shadowing guide</code></td><td>Complete guide</td></tr>
+        </table>
+        <div class="alert alert-blue">
+          The MCP server exposes <strong>17 tools</strong> (<code>task_start</code>, <code>sop_generate</code>,
+          <code>observe_start</code>, <code>export_sops</code>, …) so Claude Code, Codex, and Cursor can drive
+          Shadowing natively.
+        </div>
+      </section>
+
+      <section id="metrics">
+        <h2>Quality Metrics</h2>
+        <h3>Consistency Score</h3>
+        <p><code>max(0, 100 - CV * 2)</code> — based on the coefficient of variation of execution durations.</p>
+        <h3>Maturity Score (weighted)</h3>
+        <table>
+          <tr><th>Criterion</th><th>Weight</th></tr>
+          <tr><td>&ge; 5 executions</td><td>30%</td></tr>
+          <tr><td>Review completed</td><td>30%</td></tr>
+          <tr><td>&ge; 1 revision</td><td>20%</td></tr>
+          <tr><td>Tags present</td><td>10%</td></tr>
+          <tr><td>Description present</td><td>10%</td></tr>
+        </table>
+        <h3>Overall Quality Score</h3>
+        <pre><code>consistency * 0.35 + maturity * 0.35 + freshness * 0.30</code></pre>
+      </section>
+
+      <section id="anonymization">
+        <h2>Privacy &amp; Anonymization</h2>
+        <table>
+          <tr><th>Pattern</th><th>Replacement</th><th>Configurable</th></tr>
+          <tr><td>Email addresses</td><td><code>[email@example.com]</code></td><td><code>redact_emails</code></td></tr>
+          <tr><td>IPv4/IPv6 addresses</td><td><code>[internal-ip]</code></td><td><code>redact_ips</code></td></tr>
+          <tr><td>URLs</td><td><code>[internal-system]/path</code></td><td><code>redact_urls</code></td></tr>
+          <tr><td>Phone numbers</td><td><code>[phone-number]</code></td><td><code>redact_phone_numbers</code></td></tr>
+          <tr><td>File paths</td><td><code>/Users/[user]/...</code></td><td><code>redact_file_paths</code></td></tr>
+          <tr><td>IBAN</td><td><code>[IBAN]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>Credit card numbers</td><td><code>[credit-card]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>Tax ID</td><td><code>[tax-id]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>Social security number</td><td><code>[social-security]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+        </table>
+        <p>Custom replacements via <code>config.anonymization.custom_replacements</code>.</p>
+      </section>
+
+      <section id="api">
+        <h2>REST API</h2>
+        <p>The web dashboard (<code>shadowing ui</code>) serves a dark-theme single-page app and 17 REST endpoints on port <code>3847</code>.</p>
+        <table>
+          <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+          <tr><td>GET</td><td><code>/api/stats</code></td><td>Global statistics</td></tr>
+          <tr><td>GET</td><td><code>/api/tasks</code></td><td>Task list (<code>?status=</code>)</td></tr>
+          <tr><td>GET</td><td><code>/api/sops</code></td><td>SOP list (<code>?status= ?tag= ?search=</code>)</td></tr>
+          <tr><td>GET</td><td><code>/api/sops/:id</code></td><td>SOP detail with metrics + versions</td></tr>
+          <tr><td>PUT</td><td><code>/api/sops/:id/status</code></td><td>Change status</td></tr>
+          <tr><td>GET</td><td><code>/api/sops/:id/diff</code></td><td>Diff to previous version</td></tr>
+          <tr><td>GET</td><td><code>/api/exports</code></td><td>Export history</td></tr>
+          <tr><td>POST</td><td><code>/api/exports</code></td><td>Trigger export</td></tr>
+        </table>
+      </section>
+
+      <section id="config">
+        <h2>Configuration</h2>
+        <p>Config lives at <code>~/.datasynx/shadowing/config.json</code>.</p>
+        <pre><code>{
+  "version": "1.0.0",
+  "language": "en",
+  "polling_interval_minutes": 15,
+  "editor": "code",
+  "ui_port": 3847,
+  "cartography_graph_path": null,
+  "anonymization": {
+    "redact_emails": true,
+    "redact_ips": true,
+    "redact_urls": true,
+    "redact_phone_numbers": true,
+    "redact_file_paths": true,
+    "custom_replacements": {}
+  },
+  "sop_generation": {
+    "model": "claude-sonnet-4-20250514",
+    "max_tokens": 4096,
+    "temperature": 0.3,
+    "include_cartography_context": true,
+    "auto_generate_tags": true,
+    "sop_language": "en"
+  }
+}</code></pre>
+      </section>
+
+      <section id="suite">
+        <h2>Datasynx Agentic Suite</h2>
+        <p>Shadowing is one of three composable, local-first, MCP-native tools. They work standalone, but compound when combined: Cartography maps the systems, Shadowing documents the work, CRM runs the customer relationships.</p>
+        <div class="card-grid">
+          <div class="card">
+            <h3>🗺️ Cartography</h3>
+            <p><code>@datasynx/agentic-ai-cartography</code></p>
+            <p>Maps your infrastructure into a graph of systems, services, and dependencies — the context Shadowing folds into generated SOPs.</p>
+            <p>
+              <a href="https://www.npmjs.com/package/@datasynx/agentic-ai-cartography">npm</a> ·
+              <a href="https://github.com/datasynx/agentic-ai-cartography">GitHub</a>
+            </p>
+          </div>
+          <div class="card">
+            <h3>👁️ Shadowing <span class="badge badge-blue">you are here</span></h3>
+            <p><code>@datasynx/agentic-ai-shadowing</code></p>
+            <p>Observes daily workflows and generates anonymized SOPs via Claude. Fully local, fully anonymized.</p>
+            <p>
+              <a href="https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing">npm</a> ·
+              <a href="https://github.com/datasynx/agentic-ai-shadowing">GitHub</a>
+            </p>
+          </div>
+          <div class="card">
+            <h3>🤝 CRM</h3>
+            <p><code>@datasynx/agentic-crm</code></p>
+            <p>The CRM your AI agents actually run — local-first, MCP-native, one autonomous agent per customer.</p>
+            <p>
+              <a href="https://www.npmjs.com/package/@datasynx/agentic-crm">npm</a> ·
+              <a href="https://github.com/datasynx-ai/datasynx-crm">GitHub</a> ·
+              <a href="https://datasynx-ai.github.io/datasynx-crm/">Docs</a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq">
+        <h2>FAQ</h2>
+        <details>
+          <summary>Where does my data live?</summary>
+          <p>In a local SQLite database at <code>~/.datasynx/shadowing/shadowing.db</code>. No cloud, no daemon. The only network call is to the Claude API for SOP generation — and exports are PII-scrubbed before they leave the tool.</p>
+        </details>
+        <details>
+          <summary>Do I need Cartography?</summary>
+          <p>No. Shadowing works standalone; SOPs are simply generated without the system-landscape context. Install <a href="https://www.npmjs.com/package/@datasynx/agentic-ai-cartography">Cartography</a> and run <code>shadowing import-graph</code> to enrich SOPs with infrastructure context.</p>
+        </details>
+        <details>
+          <summary>Which AI tools can drive it?</summary>
+          <p>Anything that speaks MCP — Claude Code, Codex, Cursor, Claude Desktop. Run <code>shadowing mcp</code> (17 tools) or <code>shadowing setup-hooks</code> to wire it into Claude Code automatically.</p>
+        </details>
+        <details>
+          <summary>Is it really free?</summary>
+          <p>Yes. MIT-licensed and self-hosted. No seats, no metering, no telemetry.</p>
+        </details>
+        <details>
+          <summary>How is PII handled on export?</summary>
+          <p>Every export runs through the Anonymizer: emails, IPs, URLs, phone numbers, and file paths are redacted (configurable), while IBANs, credit-card numbers, tax IDs, and social-security numbers are <em>always</em> redacted. You can preview the anonymized output before exporting.</p>
+        </details>
+      </section>
+
+      <footer>
+        <p>
+          <a href="https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing">npm</a> ·
+          <a href="https://github.com/datasynx/agentic-ai-shadowing">GitHub</a> ·
+          <a href="https://github.com/datasynx/agentic-ai-shadowing/issues">Issues</a> ·
+          <a href="https://www.linkedin.com/company/datasynx-ai/">LinkedIn</a>
+        </p>
+        <p>© 2026 Datasynx AI · MIT License · Built with TypeScript &amp; the Claude API</p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // Highlight the active nav link as you scroll.
+    const links = [...document.querySelectorAll('nav a.nav-link')];
+    const sections = links
+      .map((l) => document.querySelector(l.getAttribute('href')))
+      .filter(Boolean);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            links.forEach((l) => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+          }
+        });
+      },
+      { rootMargin: '-20% 0px -70% 0px' }
+    );
+    sections.forEach((s) => observer.observe(s));
+  </script>
+</body>
+</html>

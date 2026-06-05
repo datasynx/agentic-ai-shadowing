@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    branches: [main, beta, alpha]
+  workflow_dispatch:
+
+# A dedicated concurrency lane, separate from CI. cancel-in-progress is false,
+# so rapid pushes to main queue release runs instead of cancelling an in-flight
+# publish. This is what lets semantic-release actually finish on a busy branch.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    # Skip the auto-generated "[skip ci]" release commit to avoid loops.
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write # npm provenance attestation (Sigstore OIDC)
+    env:
+      # Reading the secret into env lets the publish step gate on it
+      # (the `secrets` context is not available in step-level `if`).
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22' # semantic-release v25 requires Node >= 22.14
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - name: Verify (lint, test, build)
+        run: |
+          npm run lint
+          npm test
+          npm run build
+      - name: Generate SBOM
+        run: npm sbom --sbom-format cyclonedx > sbom-cyclonedx.json || true
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom-cyclonedx.json
+          if-no-files-found: ignore
+      - name: Semantic Release
+        if: env.HAS_NPM_TOKEN == 'true'
+        run: npx --yes semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Release skipped (no NPM_TOKEN)
+        if: env.HAS_NPM_TOKEN != 'true'
+        run: echo "::notice::NPM_TOKEN secret not set — skipping npm release."

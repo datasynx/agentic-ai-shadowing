@@ -23,7 +23,7 @@ export { ShadowingError, SOPGenerationError } from './errors.js';
 export type { ShadowingErrorCode } from './errors.js';
 
 // Logger
-export { createLogger, noopLogger, getLogger, setDefaultLogger } from './logger.js';
+export { createLogger, noopLogger, getLogger, setDefaultLogger, setLogLevel, getLogLevel } from './logger.js';
 export type { Logger, LogLevel, LoggerOptions } from './logger.js';
 
 // Database

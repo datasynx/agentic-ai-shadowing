@@ -169,3 +169,36 @@ describe('UI Server — API', () => {
     expect(data.addedCount).toBeGreaterThan(0);
   });
 });
+
+describe('UI Server — dashboard authentication (issue #9)', () => {
+  it('embeds the auth token in the served dashboard HTML', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    const html = await res.text();
+    expect(html).toContain(TEST_AUTH_TOKEN);
+  });
+
+  it('wires the embedded token into the API client Authorization header', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    const html = await res.text();
+    // The browser fetch client must attach a Bearer token to requests.
+    expect(html).toMatch(/Authorization['"\]]{0,3}\s*[:=]\s*['"`]Bearer/);
+  });
+
+  it('the token embedded in the HTML actually authenticates against the API', async () => {
+    // Simulate the browser: load the page, extract the token, call the API with it.
+    const html = await (await fetch(`${baseUrl}/`)).text();
+    const match = html.match(/window\.__SHADOWING_TOKEN__\s*=\s*["'`]([^"'`]+)["'`]/);
+    expect(match).not.toBeNull();
+    const token = match![1];
+
+    const apiRes = await fetch(`${baseUrl}/api/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(apiRes.status).toBe(200);
+  });
+
+  it('still rejects API calls that omit the token', async () => {
+    const res = await fetch(`${baseUrl}/api/stats`);
+    expect(res.status).toBe(401);
+  });
+});

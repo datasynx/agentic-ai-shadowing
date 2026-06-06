@@ -282,7 +282,7 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: 
         json(res, db.getActionSummary(id));
       } else if (path === '/' || path === '/index.html') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(getDashboardHTML(config));
+        res.end(getDashboardHTML(config, authToken));
       } else {
         notFound(res);
       }

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { createLogger, noopLogger, getLogger, setDefaultLogger } from '../src/logger.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { createLogger, noopLogger, getLogger, setDefaultLogger, setLogLevel, getLogLevel } from '../src/logger.js';
 import type { Logger } from '../src/logger.js';
 
 describe('Logger', () => {
@@ -143,5 +143,37 @@ describe('Logger', () => {
 
     expect(output).toHaveLength(1);
     expect(output[0]).toContain('ERROR');
+  });
+});
+
+describe('Logger — runtime level (issue #15)', () => {
+  afterEach(() => setLogLevel('info'));
+
+  it('setLogLevel affects loggers created without an explicit level', () => {
+    const output: string[] = [];
+    // No explicit level → follows the global runtime level.
+    const logger = createLogger({ write: (line) => output.push(line) });
+
+    setLogLevel('warn');
+    logger.info('should be suppressed');
+    logger.warn('should appear');
+
+    expect(output).toHaveLength(1);
+    expect(output[0]).toContain('WARN');
+  });
+
+  it('an explicit level overrides the global runtime level', () => {
+    const output: string[] = [];
+    const logger = createLogger({ level: 'info', write: (line) => output.push(line) });
+
+    setLogLevel('error');
+    logger.info('still appears because level is explicit');
+
+    expect(output).toHaveLength(1);
+  });
+
+  it('getLogLevel reflects the current global level', () => {
+    setLogLevel('debug');
+    expect(getLogLevel()).toBe('debug');
   });
 });

@@ -1,6 +1,11 @@
 import type { ShadowingConfig } from './types.js';
+import { getPackageVersion } from './version.js';
 
-export function getDashboardHTML(config: ShadowingConfig): string {
+export function getDashboardHTML(config: ShadowingConfig, authToken = ''): string {
+  // Token is a hex string from randomBytes; JSON.stringify keeps the inline
+  // script well-formed and prevents breaking out of the assignment.
+  const tokenLiteral = JSON.stringify(authToken);
+  const version = getPackageVersion();
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -342,7 +347,7 @@ tr.selected td { background: var(--accent-bg); }
     </div>
   </div>
   <div class="sidebar-footer">
-    Agentic AI Shadowing v0.1.0<br>Port: ${config.ui_port}
+    Agentic AI Shadowing v${version}<br>Port: ${config.ui_port}
   </div>
 </nav>
 
@@ -369,19 +374,26 @@ tr.selected td { background: var(--accent-bg); }
 /* ═══════════════════════════════════════════════════════════════════════════
    API Client
    ═══════════════════════════════════════════════════════════════════════════ */
+// Same-origin auth token injected by the server so the dashboard can call /api/*.
+window.__SHADOWING_TOKEN__ = ${tokenLiteral};
+function authHeaders(extra) {
+  const h = Object.assign({}, extra || {});
+  if (window.__SHADOWING_TOKEN__) h['Authorization'] = 'Bearer ' + window.__SHADOWING_TOKEN__;
+  return h;
+}
 const API = {
   async get(path) {
-    const r = await fetch(path);
+    const r = await fetch(path, { headers: authHeaders() });
     if (!r.ok) throw new Error('API ' + r.status);
     return r.json();
   },
   async put(path, body) {
-    const r = await fetch(path, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const r = await fetch(path, { method:'PUT', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(body) });
     if (!r.ok) throw new Error('API ' + r.status);
     return r.json();
   },
   async post(path, body) {
-    const r = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const r = await fetch(path, { method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(body) });
     if (!r.ok) throw new Error('API ' + r.status);
     return r.json();
   }

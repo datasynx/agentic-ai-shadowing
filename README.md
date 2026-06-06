@@ -19,7 +19,7 @@ Shadowing observes daily workflows like a silent shadow — shell commands, acti
 [![license](https://img.shields.io/github/license/datasynx/agentic-ai-shadowing.svg?color=3fb950)](./LICENSE)
 [![node](https://img.shields.io/node/v/@datasynx/agentic-ai-shadowing.svg)](https://nodejs.org)
 [![Built with Claude](https://img.shields.io/badge/Built_with-Claude_API-d4a017?logo=anthropic&logoColor=white)](https://docs.anthropic.com)
-[![Tests](https://img.shields.io/badge/tests-1091%20passing-3fb950?logo=vitest&logoColor=white)](https://github.com/datasynx/agentic-ai-shadowing/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-1112%20passing-3fb950?logo=vitest&logoColor=white)](https://github.com/datasynx/agentic-ai-shadowing/actions/workflows/ci.yml)
 
 </div>
 
@@ -165,12 +165,21 @@ Shadowing detects windows and shell history natively on **Linux**, **macOS**, an
 ## Requirements
 
 - **Node.js >= 20** (Linux, macOS, or Windows)
-- **`ANTHROPIC_API_KEY`** environment variable (for SOP generation)
+- **`ANTHROPIC_API_KEY`** environment variable — required **only for SOP generation**. Task tracking, observation, export, the dashboard, and metrics all work without it; you only need a key when you ask Claude to turn a task into an SOP.
 - **[@datasynx/agentic-ai-cartography](https://github.com/datasynx/agentic-ai-cartography)** (optional, for infrastructure context)
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+### Environment variables
+
+| Variable | Effect |
+|----------|--------|
+| `ANTHROPIC_API_KEY` | Claude API key, used for SOP generation and session analysis |
+| `SHADOWING_UI_TOKEN` | Fixed Bearer token for the dashboard/REST API (otherwise a random one is generated per run) |
+| `LOG_LEVEL` | `debug` / `info` / `warn` / `error`. The CLI defaults to `warn`; set `info` or `debug` to see diagnostic logs |
+| `LOG_FORMAT` | Set to `json` for structured NDJSON logs |
 
 ---
 
@@ -235,6 +244,13 @@ shadowing delete <sop-id>               Permanently delete SOP
 shadowing history <sop-id>              Show version history
 shadowing diff <sop-id> [version]       Diff between versions
 shadowing tag <sop-id> <tags...>        Add (+tag) / remove (-tag) tags
+```
+
+Add and remove tags in one call — prefix with `+` to add, `-` to remove:
+
+```bash
+shadowing tag a3f8c210 +monthly +finance   # add two tags
+shadowing tag a3f8c210 -finance            # remove one tag
 ```
 
 ### Automatic Observation
@@ -307,6 +323,20 @@ Dark-theme single-page app with:
 - **Export Workflow** — Anonymization preview, batch export
 - **Timeline** — Color-coded observation events
 - **17 REST API Endpoints** — Full programmatic control
+
+### Authentication
+
+The dashboard is **local-first and protected by a Bearer token**. The browser UI is wired up automatically — the token is injected into the page the server serves, so `shadowing ui` just works in your browser with no setup.
+
+For programmatic access (scripts, agents, `curl`), set the token yourself so you know it ahead of time; otherwise the server generates a random one per run:
+
+```bash
+export SHADOWING_UI_TOKEN=$(openssl rand -hex 32)
+shadowing ui &
+curl -H "Authorization: Bearer $SHADOWING_UI_TOKEN" http://localhost:3847/api/stats
+```
+
+Requests to `/api/*` without a valid `Authorization: Bearer <token>` header receive `401 Unauthorized`. The dashboard HTML itself is served unauthenticated on the bound interface (localhost by default).
 
 ### REST API
 
@@ -412,7 +442,27 @@ CLI (Commander.js — 27 Commands)
 shadowing mcp
 ```
 
-Tools: `task_start`, `task_status`, `task_complete`, `task_pause`, `sop_list`, `sop_show`, `sop_generate`, `sop_update_status`, `observe_start`, `observe_stop`, `timeline_show`, `session_analyze`, `export_sops`, `stats_show`, `consent_manage`, `exclude_manage`, `config_show`
+All tools are namespaced with the `shadowing_` prefix:
+
+| Tool | Description |
+|------|-------------|
+| `shadowing_start_task` | Start tracking a new task (one active task at a time) |
+| `shadowing_complete_task` | Complete the active task; calculates duration, can trigger SOP generation |
+| `shadowing_pause_task` | Pause the active task |
+| `shadowing_resume_task` | Resume a paused task |
+| `shadowing_get_status` | Current status: active task, statistics, observation session |
+| `shadowing_list_sops` | List SOPs; filter by status, tag, or search text |
+| `shadowing_get_sop` | Get one SOP by ID (content, tags, metrics, version history) |
+| `shadowing_update_sop` | Update SOP content/title/description (auto-versioned) |
+| `shadowing_approve_sop` | Move a SOP to `approved` status |
+| `shadowing_add_tags` | Add tags to a SOP |
+| `shadowing_log_observation` | Log a manual observation action to the active session |
+| `shadowing_start_observation` | Start an observation session |
+| `shadowing_stop_observation` | Stop the active observation session |
+| `shadowing_get_stats` | Global statistics: task/SOP counts, quality scores, exports |
+| `shadowing_export_sops` | Export SOPs as anonymized markdown + manifest |
+| `shadowing_list_tasks` | List all tracked tasks with status and duration |
+| `shadowing_get_timeline` | Action timeline for an observation session |
 
 ### Hook Handler
 
@@ -532,7 +582,7 @@ No. Observation is explicitly started by the employee, governed by consent and e
 
 ```bash
 npm run dev    # tsx src/cli.ts
-npm run test   # vitest (1091 tests, 45 test files)
+npm run test   # vitest (1112 tests, 47 test files)
 npm run lint   # tsc --noEmit
 npm run build  # tsup
 ```

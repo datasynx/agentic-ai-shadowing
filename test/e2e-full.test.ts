@@ -803,7 +803,7 @@ describe('E2E: CLI Smoke Tests', () => {
 
   it('should display --version (stdout)', () => {
     const { combined } = runCLI('--version');
-    expect(combined).toContain('0.1.0');
+    expect(combined).toMatch(/\d+\.\d+\.\d+/);
   });
 
   it('should initialize successfully', () => {
@@ -970,5 +970,135 @@ describe('E2E: GlobalStats edge cases', () => {
     expect(stats.reviewed_sops).toBe(0);
     expect(stats.approved_sops).toBe(0);
     expect(stats.exported_sops).toBe(0);
+  });
+});
+
+// ── E2E: CLI Robustness (issues #10, #12, #14) ───────────────────────────────
+
+describe('E2E: CLI Robustness', () => {
+  let testHome: string;
+
+  beforeEach(() => {
+    testHome = mkdtempSync(join(tmpdir(), 'shadow-robust-'));
+  });
+
+  const runCLI = (
+    args: string,
+    opts: { input?: string; env?: Record<string, string | undefined> } = {},
+  ): { stdout: string; stderr: string; combined: string; status: number | null } => {
+    const result = spawnSync('npx', ['tsx', 'src/cli.ts', ...args.split(' ')], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      timeout: 30000,
+      input: opts.input ?? '',
+      env: { ...process.env, HOME: testHome, ...opts.env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const stdout = result.stdout ?? '';
+    const stderr = result.stderr ?? '';
+    return { stdout, stderr, combined: stdout + stderr, status: result.status };
+  };
+
+  // ── issue #12: version is read from package.json, never hardcoded ──────────
+  it('reports a real semver version (not a stale hardcoded one)', () => {
+    const pkg = JSON.parse(
+      readFileSync(join(process.cwd(), 'package.json'), 'utf8'),
+    ) as { version: string };
+    const { combined } = runCLI('--version');
+    expect(combined.trim()).toContain(pkg.version);
+    expect(combined).toMatch(/\d+\.\d+\.\d+/);
+  });
+
+  // ── issue #10: `start` must not crash without an API key ───────────────────
+  it('`start` without ANTHROPIC_API_KEY does not crash with a stack trace', () => {
+    runCLI('init');
+    // Decline starting a new task so the interactive loop exits cleanly.
+    const { combined } = runCLI('start', {
+      input: 'n\n',
+      env: { ANTHROPIC_API_KEY: undefined },
+    });
+    // The Active banner is printed only AFTER we get past dependency setup,
+    // so its presence proves we no longer crash on eager SOPGenerator init.
+    expect(combined).toContain('Agentic AI Shadowing');
+    expect(combined).not.toContain('SOPGenerationError');
+    expect(combined).not.toMatch(/at new SOPGenerator/);
+  });
+
+  // ── issue #14: error paths exit non-zero ──────────────────────────────────
+  it('`export --all` with no approved SOPs exits non-zero', () => {
+    runCLI('init');
+    const { status, combined } = runCLI('export --all');
+    expect(combined).toMatch(/No approved SOPs/i);
+    expect(status).not.toBe(0);
+  });
+
+  it('`import-graph` on a missing file exits non-zero', () => {
+    runCLI('init');
+    const { status } = runCLI('import-graph /nonexistent/graph.json');
+    expect(status).not.toBe(0);
+  });
+
+  it('a command before init exits non-zero', () => {
+    const { status } = runCLI('status');
+    expect(status).not.toBe(0);
+  });
+
+  // ── issue #11: documented `-tag` removal syntax must work ──────────────────
+  it('`tag <id> -tag` removes a tag using the documented syntax', () => {
+    runCLI('init');
+    const dbPath = join(testHome, '.datasynx', 'shadowing', 'shadowing.db');
+    const db = new ShadowingDB(dbPath);
+    const task = db.createTask('Tag Task');
+    const sop = db.createSOP(task.id, {
+      title: 'Tag SOP',
+      content_md: '# x',
+      tags: ['accounting', 'sap'],
+    });
+    db.close();
+    const id = sop.id.substring(0, 8);
+
+    const add = runCLI(`tag ${id} +finance`);
+    expect(add.combined).toMatch(/Tag added/i);
+
+    const rem = runCLI(`tag ${id} -finance`);
+    expect(rem.status).toBe(0);
+    expect(rem.combined).not.toMatch(/unknown option/i);
+    expect(rem.combined).toMatch(/Tag removed/i);
+
+    const verify = new ShadowingDB(dbPath);
+    const names = verify.getTagsForSOP(sop.id).map((t) => t.name);
+    verify.close();
+    expect(names).not.toContain('finance');
+    expect(names).toContain('accounting');
+  });
+
+  // ── issue #15: structured INFO logs must not clutter normal CLI output ─────
+  const seedApprovedSOP = (): void => {
+    runCLI('init');
+    const dbPath = join(testHome, '.datasynx', 'shadowing', 'shadowing.db');
+    const db = new ShadowingDB(dbPath);
+    const task = db.createTask('Log Task');
+    db.completeTask(task.id);
+    const sop = db.createSOP(task.id, {
+      title: 'Log SOP',
+      content_md: '# Log SOP\nContact admin@corp.com',
+      tags: ['x'],
+    });
+    db.updateSOPStatus(sop.id, 'reviewed');
+    db.updateSOPStatus(sop.id, 'approved');
+    db.close();
+  };
+
+  it('`export --all` does not leak INFO logs into output by default', () => {
+    seedApprovedSOP();
+    const { combined } = runCLI('export --all');
+    expect(combined).toMatch(/exported/i);
+    expect(combined).not.toMatch(/INFO\s+\[exporter\]/);
+  });
+
+  it('LOG_LEVEL=info re-enables the diagnostic logs (override still works)', () => {
+    seedApprovedSOP();
+    const { combined } = runCLI('export --all', { env: { LOG_LEVEL: 'info' } });
+    expect(combined).toMatch(/INFO\s+\[exporter\]/);
   });
 });

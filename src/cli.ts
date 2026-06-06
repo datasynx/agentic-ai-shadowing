@@ -22,18 +22,28 @@ import { checkCartographyInstalled, locateJGFFile } from './cartography-check.js
 import { loadJGFFile } from './cartography.js';
 import { startMCPServer } from './mcp-server.js';
 import { runHookHandler } from './hook-handler.js';
+import { getPackageVersion } from './version.js';
+import { setLogLevel } from './logger.js';
 import type { ExclusionRule } from './types.js';
 import {
   ensureConfigDir, getConfigPath, getDbPath,
   loadConfig, saveConfig, getConfigDir,
 } from './config.js';
 
+// Quiet diagnostic INFO/DEBUG logs for interactive CLI use unless the user
+// explicitly opts in via LOG_LEVEL (see issue #15). Warnings and errors still
+// surface. Module loggers resolve their threshold at log-time, so this applies
+// even though they were created during import.
+if (!process.env['LOG_LEVEL']) {
+  setLogLevel('warn');
+}
+
 const program = new Command();
 
 program
   .name('shadowing')
   .description('Agentic AI Shadowing — observes tasks, generates SOPs')
-  .version('0.1.0');
+  .version(getPackageVersion());
 
 // ── Helper: Load DB + Config ─────────────────────────────────────────────────
 
@@ -107,7 +117,11 @@ program
 
     const config = loadConfig();
     const tm = new TaskManager(db);
-    const gen = new SOPGenerator(config, db);
+    // Construct the SOP generator lazily: it requires ANTHROPIC_API_KEY, but
+    // starting/pausing/cancelling/noting a task does not. Building it eagerly
+    // would crash the whole command for users who have not set a key yet.
+    let gen: SOPGenerator | null = null;
+    const getGen = (): SOPGenerator => (gen ??= new SOPGenerator(config, db));
 
     // Dynamic import for inquirer (ESM)
     const { input, select, confirm } = await import('@inquirer/prompts');
@@ -178,7 +192,7 @@ program
             process.stderr.write('  Generating SOP...\n\n');
 
             try {
-              const result = await gen.generateSOP(task);
+              const result = await getGen().generateSOP(task);
               const sop = db.createSOP(task.id, {
                 title: result.title,
                 description: result.description,
@@ -215,7 +229,7 @@ program
                 await editSOPInEditor(db, sop.id, config.editor);
               } else if (sopAction === 'regenerate') {
                 process.stderr.write('  Regenerating SOP...\n');
-                await gen.regenerateSOP(sop.id);
+                await getGen().regenerateSOP(sop.id);
                 process.stderr.write('  New version created.\n');
               } else if (sopAction === 'discard') {
                 db.deleteSOP(sop.id);
@@ -522,6 +536,12 @@ program
 program
   .command('tag <sop-id> <tags...>')
   .description('Add (+tag) or remove (-tag) tags')
+  // Tags prefixed with "-" (removal) would otherwise be parsed as unknown CLI
+  // options. allowUnknownOption() passes them straight through into the
+  // variadic <tags...> operand so the documented `-tag` syntax works. This is
+  // scoped to this command only (no global enablePositionalOptions), so other
+  // commands keep normal option parsing (e.g. `diff <id> --from 1`).
+  .allowUnknownOption()
   .action((sopId: string, tags: string[]) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -613,6 +633,7 @@ program
         process.stderr.write(`  Path: ${result.export_path}\n\n`);
       } catch (err) {
         process.stderr.write(`  Error: ${err instanceof Error ? err.message : err}\n`);
+        process.exitCode = 1;
       }
       db.close();
       return;
@@ -1602,4 +1623,10 @@ function editSOPInEditorSync(db: ShadowingDB, sopId: string, editor: string): vo
   }
 }
 
-program.parse();
+// Top-level guard: any error that escapes a command handler is printed as a
+// clean message (not a raw stack trace) and surfaces a non-zero exit code.
+program.parseAsync().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  process.stderr.write(`  ${message}\n`);
+  process.exitCode = 1;
+});

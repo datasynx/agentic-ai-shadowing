@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShadowingDB } from '../src/db.js';
 import { getDefaultConfig } from '../src/config.js';
 import { MCPServer } from '../src/mcp-server.js';
+import { getPackageVersion } from '../src/version.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { unlinkSync } from 'node:fs';
@@ -26,7 +27,7 @@ describe('MCPServer — initialize', () => {
     const result = server.handleInitialize();
     expect(result.protocolVersion).toBe('2024-11-05');
     expect(result.capabilities).toHaveProperty('tools');
-    expect(result.serverInfo).toEqual({ name: 'shadowing-mcp', version: '0.1.0' });
+    expect(result.serverInfo).toEqual({ name: 'shadowing-mcp', version: getPackageVersion() });
   });
 });
 

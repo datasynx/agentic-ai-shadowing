@@ -5,6 +5,7 @@ import { Anonymizer } from './anonymizer.js';
 import { Exporter } from './exporter.js';
 import { calculateSOPMetrics } from './metrics.js';
 import { loadConfig, getDbPath } from './config.js';
+import { getPackageVersion } from './version.js';
 import type { ShadowingConfig, SOPStatus, TaskStatus } from './types.js';
 
 // ── MCP Protocol Types ──────────────────────────────────────────────────────
@@ -231,7 +232,7 @@ export class MCPServer {
       },
       serverInfo: {
         name: 'shadowing-mcp',
-        version: '0.1.0',
+        version: getPackageVersion(),
       },
     };
   }

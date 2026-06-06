@@ -18,6 +18,27 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 3,
 };
 
+function normalizeLevel(value: string | undefined, fallback: LogLevel): LogLevel {
+  return value && value in LEVEL_PRIORITY ? (value as LogLevel) : fallback;
+}
+
+// Global runtime log level for loggers created without an explicit level.
+// Module loggers (`getLogger('db')` etc.) are created at import time, so the
+// threshold is resolved per log-call against this mutable value. This lets the
+// CLI quiet diagnostic output at startup (see issue #15) without rebuilding
+// every already-created logger.
+let globalLevel: LogLevel = normalizeLevel(process.env['LOG_LEVEL'], 'info');
+
+/** Set the global runtime log level for loggers without an explicit level. */
+export function setLogLevel(level: LogLevel): void {
+  globalLevel = level;
+}
+
+/** Get the current global runtime log level. */
+export function getLogLevel(): LogLevel {
+  return globalLevel;
+}
+
 export interface LoggerOptions {
   level?: LogLevel;
   json?: boolean;
@@ -26,12 +47,15 @@ export interface LoggerOptions {
 }
 
 export function createLogger(opts: LoggerOptions = {}): Logger {
-  const minLevel = LEVEL_PRIORITY[opts.level ?? (process.env['LOG_LEVEL'] as LogLevel) ?? 'info'];
+  // A fixed level pins this logger; otherwise it follows the global runtime
+  // level (resolved per call so setLogLevel() takes effect retroactively).
+  const fixedLevel = opts.level;
   const jsonMode = opts.json ?? (process.env['LOG_FORMAT'] === 'json');
   const moduleName = opts.module;
   const write = opts.write ?? ((line: string) => process.stderr.write(line + '\n'));
 
   function log(level: LogLevel, msg: string, meta?: Record<string, unknown>): void {
+    const minLevel = LEVEL_PRIORITY[fixedLevel ?? globalLevel];
     if (LEVEL_PRIORITY[level] < minLevel) return;
 
     if (jsonMode) {

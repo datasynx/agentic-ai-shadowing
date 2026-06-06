@@ -495,6 +495,7 @@ program
       const v = db.getSOPVersion(sop.id, oldVersion);
       if (!v) {
         process.stderr.write(`  Version ${oldVersion} not found.\n`);
+        process.exitCode = 1;
         db.close();
         return;
       }
@@ -505,7 +506,7 @@ program
       newVersion = parseInt(opts.to, 10);
       const vFrom = db.getSOPVersion(sop.id, oldVersion);
       const vTo = newVersion === sop.version ? null : db.getSOPVersion(sop.id, newVersion);
-      if (!vFrom) { process.stderr.write(`  Version ${oldVersion} not found.\n`); db.close(); return; }
+      if (!vFrom) { process.stderr.write(`  Version ${oldVersion} not found.\n`); process.exitCode = 1; db.close(); return; }
       oldContent = vFrom.content_md;
       newContent = vTo ? vTo.content_md : sop.content_md;
     } else {
@@ -1054,6 +1055,7 @@ program
         targetSessionId = matches[0]!.id;
       } else if (matches.length === 0) {
         process.stderr.write(`\n  Session "${sessionId}" not found.\n\n`);
+        process.exitCode = 1;
         db.close();
         return;
       }
@@ -1062,6 +1064,7 @@ program
     const session = db.getObservationSession(targetSessionId);
     if (!session) {
       process.stderr.write(`\n  Session "${targetSessionId}" not found.\n\n`);
+      process.exitCode = 1;
       db.close();
       return;
     }
@@ -1589,10 +1592,12 @@ function findSOP(db: ShadowingDB, idPrefix: string) {
   if (matches.length === 1) return matches[0]!;
   if (matches.length > 1) {
     process.stderr.write(`  Multiple SOPs found for "${idPrefix}". Please provide a more specific ID.\n`);
+    process.exitCode = 1;
     return null;
   }
 
   process.stderr.write(`  SOP not found: ${idPrefix}\n`);
+  process.exitCode = 1;
   return null;
 }
 

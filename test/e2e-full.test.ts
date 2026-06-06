@@ -780,7 +780,7 @@ describe('E2E: CLI Smoke Tests', () => {
   // [BUG-003]: CLI writes all user-facing output to stderr (process.stderr.write)
   // following CLAUDE.md rule "Terminal auf stderr". This makes piping/capturing
   // output unintuitive. Only --help and --version go to stdout (via commander).
-  const runCLI = (args: string): { stdout: string; stderr: string; combined: string } => {
+  const runCLI = (args: string): { stdout: string; stderr: string; combined: string; status: number | null } => {
     const result = spawnSync('npx', ['tsx', 'src/cli.ts', ...args.split(' ')], {
       cwd: process.cwd(),
       encoding: 'utf8',
@@ -790,7 +790,7 @@ describe('E2E: CLI Smoke Tests', () => {
     });
     const stdout = result.stdout ?? '';
     const stderr = result.stderr ?? '';
-    return { stdout, stderr, combined: stdout + stderr };
+    return { stdout, stderr, combined: stdout + stderr, status: result.status };
   };
 
   it('should display --help (stdout)', () => {
@@ -857,6 +857,30 @@ describe('E2E: CLI Smoke Tests', () => {
     const { combined } = runCLI('infra');
     // Should run without crashing, output varies by environment
     expect(combined).toBeDefined();
+  });
+
+  // [#16] Lookup-by-id commands must exit non-zero when the SOP does not exist,
+  // so scripts/CI/agents can detect the failure (message tone and exit code
+  // must agree).
+  it('should exit non-zero when "show" targets an unknown SOP id', { timeout: 15000 }, () => {
+    runCLI('init');
+    const { stderr, status } = runCLI('show deadbeef');
+    expect(stderr).toContain('SOP not found');
+    expect(status).toBe(1);
+  });
+
+  it('should exit non-zero when "tag" targets an unknown SOP id', { timeout: 15000 }, () => {
+    runCLI('init');
+    const { stderr, status } = runCLI('tag deadbeef +finance');
+    expect(stderr).toContain('SOP not found');
+    expect(status).toBe(1);
+  });
+
+  it('should exit non-zero when "delete" targets an unknown SOP id', { timeout: 15000 }, () => {
+    runCLI('init');
+    const { stderr, status } = runCLI('delete deadbeef');
+    expect(stderr).toContain('SOP not found');
+    expect(status).toBe(1);
   });
 });
 

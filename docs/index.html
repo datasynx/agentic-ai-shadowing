@@ -5,6 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Datasynx Shadowing — Documentation</title>
   <meta name="description" content="Agentic AI Shadowing observes daily workflows and generates anonymized Standard Operating Procedures via Claude. Fully local, fully anonymized." />
+
+  <link rel="icon" type="image/svg+xml" href="datasynx-logo.svg" />
+  <link rel="canonical" href="https://datasynx.github.io/agentic-ai-shadowing/" />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="author" content="Datasynx AI" />
+
+  <!-- Open Graph / LinkedIn / social cards -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Datasynx AI" />
+  <meta property="og:title" content="Datasynx Shadowing — observe workflows, generate anonymized SOPs" />
+  <meta property="og:description" content="A local-first, MCP-native CLI that shadows daily workflows and auto-generates anonymized Standard Operating Procedures via Claude. Fully offline, PII-safe." />
+  <meta property="og:url" content="https://datasynx.github.io/agentic-ai-shadowing/" />
+  <meta property="og:image" content="https://datasynx.github.io/agentic-ai-shadowing/datasynx-logo.svg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Datasynx Shadowing — observe workflows, generate anonymized SOPs" />
+  <meta name="twitter:description" content="Local-first, MCP-native SOP generation via Claude. Fully offline, PII-safe. By Datasynx AI." />
+  <meta name="twitter:image" content="https://datasynx.github.io/agentic-ai-shadowing/datasynx-logo.svg" />
   <style>
     :root {
       --bg: #0d1117;
@@ -59,16 +76,37 @@
       z-index: 10;
     }
     .nav-logo { padding: 0 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
-    .nav-logo h1 { font-size: 14px; font-weight: 700; padding-top: 0; margin-bottom: 2px; }
-    .nav-logo span { font-size: 12px; color: var(--muted); }
-    .nav-ext { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand:hover { text-decoration: none; }
+    .brand img { display: block; flex: none; }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+    .brand-text strong {
+      font-size: 15px; font-weight: 800; letter-spacing: -.01em;
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .brand-text span { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .09em; }
+    .nav-ext { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
     .nav-ext a {
-      display: inline-flex; align-items: center;
-      padding: 3px 9px; font-size: 11px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; font-size: 11px; font-weight: 600;
       color: var(--muted); background: var(--bg3);
       border: 1px solid var(--border); border-radius: 12px;
     }
+    .nav-ext a svg { width: 12px; height: 12px; display: block; }
     .nav-ext a:hover { color: var(--text); border-color: var(--accent); text-decoration: none; }
+    .nav-ext a.gh:hover { border-color: var(--text); }
+    .nav-ext a.li { background: #0a66c2; border-color: #0a66c2; color: #fff; }
+    .nav-ext a.li:hover { background: #0958a8; border-color: #0958a8; color: #fff; }
+
+    .hero-head { display: flex; align-items: center; gap: 16px; padding-top: 40px; }
+    .hero-head h1 { padding-top: 0; margin-bottom: 0; }
+    .hero-logo { flex: none; }
+    .hero-by { font-size: 14px; color: var(--muted); margin: 0 0 14px; }
+    @media (max-width: 600px) { .hero-head { gap: 12px; } .hero-logo { width: 40px; height: 40px; } }
+
+    .footer-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .footer-brand strong { color: var(--text); font-size: 14px; }
     .nav-section { padding: 12px 20px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
     nav a.nav-link { display: block; padding: 5px 20px; font-size: 13px; color: var(--muted); border-left: 3px solid transparent; transition: all .15s; }
     nav a.nav-link:hover, nav a.nav-link.active { color: var(--text); border-left-color: var(--accent); background: rgba(88, 166, 255, .06); text-decoration: none; }
@@ -125,12 +163,23 @@
   <div class="layout">
     <nav>
       <div class="nav-logo">
-        <h1>Datasynx Shadowing</h1>
-        <span>shadowing · enterprise edition</span>
+        <a class="brand" href="#overview" aria-label="Datasynx Shadowing — back to top">
+          <img class="logo-mark" src="datasynx-logo.svg" alt="Datasynx logo" width="32" height="32" />
+          <span class="brand-text">
+            <strong>Datasynx</strong>
+            <span>Shadowing · Enterprise</span>
+          </span>
+        </a>
         <div class="nav-ext">
+          <a class="gh" href="https://github.com/datasynx/agentic-ai-shadowing" aria-label="GitHub repository">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            GitHub
+          </a>
           <a href="https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing">npm</a>
-          <a href="https://github.com/datasynx/agentic-ai-shadowing">GitHub</a>
-          <a href="https://www.linkedin.com/company/datasynx-ai/">LinkedIn</a>
+          <a class="li" href="https://www.linkedin.com/company/datasynx-ai/" aria-label="Datasynx AI on LinkedIn">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.6 0H2.4A2.4 2.4 0 000 2.4v11.2A2.4 2.4 0 002.4 16h11.2a2.4 2.4 0 002.4-2.4V2.4A2.4 2.4 0 0013.6 0zM4.8 13.6H2.4V6.4h2.4v7.2zM3.6 5.3a1.4 1.4 0 110-2.8 1.4 1.4 0 010 2.8zm10 8.3h-2.4V9.8c0-.95-.02-2.16-1.32-2.16-1.32 0-1.52 1.03-1.52 2.1v3.86H6V6.4h2.3v.98h.03c.32-.6 1.1-1.24 2.27-1.24 2.43 0 2.88 1.6 2.88 3.68v3.78z"/></svg>
+            LinkedIn
+          </a>
         </div>
       </div>
 
@@ -160,8 +209,12 @@
 
     <main>
       <section id="overview">
-        <h1>Datasynx Shadowing</h1>
+        <div class="hero-head">
+          <img class="hero-logo" src="datasynx-logo.svg" alt="Datasynx logo" width="52" height="52" />
+          <h1>Datasynx Shadowing</h1>
+        </div>
         <p class="hero-tagline">The SOPs your team never has time to write — observed, generated, anonymized.</p>
+        <p class="hero-by">by <a href="https://www.linkedin.com/company/datasynx-ai/">Datasynx&nbsp;AI</a> &middot; <a href="https://github.com/datasynx/agentic-ai-shadowing">★ Star on GitHub</a></p>
         <p>
           <span class="badge badge-green">100% local</span>
           <span class="badge badge-blue">MCP-native</span>
@@ -325,8 +378,9 @@ shadowing export --all</code></pre>
           <tr><td><code>shadowing guide</code></td><td>Complete guide</td></tr>
         </table>
         <div class="alert alert-blue">
-          The MCP server exposes <strong>17 tools</strong> (<code>task_start</code>, <code>sop_generate</code>,
-          <code>observe_start</code>, <code>export_sops</code>, …) so Claude Code, Codex, and Cursor can drive
+          The MCP server exposes <strong>17 tools</strong> (<code>shadowing_start_task</code>,
+          <code>shadowing_list_sops</code>, <code>shadowing_start_observation</code>,
+          <code>shadowing_export_sops</code>, …) so Claude Code, Codex, and Cursor can drive
           Shadowing natively.
         </div>
       </section>
@@ -470,13 +524,17 @@ shadowing export --all</code></pre>
       </section>
 
       <footer>
+        <div class="footer-brand">
+          <img src="datasynx-logo.svg" alt="Datasynx logo" width="24" height="24" />
+          <strong>Datasynx AI</strong>
+        </div>
         <p>
           <a href="https://www.npmjs.com/package/@datasynx/agentic-ai-shadowing">npm</a> ·
           <a href="https://github.com/datasynx/agentic-ai-shadowing">GitHub</a> ·
           <a href="https://github.com/datasynx/agentic-ai-shadowing/issues">Issues</a> ·
           <a href="https://www.linkedin.com/company/datasynx-ai/">LinkedIn</a>
         </p>
-        <p>© 2026 Datasynx AI · MIT License · Built with TypeScript &amp; the Claude API</p>
+        <p>© 2026 <a href="https://www.linkedin.com/company/datasynx-ai/">Datasynx AI</a> · MIT License · Built with TypeScript &amp; the Claude API</p>
       </footer>
     </main>
   </div>

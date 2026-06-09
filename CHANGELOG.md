@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.3.0...v1.4.0) (2026-06-09)
+
+
+### Features
+
+* idempotent Claude Code setup with --dry-run, --uninstall and scopes ([9c91289](https://github.com/datasynx/agentic-ai-shadowing/commit/9c91289ac1662db6a6449252b6514234fa5bf789)), closes [#24](https://github.com/datasynx/agentic-ai-shadowing/issues/24) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.3.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.2.0...v1.3.0) (2026-06-09)
 
 

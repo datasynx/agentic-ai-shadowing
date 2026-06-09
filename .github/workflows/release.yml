@@ -60,3 +60,17 @@ jobs:
       - name: Release skipped (no NPM_TOKEN)
         if: env.HAS_NPM_TOKEN != 'true'
         run: echo "::notice::NPM_TOKEN secret not set — skipping npm release."
+      # Publish the server.json manifest to the official MCP Registry (#32).
+      # Runs only when semantic-release actually cut a release (tag at HEAD);
+      # non-blocking so a registry outage can never fail the npm release.
+      - name: Publish to MCP Registry
+        if: env.HAS_NPM_TOKEN == 'true'
+        continue-on-error: true
+        run: |
+          if [ -z "$(git tag --points-at HEAD)" ]; then
+            echo "::notice::No release tag at HEAD — skipping MCP Registry publish."
+            exit 0
+          fi
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

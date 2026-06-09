@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.datasynx/agentic-ai-shadowing",
+  "description": "Observes tasks and generates anonymized SOPs — task tracking, observation, and SOP review via 17 MCP tools. Fully local.",
+  "repository": {
+    "url": "https://github.com/datasynx/agentic-ai-shadowing",
+    "source": "github"
+  },
+  "version": "1.5.0",
+  "websiteUrl": "https://datasynx.github.io/agentic-ai-shadowing/",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@datasynx/agentic-ai-shadowing",
+      "version": "1.5.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}

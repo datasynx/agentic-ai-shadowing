@@ -500,6 +500,10 @@ up to 2025-11-25 with automatic version negotiation). Every tool ships zod-valid
 input schemas, an output schema with `structuredContent`, and tool annotations
 (`readOnlyHint`/`idempotentHint`), so MCP hosts can reason about side effects.
 
+Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)
+as `io.github.datasynx/agentic-ai-shadowing` (`server.json` is version-synced
+with every npm release).
+
 All tools are namespaced with the `shadowing_` prefix:
 
 | Tool | Description |

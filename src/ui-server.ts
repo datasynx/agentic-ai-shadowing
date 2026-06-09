@@ -96,6 +96,8 @@ export interface UIServerOptions {
   authToken?: string;
   readRateLimit?: number;
   writeRateLimit?: number;
+  /** Cross-origin origins allowed to call the API (overrides config.ui_allowed_origins). */
+  allowedOrigins?: string[];
 }
 
 export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: UIServerOptions) {
@@ -109,18 +111,49 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: 
     opts?.writeRateLimit ?? 20,
   );
 
+  // CORS policy: the dashboard is served same-origin, so by default no CORS
+  // headers are emitted at all. Cross-origin callers must be explicitly
+  // allowlisted (config.ui_allowed_origins); everything else gets 403 on
+  // API routes. Requests without an Origin header (curl, same-origin GET
+  // navigations) are unaffected.
+  const allowedOrigins = opts?.allowedOrigins ?? config.ui_allowed_origins ?? [];
+
+  function checkOrigin(req: IncomingMessage): { allowed: boolean; corsOrigin?: string } {
+    const origin = req.headers['origin'];
+    if (!origin) return { allowed: true };
+    try {
+      const originHost = new URL(origin).host;
+      const requestHost = req.headers['host'];
+      if (requestHost && originHost === requestHost) return { allowed: true }; // same-origin
+    } catch {
+      // Malformed Origin header — fall through to the allowlist check
+    }
+    if (allowedOrigins.includes(origin)) return { allowed: true, corsOrigin: origin };
+    return { allowed: false };
+  }
+
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost`);
     const path = url.pathname;
     const requestId = (req.headers['x-request-id'] as string) ?? randomUUID();
 
-    // Set standard headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-Id');
     res.setHeader('X-Request-Id', requestId);
 
+    const originCheck = checkOrigin(req);
+    if (originCheck.corsOrigin) {
+      // Allowlisted cross-origin caller — echo the specific origin, never '*'
+      res.setHeader('Access-Control-Allow-Origin', originCheck.corsOrigin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-Id');
+      res.setHeader('Vary', 'Origin');
+    }
+
     if (req.method === 'OPTIONS') {
+      if (!originCheck.allowed) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Origin not allowed', status: 403 }));
+        return;
+      }
       res.writeHead(204);
       res.end();
       return;
@@ -128,6 +161,15 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: 
 
     const isApiRoute = path.startsWith('/api/');
     const isWriteMethod = req.method === 'PUT' || req.method === 'POST' || req.method === 'DELETE';
+
+    // Reject disallowed cross-origin requests on API routes (DNS-rebinding /
+    // cross-site request protection in addition to Bearer auth).
+    if (isApiRoute && !originCheck.allowed) {
+      log.warn('Blocked disallowed origin', { origin: req.headers['origin'], request_id: requestId });
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Origin not allowed', status: 403 }));
+      return;
+    }
 
     // Rate limiting for API routes
     if (isApiRoute) {

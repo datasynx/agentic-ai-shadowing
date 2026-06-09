@@ -173,12 +173,27 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_single_active_observation
 
 export class ShadowingDB {
   private db: Database.Database;
+  private captureRedactor: ((text: string) => string) | null = null;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.db.pragma('busy_timeout = 5000');
+  }
+
+  /**
+   * Install a redact-on-capture function (see createCaptureRedactor in
+   * anonymizer.ts). When set, window titles, commands and file paths are
+   * redacted BEFORE they are persisted, so PII/secrets never reach disk.
+   */
+  setCaptureRedactor(redactor: ((text: string) => string) | null): void {
+    this.captureRedactor = redactor;
+  }
+
+  private redactCapture(value: string | undefined): string | undefined {
+    if (value === undefined || this.captureRedactor === null) return value;
+    return this.captureRedactor(value);
   }
 
   initialize(): void {
@@ -665,9 +680,9 @@ export class ShadowingDB {
       sessionId,
       data.source,
       data.app_name ?? null,
-      data.window_title ?? null,
-      data.command ?? null,
-      data.file_path ?? null,
+      this.redactCapture(data.window_title) ?? null,
+      this.redactCapture(data.command) ?? null,
+      this.redactCapture(data.file_path) ?? null,
       data.metadata ? JSON.stringify(data.metadata) : null,
       data.started_at ?? null,
       data.ended_at ?? null,
@@ -695,11 +710,13 @@ export class ShadowingDB {
 
     if (!last) return null;
 
-    // Check if the last action matches and is within pulsetime
+    // Check if the last action matches and is within pulsetime.
+    // The stored title is redacted, so the incoming one must be redacted
+    // the same way or heartbeat merging would never match.
     if (
       last.source !== data.source ||
       last.app_name !== (data.app_name ?? null) ||
-      last.window_title !== (data.window_title ?? null)
+      last.window_title !== (this.redactCapture(data.window_title) ?? null)
     ) {
       return null;
     }
@@ -748,6 +765,65 @@ export class ShadowingDB {
     }
 
     return this.db.prepare(sql).all(...params) as ObservedAction[];
+  }
+
+  /**
+   * Re-apply redaction to all stored observed actions (one-time cleanup for
+   * databases written before redact-on-capture, see `shadowing scrub`).
+   * Idempotent: the redaction pipeline is a no-op on already-redacted text.
+   * Returns the number of rows that changed.
+   */
+  scrubObservedActions(redactor: (text: string) => string): number {
+    const rows = this.db.prepare(
+      'SELECT id, window_title, command, file_path FROM observed_actions',
+    ).all() as Array<{ id: string; window_title: string | null; command: string | null; file_path: string | null }>;
+
+    const update = this.db.prepare(
+      'UPDATE observed_actions SET window_title = ?, command = ?, file_path = ? WHERE id = ?',
+    );
+
+    let changed = 0;
+    const tx = this.db.transaction(() => {
+      for (const row of rows) {
+        const windowTitle = row.window_title === null ? null : redactor(row.window_title);
+        const command = row.command === null ? null : redactor(row.command);
+        const filePath = row.file_path === null ? null : redactor(row.file_path);
+        if (windowTitle !== row.window_title || command !== row.command || filePath !== row.file_path) {
+          update.run(windowTitle, command, filePath, row.id);
+          changed++;
+        }
+      }
+    });
+    tx();
+    return changed;
+  }
+
+  /**
+   * Re-apply redaction to task titles and descriptions (notes).
+   * Returns the number of rows that changed.
+   */
+  scrubTasks(redactor: (text: string) => string): number {
+    const rows = this.db.prepare(
+      'SELECT id, title, description FROM tasks',
+    ).all() as Array<{ id: string; title: string; description: string | null }>;
+
+    const update = this.db.prepare(
+      "UPDATE tasks SET title = ?, description = ?, updated_at = datetime('now') WHERE id = ?",
+    );
+
+    let changed = 0;
+    const tx = this.db.transaction(() => {
+      for (const row of rows) {
+        const title = redactor(row.title);
+        const description = row.description === null ? null : redactor(row.description);
+        if (title !== row.title || description !== row.description) {
+          update.run(title, description, row.id);
+          changed++;
+        }
+      }
+    });
+    tx();
+    return changed;
   }
 
   getActionTimeline(sessionId: string, startTime?: string, endTime?: string): ObservedAction[] {

@@ -3,7 +3,14 @@ import type { Task } from './types.js';
 import { ShadowingError } from './errors.js';
 
 export class TaskManager {
-  constructor(private db: ShadowingDB) {}
+  /**
+   * @param redactor Optional redact-on-capture function (see createCaptureRedactor):
+   *                 applied to free-text notes before they are persisted.
+   */
+  constructor(
+    private db: ShadowingDB,
+    private redactor?: (text: string) => string,
+  ) {}
 
   startTask(title: string, description?: string): Task {
     const active = this.db.getActiveTask();
@@ -71,8 +78,9 @@ export class TaskManager {
     const active = this.db.getActiveTask();
     if (!active) throw new ShadowingError('No active task for notes.', 'no_active_task');
 
+    const safeNote = this.redactor ? this.redactor(note) : note;
     const existing = active.description ?? '';
-    const updated = existing ? `${existing}\n- ${note}` : `- ${note}`;
+    const updated = existing ? `${existing}\n- ${safeNote}` : `- ${safeNote}`;
     return this.db.updateTask(active.id, { description: updated });
   }
 }

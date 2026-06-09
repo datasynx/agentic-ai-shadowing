@@ -1,5 +1,6 @@
 import type { ShadowingConfig } from './types.js';
 import { getPackageVersion } from './version.js';
+import { getDashboardClientHelpers } from './dashboard-client.js';
 
 export function getDashboardHTML(config: ShadowingConfig, authToken = ''): string {
   // Token is a hex string from randomBytes; JSON.stringify keeps the inline
@@ -402,7 +403,9 @@ const API = {
 /* ═══════════════════════════════════════════════════════════════════════════
    Helpers
    ═══════════════════════════════════════════════════════════════════════════ */
-function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+/* esc / escJs / renderMD are injected from dashboard-client.ts (single,
+   unit-tested source of truth for the XSS-escaping layer). */
+${getDashboardClientHelpers()}
 
 function fmtDur(sec) {
   if (!sec || sec <= 0) return '-';
@@ -428,7 +431,7 @@ function badgeHTML(status) {
 function tagsHTML(tags, removable, sopId) {
   return (tags || []).map(t =>
     '<span class="tag">#' + esc(t) +
-    (removable ? ' <span class="tag-remove" onclick="event.stopPropagation();removeTag(\\'' + sopId + '\\',\\'' + esc(t) + '\\')">&times;</span>' : '') +
+    (removable ? ' <span class="tag-remove" onclick="event.stopPropagation();removeTag(\\'' + escJs(sopId) + '\\',\\'' + escJs(t) + '\\')">&times;</span>' : '') +
     '</span>'
   ).join(' ');
 }
@@ -443,37 +446,6 @@ function qualityRing(score, size) {
     '<svg width="'+size+'" height="'+size+'"><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+r+'" fill="none" stroke="var(--bg-4)" stroke-width="4"/>' +
     '<circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="4" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" stroke-linecap="round"/></svg>' +
     '<span class="ring-text" style="color:'+color+'">'+Math.round(score)+'</span></div>';
-}
-
-/* ── Markdown Parser ──────────────────────────────────────────────────── */
-function renderMD(text) {
-  if (!text) return '';
-  let html = esc(text);
-  // Code blocks
-  html = html.replace(/\`\`\`(\\w*)\\n([\\s\\S]*?)\`\`\`/g, function(m, lang, code) {
-    return '<pre><code>' + code + '</code></pre>';
-  });
-  // Inline code
-  html = html.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
-  // Headers
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  // Bold & italic
-  html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
-  html = html.replace(/\\*(.+?)\\*/g, '<em>$1</em>');
-  // Blockquotes
-  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-  // Unordered lists
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\\/li>\\n?)+/g, '<ul>$&</ul>');
-  // Ordered lists
-  html = html.replace(/^\\d+\\. (.+)$/gm, '<li>$1</li>');
-  // Paragraphs
-  html = html.replace(/^(?!<[hupbo]|<li|<code|<pre)(\\S.+)$/gm, '<p>$1</p>');
-  // Clean up extra newlines
-  html = html.replace(/\\n{2,}/g, '\\n');
-  return html;
 }
 
 /* ── Toast ─────────────────────────────────────────────────────────────── */
@@ -607,7 +579,7 @@ async function renderDashboard() {
     html += '<div class="card" style="margin-top:16px"><div class="card-header"><span class="card-title">Tags (' + tags.length + ')</span></div>';
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
     tags.forEach(function(t) {
-      html += '<span class="tag" onclick="navigate(\\\'sops\\\');setTimeout(function(){filterByTag(\\'' + esc(t.name) + '\\')},100)">#' + esc(t.name) + '</span>';
+      html += '<span class="tag" onclick="navigate(\\\'sops\\\');setTimeout(function(){filterByTag(\\'' + escJs(t.name) + '\\')},100)">#' + esc(t.name) + '</span>';
     });
     html += '</div></div>';
   }
@@ -672,7 +644,7 @@ async function renderSOPList() {
   if (tags.length > 0) {
     html += '<div class="filter-tags" id="tag-filters" style="margin-bottom:12px">';
     tags.forEach(function(t) {
-      html += '<span class="tag" onclick="toggleTagFilter(\\'' + esc(t.name) + '\\')" data-tag="' + esc(t.name) + '">#' + esc(t.name) + '</span>';
+      html += '<span class="tag" onclick="toggleTagFilter(\\'' + escJs(t.name) + '\\')" data-tag="' + esc(t.name) + '">#' + esc(t.name) + '</span>';
     });
     html += '</div>';
   }

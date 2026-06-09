@@ -8,7 +8,7 @@ import { execSync } from 'node:child_process';
 import { ShadowingDB } from './db.js';
 import { TaskManager, formatDuration } from './task-manager.js';
 import { SOPGenerator, SOPGenerationError, buildSOPPreview, countSteps } from './sop-generator.js';
-import { Anonymizer } from './anonymizer.js';
+import { Anonymizer, createCaptureRedactor } from './anonymizer.js';
 import { Exporter } from './exporter.js';
 import { calculateSOPMetrics } from './metrics.js';
 import { diffTexts, formatDiff } from './diff.js';
@@ -55,6 +55,9 @@ function openDB(): ShadowingDB {
     throw new Error('DB not initialized');
   }
   const db = new ShadowingDB(dbPath);
+  // Redact-on-capture: PII/secrets are stripped before observation data
+  // hits SQLite (config: anonymization.redact_on_capture, default on).
+  db.setCaptureRedactor(createCaptureRedactor(loadConfig()));
   return db;
 }
 
@@ -116,7 +119,7 @@ program
     try { db = openDB(); } catch { return; }
 
     const config = loadConfig();
-    const tm = new TaskManager(db);
+    const tm = new TaskManager(db, createCaptureRedactor(config) ?? undefined);
     // Construct the SOP generator lazily: it requires ANTHROPIC_API_KEY, but
     // starting/pausing/cancelling/noting a task does not. Building it eagerly
     // would crash the whole command for users who have not set a key yet.
@@ -1211,6 +1214,28 @@ program
     db.close();
   });
 
+// ── shadowing scrub ──────────────────────────────────────────────────────────
+
+program
+  .command('scrub')
+  .description('Re-apply PII/secret redaction to all stored observation data (idempotent)')
+  .action(() => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+
+    const config = loadConfig();
+    const anonymizer = new Anonymizer(config.anonymization);
+    const redactor = (text: string): string => anonymizer.anonymize(text);
+
+    const actions = db.scrubObservedActions(redactor);
+    const tasks = db.scrubTasks(redactor);
+
+    process.stderr.write(`\n  Scrub complete.\n`);
+    process.stderr.write(`  Observed actions redacted: ${actions}\n`);
+    process.stderr.write(`  Task records redacted:     ${tasks}\n\n`);
+    db.close();
+  });
+
 // ── shadowing infra ─────────────────────────────────────────────────────────
 
 program
@@ -1388,6 +1413,13 @@ program
     shadowing exclude --add "*banking*" --type title_pattern
     shadowing exclude --add "*.env*" --type path_pattern
     shadowing exclude --remove <id>
+
+  Redaction (on by default):
+    Capture time:  PII + secrets are redacted BEFORE data reaches SQLite
+                   (anonymization.redact_on_capture). API tokens, JWTs,
+                   private keys and high-entropy strings are always redacted.
+    Export time:   Second anonymization pass over every exported SOP.
+    shadowing scrub                   Retroactively redact old databases
 
   Data lifecycle:
     0-7 days:    Full details (window titles, commands, paths)

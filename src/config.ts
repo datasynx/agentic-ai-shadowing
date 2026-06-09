@@ -13,6 +13,8 @@ const AnonymizationSchema = z.object({
   redact_urls: z.boolean().default(true),
   redact_phone_numbers: z.boolean().default(true),
   redact_file_paths: z.boolean().default(true),
+  redact_high_entropy: z.boolean().default(true),
+  redact_on_capture: z.boolean().default(true),
 }).default({});
 
 const SOPGenerationSchema = z.object({
@@ -38,6 +40,7 @@ export const ConfigSchema = z.object({
   ui_port: z.number().int().min(1024).max(65535).default(3847),
   ui_auth_token: z.string().optional(),
   ui_rate_limit_per_minute: z.number().int().positive().optional(),
+  ui_allowed_origins: z.array(z.string()).optional(),
   log_level: z.enum(['debug', 'info', 'warn', 'error']).optional(),
   cartography_graph_path: z.string().nullable().default(null),
   anonymization: AnonymizationSchema,
@@ -81,6 +84,8 @@ export function getDefaultConfig(): ShadowingConfig {
       redact_urls: true,
       redact_phone_numbers: true,
       redact_file_paths: true,
+      redact_high_entropy: true,
+      redact_on_capture: true,
     },
     sop_generation: {
       model: 'claude-sonnet-4-20250514',

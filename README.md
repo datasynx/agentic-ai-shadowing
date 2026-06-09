@@ -280,6 +280,7 @@ shadowing ui [--port <n>]               Start web dashboard (default: 3847)
 ```
 shadowing consent                       Consent management for observation
 shadowing exclude                       Manage exclusion rules
+shadowing scrub                         Re-apply redaction to stored data (idempotent)
 ```
 
 ### Integration
@@ -391,6 +392,20 @@ consistency * 0.35 + maturity * 0.35 + freshness * 0.30
 
 ## Privacy & Anonymization
 
+### Redact-on-capture (data at rest)
+
+PII and secrets are redacted **before observation data is written to SQLite** —
+window titles, shell commands, file paths, and task notes never reach disk in
+raw form (config: `anonymization.redact_on_capture`, default `true`). Export-time
+anonymization runs as a second layer on top. Databases written by older versions
+can be cleaned retroactively:
+
+```bash
+shadowing scrub    # idempotent — re-applies redaction to all stored rows
+```
+
+### Redaction patterns
+
 | Pattern | Replacement | Configurable |
 |---------|------------|--------------|
 | Email addresses | `[email@example.com]` | `redact_emails` |
@@ -398,10 +413,24 @@ consistency * 0.35 + maturity * 0.35 + freshness * 0.30
 | URLs | `[internal-system]/path` | `redact_urls` |
 | Phone numbers | `[phone-number]` | `redact_phone_numbers` |
 | File paths | `/Users/[user]/...` | `redact_file_paths` |
+| Unknown high-entropy tokens | `[high-entropy-string]` | `redact_high_entropy` |
 | **IBAN** | `[IBAN]` | Always active |
 | **Credit card numbers** | `[credit-card]` | Always active |
 | **Tax ID** | `[tax-id]` | Always active |
 | **Social security number** | `[social-security]` | Always active |
+| **GitHub tokens** (`ghp_`, `github_pat_`, ...) | `[github-token]` | Always active |
+| **Anthropic / OpenAI-style keys** (`sk-ant-`, `sk-`) | `[anthropic-api-key]` / `[api-key]` | Always active |
+| **AWS access keys & Secrets Manager ARNs** | `[aws-access-key-id]` / `[aws-secret-arn]` | Always active |
+| **Slack tokens** (`xox?-`) | `[slack-token]` | Always active |
+| **JWTs** | `[jwt]` | Always active |
+| **Bearer header values** | `Bearer [api-token]` | Always active |
+| **PEM private-key blocks** | `[private-key]` | Always active |
+
+Developer-secret detection is **never configurable off** — a tool that records
+shell commands must not be able to persist a pasted credential. The entropy
+fallback catches unknown token formats but deliberately skips git commit SHAs,
+UUIDs, and ordinary identifiers. The whole pipeline is idempotent: re-running
+it over already-redacted text is a no-op.
 
 Custom replacements via `config.anonymization.custom_replacements`.
 
@@ -522,6 +551,7 @@ Config: `~/.datasynx/shadowing/config.json`
   "polling_interval_minutes": 15,
   "editor": "code",
   "ui_port": 3847,
+  "ui_allowed_origins": [],
   "cartography_graph_path": null,
   "anonymization": {
     "redact_emails": true,
@@ -529,6 +559,8 @@ Config: `~/.datasynx/shadowing/config.json`
     "redact_urls": true,
     "redact_phone_numbers": true,
     "redact_file_paths": true,
+    "redact_high_entropy": true,
+    "redact_on_capture": true,
     "custom_replacements": {}
   },
   "sop_generation": {
@@ -559,7 +591,7 @@ Shadowing is one of three composable, local-first, MCP-native tools. Each works 
 ## FAQ
 
 **Where does my data live?**
-In a local SQLite database at `~/.datasynx/shadowing/shadowing.db`. No database service, no cloud, no daemon. The only network call is to the Claude API for SOP generation — and exports are PII-scrubbed before they ever leave the tool.
+In a local SQLite database at `~/.datasynx/shadowing/shadowing.db`. No database service, no cloud, no daemon. The only network call is to the Claude API for SOP generation — and observation data is redacted *before* it is written to disk (redact-on-capture), with a second PII scrub on every export.
 
 **Do I need Cartography?**
 No. Shadowing works standalone; SOPs are simply generated without the system-landscape context. Install [Cartography](https://www.npmjs.com/package/@datasynx/agentic-ai-cartography) and run `shadowing import-graph` to enrich SOPs with infrastructure context.
@@ -570,8 +602,11 @@ Anything that speaks MCP — Claude Code, Codex, Cursor, Claude Desktop. Run `sh
 **Is it really free?**
 Yes. MIT-licensed and self-hosted. No seats, no metering, no telemetry.
 
-**How is PII handled on export?**
-Every export runs through the Anonymizer: emails, IPs, URLs, phone numbers, and file paths are redacted (configurable), while IBANs, credit-card numbers, tax IDs, and social-security numbers are *always* redacted. You can preview the anonymized output before exporting.
+**How is PII handled?**
+Twice. At capture time, window titles, commands, file paths, and notes are redacted before they reach SQLite (`redact_on_capture`, default on). At export time, every SOP runs through the Anonymizer again: emails, IPs, URLs, phone numbers, and file paths are redacted (configurable), while financial identifiers and developer secrets (API tokens, JWTs, private keys, high-entropy strings) are *always* redacted. You can preview the anonymized output before exporting.
+
+**Can a malicious website talk to the local dashboard?**
+No. The API requires a Bearer token, and cross-origin requests are rejected with 403 by default (no CORS wildcard). Cross-origin callers must be explicitly allowlisted via `ui_allowed_origins`.
 
 **Is observation always on?**
 No. Observation is explicitly started by the employee, governed by consent and exclusion rules, and can be paused or stopped at any time.
@@ -582,7 +617,7 @@ No. Observation is explicitly started by the employee, governed by consent and e
 
 ```bash
 npm run dev    # tsx src/cli.ts
-npm run test   # vitest (1112 tests, 47 test files)
+npm run test   # vitest (1179 tests, 51 test files)
 npm run lint   # tsc --noEmit
 npm run build  # tsup
 ```

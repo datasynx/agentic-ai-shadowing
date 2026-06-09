@@ -147,9 +147,23 @@ Based on review age and execution frequency. Frequently executed SOPs become out
 - Credit card numbers → `[credit-card-number]`
 - Tax ID → `[tax-id]`
 - Social security number → `[ssn]`
+- GitHub tokens (`ghp_`, `gho_`, `github_pat_`, …) → `[github-token]`
+- Anthropic keys (`sk-ant-…`) → `[anthropic-api-key]`, generic `sk-…` → `[api-key]`
+- AWS access key IDs (`AKIA`/`ASIA`) → `[aws-access-key-id]`, Secrets Manager ARNs → `[aws-secret-arn]`
+- Slack tokens (`xox?-`) → `[slack-token]`
+- JWTs → `[jwt]`, Bearer header values → `Bearer [api-token]`
+- PEM private-key blocks → `[private-key]`
+- Unknown high-entropy tokens → `[high-entropy-string]` (configurable: `redact_high_entropy`; skips git SHAs, UUIDs, ordinary identifiers)
 
 ### 6.3 Custom Replacements
 Configurable via `config.anonymization.custom_replacements`.
+
+### 6.4 Redact-on-Capture
+With `anonymization.redact_on_capture` (default `true`), window titles, shell
+commands, file paths, and task notes are redacted **before** they are persisted
+to SQLite. Export-time anonymization remains as a second layer. The pipeline is
+idempotent (re-running over redacted text is a no-op); `shadowing scrub`
+retroactively redacts databases written by older versions.
 
 ## 7. Export
 

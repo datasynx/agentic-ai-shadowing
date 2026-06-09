@@ -90,6 +90,10 @@ export interface AnonymizationConfig {
   redact_urls: boolean;
   redact_phone_numbers: boolean;
   redact_file_paths: boolean;
+  /** Entropy fallback for unknown secret formats (known token formats are always redacted). */
+  redact_high_entropy: boolean;
+  /** Redact PII/secrets before observation data is written to SQLite (data-at-rest protection). */
+  redact_on_capture: boolean;
 }
 
 export interface SOPGenerationConfig {
@@ -115,6 +119,8 @@ export interface ShadowingConfig {
   ui_port: number;
   ui_auth_token?: string;
   ui_rate_limit_per_minute?: number;
+  /** Cross-origin origins allowed to call the UI API. Same-origin is always allowed; default: none. */
+  ui_allowed_origins?: string[];
   log_level?: string;
   cartography_graph_path: string | null;
   anonymization: AnonymizationConfig;
@@ -176,6 +182,8 @@ export interface ExportManifest {
     iban_count: number;
     credit_card_count: number;
     custom_count: number;
+    secret_count: number;
+    high_entropy_count: number;
   };
   metrics_summary: {
     avg_completion_time_seconds: number;

@@ -56,8 +56,11 @@ export {
 } from './metrics.js';
 
 // Anonymization
-export { Anonymizer } from './anonymizer.js';
+export { Anonymizer, createCaptureRedactor } from './anonymizer.js';
 export type { RedactionSummary } from './anonymizer.js';
+
+// Dashboard client helpers (XSS-escaping layer, also unit-testable)
+export { esc, escJs, renderMD, getDashboardClientHelpers } from './dashboard-client.js';
 
 // Diff
 export { diffTexts, formatDiff } from './diff.js';

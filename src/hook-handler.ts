@@ -20,7 +20,8 @@
 
 import { existsSync } from 'node:fs';
 import { ShadowingDB } from './db.js';
-import { getDbPath } from './config.js';
+import { getDbPath, loadConfig } from './config.js';
+import { createCaptureRedactor } from './anonymizer.js';
 import type { ActionSource } from './types.js';
 
 // ── Hook Event Types ────────────────────────────────────────────────────────
@@ -195,6 +196,8 @@ export async function runHookHandler(eventOverride?: string): Promise<void> {
   };
 
   const db = new ShadowingDB(dbPath);
+  // Hook events carry shell commands and file paths — redact before persisting.
+  db.setCaptureRedactor(createCaptureRedactor(loadConfig()));
   try {
     processHookEvent(db, event);
   } finally {

@@ -404,6 +404,9 @@ shadowing export --all</code></pre>
 
       <section id="anonymization">
         <h2>Privacy &amp; Anonymization</h2>
+        <h3>Redact-on-capture</h3>
+        <p>PII and secrets are redacted <strong>before</strong> observation data is written to SQLite — window titles, shell commands, file paths, and task notes never reach disk in raw form (<code>anonymization.redact_on_capture</code>, default <code>true</code>). Export-time anonymization runs as a second layer. Older databases can be cleaned retroactively with the idempotent <code>shadowing scrub</code> command.</p>
+        <h3>Redaction patterns</h3>
         <table>
           <tr><th>Pattern</th><th>Replacement</th><th>Configurable</th></tr>
           <tr><td>Email addresses</td><td><code>[email@example.com]</code></td><td><code>redact_emails</code></td></tr>
@@ -411,17 +414,25 @@ shadowing export --all</code></pre>
           <tr><td>URLs</td><td><code>[internal-system]/path</code></td><td><code>redact_urls</code></td></tr>
           <tr><td>Phone numbers</td><td><code>[phone-number]</code></td><td><code>redact_phone_numbers</code></td></tr>
           <tr><td>File paths</td><td><code>/Users/[user]/...</code></td><td><code>redact_file_paths</code></td></tr>
+          <tr><td>Unknown high-entropy tokens</td><td><code>[high-entropy-string]</code></td><td><code>redact_high_entropy</code></td></tr>
           <tr><td>IBAN</td><td><code>[IBAN]</code></td><td><span class="badge badge-green">always active</span></td></tr>
           <tr><td>Credit card numbers</td><td><code>[credit-card]</code></td><td><span class="badge badge-green">always active</span></td></tr>
           <tr><td>Tax ID</td><td><code>[tax-id]</code></td><td><span class="badge badge-green">always active</span></td></tr>
           <tr><td>Social security number</td><td><code>[social-security]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>GitHub tokens (<code>ghp_</code>, <code>github_pat_</code>, …)</td><td><code>[github-token]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>Anthropic / OpenAI-style keys</td><td><code>[anthropic-api-key]</code> / <code>[api-key]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>AWS access keys &amp; Secrets Manager ARNs</td><td><code>[aws-access-key-id]</code> / <code>[aws-secret-arn]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>Slack tokens</td><td><code>[slack-token]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>JWTs</td><td><code>[jwt]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>Bearer header values</td><td><code>Bearer [api-token]</code></td><td><span class="badge badge-green">always active</span></td></tr>
+          <tr><td>PEM private-key blocks</td><td><code>[private-key]</code></td><td><span class="badge badge-green">always active</span></td></tr>
         </table>
-        <p>Custom replacements via <code>config.anonymization.custom_replacements</code>.</p>
+        <p>Developer-secret detection is never configurable off. The entropy fallback skips git commit SHAs, UUIDs, and ordinary identifiers; the whole pipeline is idempotent. Custom replacements via <code>config.anonymization.custom_replacements</code>.</p>
       </section>
 
       <section id="api">
         <h2>REST API</h2>
-        <p>The web dashboard (<code>shadowing ui</code>) serves a dark-theme single-page app and 17 REST endpoints on port <code>3847</code>.</p>
+        <p>The web dashboard (<code>shadowing ui</code>) serves a dark-theme single-page app and 17 REST endpoints on port <code>3847</code>. The API requires Bearer-token auth, is rate-limited, and rejects cross-origin requests by default (no CORS wildcard — allowlist via <code>ui_allowed_origins</code>).</p>
         <table>
           <tr><th>Method</th><th>Path</th><th>Description</th></tr>
           <tr><td>GET</td><td><code>/api/stats</code></td><td>Global statistics</td></tr>
@@ -444,6 +455,7 @@ shadowing export --all</code></pre>
   "polling_interval_minutes": 15,
   "editor": "code",
   "ui_port": 3847,
+  "ui_allowed_origins": [],
   "cartography_graph_path": null,
   "anonymization": {
     "redact_emails": true,
@@ -451,6 +463,8 @@ shadowing export --all</code></pre>
     "redact_urls": true,
     "redact_phone_numbers": true,
     "redact_file_paths": true,
+    "redact_high_entropy": true,
+    "redact_on_capture": true,
     "custom_replacements": {}
   },
   "sop_generation": {

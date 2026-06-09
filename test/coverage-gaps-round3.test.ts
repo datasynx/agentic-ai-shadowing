@@ -206,11 +206,11 @@ describe('UI Server — Additional Routes', () => {
     expect(shell!.total_seconds).toBe(15);
   });
 
-  // CORS OPTIONS
-  it('OPTIONS returns 204 with CORS headers', async () => {
+  // CORS OPTIONS — no Origin header means no CORS headers (secure default, see #19)
+  it('OPTIONS returns 204 without wildcard CORS headers', async () => {
     const res = await fetch(`${baseUrl}/api/stats`, { method: 'OPTIONS' });
     expect(res.status).toBe(204);
-    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
   });
 
   // SOP search filters via query params

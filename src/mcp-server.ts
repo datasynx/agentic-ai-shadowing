@@ -1,7 +1,7 @@
 import { createInterface } from 'node:readline';
 import { ShadowingDB } from './db.js';
 import { TaskManager, formatDuration } from './task-manager.js';
-import { Anonymizer } from './anonymizer.js';
+import { Anonymizer, createCaptureRedactor } from './anonymizer.js';
 import { Exporter } from './exporter.js';
 import { calculateSOPMetrics } from './metrics.js';
 import { loadConfig, getDbPath } from './config.js';
@@ -217,7 +217,7 @@ export class MCPServer {
   constructor(db: ShadowingDB, config: ShadowingConfig) {
     this.db = db;
     this.config = config;
-    this.taskManager = new TaskManager(db);
+    this.taskManager = new TaskManager(db, createCaptureRedactor(config) ?? undefined);
   }
 
   getToolDefinitions(): MCPToolDefinition[] {
@@ -430,6 +430,8 @@ export function startMCPServer(): void {
   const dbPath = getDbPath();
   const db = new ShadowingDB(dbPath);
   db.initialize();
+  // MCP tools log observations (commands, file paths) — redact before persisting.
+  db.setCaptureRedactor(createCaptureRedactor(config));
 
   const server = new MCPServer(db, config);
 

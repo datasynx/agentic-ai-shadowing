@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.8.0...v1.9.0) (2026-06-09)
+
+
+### Features
+
+* stateless Streamable HTTP transport for the MCP server ([2b685f2](https://github.com/datasynx/agentic-ai-shadowing/commit/2b685f29c2224c61ee4b7f9f24a7a4d715f3c7bc)), closes [#23](https://github.com/datasynx/agentic-ai-shadowing/issues/23) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.8.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.7.0...v1.8.0) (2026-06-09)
 
 

@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.7.0...v1.8.0) (2026-06-09)
+
+
+### Features
+
+* publish approved SOPs into agent context (SKILL.md / AGENTS.md index) ([d5ce085](https://github.com/datasynx/agentic-ai-shadowing/commit/d5ce08522d9da331102c700893b60dcaf2aeff84)), closes [#28](https://github.com/datasynx/agentic-ai-shadowing/issues/28) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.7.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.6.0...v1.7.0) (2026-06-09)
 
 

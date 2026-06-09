@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.11.0...v1.12.0) (2026-06-09)
+
+
+### Features
+
+* task-boundary suggestions and optional file watching ([5c22230](https://github.com/datasynx/agentic-ai-shadowing/commit/5c22230cf478240e6ae8243dd7f72d689a7291f1)), closes [#29](https://github.com/datasynx/agentic-ai-shadowing/issues/29) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.11.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.10.0...v1.11.0) (2026-06-09)
 
 

@@ -473,6 +473,22 @@ CLI (Commander.js — 27 Commands)
 
 ## Claude Code Integration
 
+### Plugin (recommended)
+
+The repository ships a Claude Code plugin under [`plugin/`](plugin/) that bundles
+the MCP server registration, the observation hooks, and a skill that teaches
+Claude when to track tasks — one install, no manual settings edits, cleanly
+removable:
+
+```
+/plugin install shadowing
+```
+
+(Until the marketplace listing is live, install from a local checkout with
+`claude --plugin-dir ./plugin`.) The zero-dependency alternative remains
+`shadowing setup-hooks`; both use identical hook commands, so Claude Code's
+duplicate-command deduplication prevents double execution if both are present.
+
 ### MCP Server (17 Tools)
 
 ```bash

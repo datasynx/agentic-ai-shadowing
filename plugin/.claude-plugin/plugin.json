@@ -1,0 +1,17 @@
+{
+  "name": "shadowing",
+  "displayName": "Datasynx Shadowing",
+  "version": "1.0.0",
+  "description": "Observe your work, generate anonymized SOPs: task tracking, observation hooks, and 17 MCP tools for Standard Operating Procedures — fully local.",
+  "author": {
+    "name": "Datasynx AI",
+    "url": "https://github.com/datasynx"
+  },
+  "homepage": "https://datasynx.github.io/agentic-ai-shadowing/",
+  "repository": "https://github.com/datasynx/agentic-ai-shadowing",
+  "license": "MIT",
+  "keywords": ["sop", "shadowing", "task-tracking", "knowledge-management", "documentation"],
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json",
+  "skills": "./skills/"
+}

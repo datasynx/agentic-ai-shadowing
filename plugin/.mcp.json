@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "shadowing": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@datasynx/agentic-ai-shadowing", "mcp"]
+    }
+  }
+}

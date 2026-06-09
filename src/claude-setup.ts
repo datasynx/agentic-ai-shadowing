@@ -46,10 +46,13 @@ export interface SetupOptions {
   homeDir?: string;
 }
 
-const HOOK_COMMAND = 'npx shadowing hook';
-const STOP_COMMAND = 'npx shadowing hook --event stop';
+/** Canonical hook commands — identical strings in setup-hooks AND the plugin's
+ * hooks.json, so Claude Code's duplicate-command deduplication prevents double
+ * execution when both are installed. */
+export const HOOK_COMMAND = 'npx shadowing hook';
+export const STOP_COMMAND = 'npx shadowing hook --event stop';
 const LEGACY_MARKER = 'shadowing hook';
-const HOOK_TIMEOUT_SECONDS = 10;
+export const HOOK_TIMEOUT_SECONDS = 10;
 
 interface HookCommandSpec { type: 'command'; command: string; timeout: number }
 interface HookEntry { matcher?: string; hooks?: HookCommandSpec[]; command?: string }

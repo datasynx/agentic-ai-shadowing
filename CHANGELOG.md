@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.4.0...v1.5.0) (2026-06-09)
+
+
+### Features
+
+* Claude Code plugin — MCP server, hooks, and skill in one install ([a6cfc8d](https://github.com/datasynx/agentic-ai-shadowing/commit/a6cfc8d752076a2f88942915b042b617caf9d966)), closes [#33](https://github.com/datasynx/agentic-ai-shadowing/issues/33) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.4.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.3.0...v1.4.0) (2026-06-09)
 
 

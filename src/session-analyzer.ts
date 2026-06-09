@@ -16,6 +16,7 @@ import type { ShadowingDB } from './db.js';
 import { SOPGenerationError } from './sop-generator.js';
 import { withRetry } from './retry.js';
 import { parseSOPResponse } from './sop-parser.js';
+import { createAnthropicClient } from './anthropic-client.js';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -111,13 +112,8 @@ export class SessionAnalyzer {
     private config: ShadowingConfig,
     private db: ShadowingDB,
   ) {
-    if (!process.env['ANTHROPIC_API_KEY']) {
-      throw new SOPGenerationError(
-        'ANTHROPIC_API_KEY is not set.',
-        'missing_api_key', false,
-      );
-    }
-    this.client = new Anthropic();
+    // Shared construction point: configurable endpoint + credential env (#26)
+    this.client = createAnthropicClient(config);
   }
 
   /**

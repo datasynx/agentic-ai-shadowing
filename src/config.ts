@@ -24,6 +24,9 @@ const SOPGenerationSchema = z.object({
   include_cartography_context: z.boolean().default(true),
   auto_generate_tags: z.boolean().default(true),
   sop_language: z.enum(['de', 'en']).default('en'),
+  base_url: z.string().url().nullable().default(null),
+  api_key_env: z.string().min(1).default('ANTHROPIC_API_KEY'),
+  use_structured_output: z.boolean().default(true),
 }).default({});
 
 const MetricsWeightsSchema = z.object({
@@ -94,6 +97,9 @@ export function getDefaultConfig(): ShadowingConfig {
       include_cartography_context: true,
       auto_generate_tags: true,
       sop_language: 'en',
+      base_url: null,
+      api_key_env: 'ANTHROPIC_API_KEY',
+      use_structured_output: true,
     },
     metrics: {
       quality_score_weights: {

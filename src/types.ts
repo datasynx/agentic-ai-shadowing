@@ -103,6 +103,12 @@ export interface SOPGenerationConfig {
   include_cartography_context: boolean;
   auto_generate_tags: boolean;
   sop_language: string;
+  /** API endpoint override for enterprise gateways / local models (null = SDK default, honors ANTHROPIC_BASE_URL). */
+  base_url: string | null;
+  /** Env var holding the API credential (default: ANTHROPIC_API_KEY). */
+  api_key_env: string;
+  /** Request SOPs via tool-use structured output (default true); disable for gateways without tool support. */
+  use_structured_output: boolean;
 }
 
 export interface MetricsWeights {

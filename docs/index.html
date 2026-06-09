@@ -473,9 +473,14 @@ shadowing export --all</code></pre>
     "temperature": 0.3,
     "include_cartography_context": true,
     "auto_generate_tags": true,
-    "sop_language": "en"
+    "sop_language": "en",
+    "base_url": null,
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "use_structured_output": true
   }
 }</code></pre>
+        <h3>Enterprise deployment</h3>
+        <p>The only network egress is SOP generation — and it is fully configurable: <code>base_url</code> routes traffic through an internal LLM gateway or a local Anthropic-compatible model server (no-egress deployment), <code>api_key_env</code> lets gateways keep their own credential env-var naming, and <code>use_structured_output: false</code> falls back to plain-text parsing for gateways without tool support.</p>
       </section>
 
       <section id="suite">

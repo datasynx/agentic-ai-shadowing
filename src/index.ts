@@ -37,6 +37,8 @@ export { TaskManager, formatDuration } from './task-manager.js';
 
 // SOP Generation
 export { SOPGenerator, buildSOPPreview, countSteps } from './sop-generator.js';
+export type { AnthropicLikeClient } from './sop-generator.js';
+export { createAnthropicClient } from './anthropic-client.js';
 
 // SOP Response Parser
 export { parseSOPResponse } from './sop-parser.js';

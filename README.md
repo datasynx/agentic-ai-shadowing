@@ -569,10 +569,39 @@ Config: `~/.datasynx/shadowing/config.json`
     "temperature": 0.3,
     "include_cartography_context": true,
     "auto_generate_tags": true,
-    "sop_language": "en"
+    "sop_language": "en",
+    "base_url": null,
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "use_structured_output": true
   }
 }
 ```
+
+### Enterprise deployment (gateway / local models)
+
+The only network egress of this otherwise local tool is SOP generation. Both the
+endpoint and the credential are configurable, so traffic can be routed through
+an internal LLM gateway or a local Anthropic-compatible model server — a fully
+no-egress deployment:
+
+```json
+{
+  "sop_generation": {
+    "base_url": "https://llm-gateway.internal.example/v1",
+    "api_key_env": "INTERNAL_GATEWAY_KEY",
+    "model": "claude-sonnet-4-20250514",
+    "use_structured_output": true
+  }
+}
+```
+
+- `base_url: null` keeps the SDK default (which honors `ANTHROPIC_BASE_URL`).
+- `api_key_env` lets gateways keep their own credential naming — the key itself
+  never appears in the config file.
+- `use_structured_output: false` switches SOP generation from tool-use
+  structured output to plain-text parsing, for gateways without tool support.
+- Use a model name your gateway understands; retry logic honors standard
+  `Retry-After` headers.
 
 ---
 

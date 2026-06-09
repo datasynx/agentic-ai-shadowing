@@ -23,6 +23,7 @@ import { loadJGFFile } from './cartography.js';
 import { startMCPServer } from './mcp-server.js';
 import { runHookHandler } from './hook-handler.js';
 import { applyClaudeSetup, type SetupScope } from './claude-setup.js';
+import { applyHarness, detectHarnesses, planHarness, HARNESS_TARGETS, type HarnessTarget } from './harness.js';
 import { getPackageVersion } from './version.js';
 import { setLogLevel } from './logger.js';
 import type { ExclusionRule } from './types.js';
@@ -1604,6 +1605,89 @@ program
     process.stderr.write(`  MCP Server (.mcp.json):\n`);
     process.stderr.write(`    shadowing   → npx shadowing mcp (17 shadowing tools)\n\n`);
     process.stderr.write(`  Re-running is safe (idempotent). Remove with: shadowing setup-hooks --uninstall\n\n`);
+  });
+
+// ── shadowing setup (multi-framework harness) ───────────────────────────────
+
+program
+  .command('setup')
+  .description('Register the shadowing MCP server with agent frameworks (Claude Code, Codex, OpenClaw, Hermes, AGENTS.md)')
+  .option('--target <targets...>', 'Targets: claude, codex, openclaw, hermes, agents-md, all (default: detect installed)')
+  .option('--project-dir <path>', 'Project directory (default: cwd)')
+  .option('--dry-run', 'Show planned changes without applying them')
+  .option('--uninstall', 'Remove the shadowing registration from the selected targets')
+  .option('--yes', 'Apply without interactive confirmation')
+  .action(async (opts: { target?: string[]; projectDir?: string; dryRun?: boolean; uninstall?: boolean; yes?: boolean }) => {
+    const projectDir = opts.projectDir ?? process.cwd();
+    const env = { projectDir };
+
+    const ALL = ['claude', ...HARNESS_TARGETS] as const;
+    let targets: string[];
+    if (!opts.target || opts.target.includes('all')) {
+      if (opts.target?.includes('all')) {
+        targets = [...ALL];
+      } else {
+        const detected = detectHarnesses(env);
+        targets = ['claude', ...HARNESS_TARGETS.filter(t => detected[t])];
+        process.stderr.write(`\n  Detected targets: ${targets.join(', ')}\n`);
+      }
+    } else {
+      targets = opts.target;
+      const invalid = targets.filter(t => !ALL.includes(t as typeof ALL[number]));
+      if (invalid.length > 0) {
+        process.stderr.write(`  Unknown target(s): ${invalid.join(', ')}. Valid: ${ALL.join(', ')}\n`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    // Show the plan
+    process.stderr.write('\n  Plan:\n');
+    for (const target of targets) {
+      if (target === 'claude') {
+        process.stderr.write(`    claude      ${opts.uninstall ? 'remove hooks + .mcp.json entry' : 'configure hooks + .mcp.json (idempotent)'}\n`);
+      } else {
+        const plan = planHarness(target as HarnessTarget, env, { uninstall: opts.uninstall });
+        process.stderr.write(`    ${target.padEnd(11)} ${plan.actions.join('; ')}\n`);
+      }
+    }
+
+    if (!opts.dryRun && !opts.yes) {
+      const { confirm } = await import('@inquirer/prompts');
+      const proceed = await confirm({ message: 'Apply these changes?', default: true });
+      if (!proceed) {
+        process.stderr.write('  Aborted — nothing was changed.\n');
+        return;
+      }
+    }
+
+    process.stderr.write('\n');
+    let failures = 0;
+    for (const target of targets) {
+      if (target === 'claude') {
+        try {
+          const result = applyClaudeSetup({ projectDir, dryRun: opts.dryRun, uninstall: opts.uninstall });
+          process.stderr.write(`  claude: ${result.alreadyConfigured ? 'already configured' : `${result.changes.length} file(s) ${opts.dryRun ? 'would change' : 'changed'}`}\n`);
+        } catch (err) {
+          process.stderr.write(`  claude: ${err instanceof Error ? err.message : String(err)}\n`);
+          failures++;
+        }
+        continue;
+      }
+      const result = applyHarness(target as HarnessTarget, env, { uninstall: opts.uninstall, dryRun: opts.dryRun });
+      for (const message of result.messages) {
+        process.stderr.write(`  ${target}: ${message}\n`);
+      }
+      if (result.manualSnippet) {
+        process.stderr.write(result.manualSnippet.split('\n').map(l => `      ${l}`).join('\n') + '\n');
+      }
+      if (!result.applied && !opts.dryRun && result.manualSnippet === undefined && !result.messages.some(m => m.includes('already') || m.includes('nothing to remove') || m.includes('no managed section'))) {
+        failures++;
+      }
+    }
+
+    if (failures > 0) process.exitCode = 1;
+    process.stderr.write('\n');
   });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

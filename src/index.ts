@@ -104,6 +104,10 @@ export { MCPServer, startMCPServer, buildMcpServer, getRegisteredToolNames } fro
 export { applyClaudeSetup, settingsPathForScope } from './claude-setup.js';
 export type { SetupScope, SetupOptions, SetupResult, SetupFileChange } from './claude-setup.js';
 
+// Multi-framework harness adapters (Codex, OpenClaw, Hermes, AGENTS.md)
+export { applyHarness, planHarness, detectHarnesses, agentsMdSection, HARNESS_TARGETS } from './harness.js';
+export type { HarnessTarget, HarnessPlan, HarnessApplyResult, HarnessEnv, ExecFn, ExecResult } from './harness.js';
+
 // Hook Handler (Claude Code Hooks)
 export { processHookEvent, classifyToolAction, buildActionDescription, isGitCommand, runHookHandler } from './hook-handler.js';
 export type { HookEvent } from './hook-handler.js';

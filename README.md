@@ -301,6 +301,27 @@ scope) and the MCP registration into the project's `.mcp.json`. Re-running is a
 no-op; foreign entries are never touched; unparseable config files abort the run
 instead of being overwritten.
 
+### Multi-framework setup
+
+```
+shadowing setup                         Detect installed frameworks and register the MCP server
+  --target <t...>                       claude | codex | openclaw | hermes | agents-md | all
+  --dry-run                             Show the plan, change nothing
+  --uninstall                           Remove the registration again
+  --yes                                 Skip the confirmation prompt
+```
+
+| Framework | Mechanism | Notes |
+|---|---|---|
+| Claude Code | `.claude/settings.local.json` + `.mcp.json` (or the plugin) | idempotent managed entries |
+| OpenAI Codex | `codex mcp add` (CLI-first) | post-install verify via `codex mcp get` |
+| OpenClaw | `openclaw mcp add` (CLI-first) | config files are never written directly (strict schema, fast churn) |
+| Hermes Agent | `hermes mcp add` (CLI-first) | verified via `hermes mcp test` |
+| AGENTS.md | managed, markered section (< 1 KiB) | small by design — Codex caps project docs at 32 KiB |
+
+When a framework's CLI is not installed, `setup` prints the manual config
+snippet instead of writing TOML/JSON5/YAML files it cannot safely merge.
+
 ---
 
 ## Output Files

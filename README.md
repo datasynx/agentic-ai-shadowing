@@ -456,7 +456,7 @@ CLI (Commander.js — 27 Commands)
 
   Integrations:
       +-- UIServer             REST API (17 endpoints) + HTML dashboard
-      +-- MCPServer            Model Context Protocol (17 tools, stdio)
+      +-- MCPServer            Model Context Protocol (official SDK, 17 tools, stdio)
       +-- HookHandler          Claude Code event processing
       +-- Cartography          JGF graph import from agentic-ai-cartography
 ```
@@ -470,6 +470,11 @@ CLI (Commander.js — 27 Commands)
 ```bash
 shadowing mcp
 ```
+
+Built on the official `@modelcontextprotocol/sdk` (v1.x, stdio transport, protocol
+up to 2025-11-25 with automatic version negotiation). Every tool ships zod-validated
+input schemas, an output schema with `structuredContent`, and tool annotations
+(`readOnlyHint`/`idempotentHint`), so MCP hosts can reason about side effects.
 
 All tools are namespaced with the `shadowing_` prefix:
 

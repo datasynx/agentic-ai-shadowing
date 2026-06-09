@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import { ShadowingDB } from '../src/db.js';
 import { getDefaultConfig } from '../src/config.js';
 import { MCPServer } from '../src/mcp-server.js';
@@ -25,7 +26,7 @@ afterEach(() => {
 describe('MCPServer — initialize', () => {
   it('returns protocol version and capabilities', () => {
     const result = server.handleInitialize();
-    expect(result.protocolVersion).toBe('2024-11-05');
+    expect(result.protocolVersion).toBe(LATEST_PROTOCOL_VERSION);
     expect(result.capabilities).toHaveProperty('tools');
     expect(result.serverInfo).toEqual({ name: 'shadowing-mcp', version: getPackageVersion() });
   });

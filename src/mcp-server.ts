@@ -1,4 +1,7 @@
-import { createInterface } from 'node:readline';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { LATEST_PROTOCOL_VERSION, type ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
+import { z, type ZodRawShape, type ZodTypeAny } from 'zod';
 import { ShadowingDB } from './db.js';
 import { TaskManager, formatDuration } from './task-manager.js';
 import { Anonymizer, createCaptureRedactor } from './anonymizer.js';
@@ -7,28 +10,6 @@ import { calculateSOPMetrics } from './metrics.js';
 import { loadConfig, getDbPath } from './config.js';
 import { getPackageVersion } from './version.js';
 import type { ShadowingConfig, SOPStatus, TaskStatus } from './types.js';
-
-// ── MCP Protocol Types ──────────────────────────────────────────────────────
-
-interface MCPRequest {
-  jsonrpc: '2.0';
-  id: number | string;
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-interface MCPNotification {
-  jsonrpc: '2.0';
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-interface MCPResponse {
-  jsonrpc: '2.0';
-  id: number | string;
-  result?: unknown;
-  error?: { code: number; message: string; data?: unknown };
-}
 
 interface MCPToolDefinition {
   name: string;
@@ -226,7 +207,7 @@ export class MCPServer {
 
   handleInitialize(): Record<string, unknown> {
     return {
-      protocolVersion: '2024-11-05',
+      protocolVersion: LATEST_PROTOCOL_VERSION,
       capabilities: {
         tools: {},
       },
@@ -253,6 +234,11 @@ export class MCPServer {
         isError: true,
       };
     }
+  }
+
+  /** Execute a tool and return its raw result (throws on error). Used by the SDK handlers. */
+  callTool(name: string, args: Record<string, unknown>): unknown {
+    return this.executeTool(name, args);
   }
 
   private executeTool(name: string, args: Record<string, unknown>): unknown {
@@ -425,7 +411,258 @@ export class MCPServer {
 
 // ── Stdio Transport ─────────────────────────────────────────────────────────
 
-export function startMCPServer(): void {
+// ── SDK Tool Registrations ──────────────────────────────────────────────────
+// Protocol plumbing is delegated to @modelcontextprotocol/sdk (#22): the SDK
+// handles initialize/ping/tools list+call, input validation (zod), and
+// structured output validation. MCPServer above stays the business-logic layer.
+
+const SOP_STATUS_VALUES = ['draft', 'reviewed', 'approved', 'exported', 'archived'] as const;
+const TASK_STATUS_VALUES = ['active', 'paused', 'completed', 'cancelled'] as const;
+
+/** Loose result schema: success/message where present, everything else passed through. */
+const ObjectResultSchema = z.object({
+  success: z.boolean().optional(),
+  message: z.string().optional(),
+}).passthrough();
+
+interface ToolRegistration {
+  name: string;
+  title: string;
+  inputSchema: ZodRawShape;
+  annotations: ToolAnnotations;
+  outputSchema: ZodTypeAny;
+  /** Array results must be wrapped into an object for structuredContent. */
+  arrayKey?: string;
+}
+
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
+const WRITE: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+const WRITE_IDEMPOTENT: ToolAnnotations = { ...WRITE, idempotentHint: true };
+
+const TOOL_REGISTRATIONS: ToolRegistration[] = [
+  {
+    name: 'shadowing_start_task',
+    title: 'Start Task',
+    inputSchema: {
+      title: z.string().describe('Title of the task being tracked'),
+      description: z.string().optional().describe('Optional description or notes'),
+    },
+    annotations: WRITE,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_complete_task',
+    title: 'Complete Task',
+    inputSchema: {
+      complexity_rating: z.number().min(1).max(5).optional().describe('Complexity rating 1-5 (optional)'),
+      notes: z.string().optional().describe('Final notes about the completed task'),
+    },
+    annotations: WRITE,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_pause_task',
+    title: 'Pause Task',
+    inputSchema: {},
+    annotations: WRITE,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_resume_task',
+    title: 'Resume Task',
+    inputSchema: {},
+    annotations: WRITE,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_get_status',
+    title: 'Get Status',
+    inputSchema: {},
+    annotations: READ_ONLY,
+    outputSchema: z.object({}).passthrough(),
+  },
+  {
+    name: 'shadowing_list_sops',
+    title: 'List SOPs',
+    inputSchema: {
+      status: z.enum(SOP_STATUS_VALUES).optional().describe('Filter by SOP status'),
+      tag: z.string().optional().describe('Filter by tag name'),
+      search: z.string().optional().describe('Search in title and content'),
+    },
+    annotations: READ_ONLY,
+    outputSchema: z.object({ sops: z.array(z.unknown()) }),
+    arrayKey: 'sops',
+  },
+  {
+    name: 'shadowing_get_sop',
+    title: 'Get SOP',
+    inputSchema: {
+      sop_id: z.string().describe('SOP ID (hex string)'),
+    },
+    annotations: READ_ONLY,
+    outputSchema: z.object({}).passthrough(),
+  },
+  {
+    name: 'shadowing_update_sop',
+    title: 'Update SOP',
+    inputSchema: {
+      sop_id: z.string().describe('SOP ID to update'),
+      title: z.string().optional().describe('New title (optional)'),
+      description: z.string().optional().describe('New description (optional)'),
+      content_md: z.string().optional().describe('New markdown content (optional)'),
+    },
+    annotations: WRITE, // not idempotent: every content change increments the version
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_approve_sop',
+    title: 'Approve SOP',
+    inputSchema: {
+      sop_id: z.string().describe('SOP ID to approve'),
+    },
+    annotations: WRITE_IDEMPOTENT,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_add_tags',
+    title: 'Add Tags',
+    inputSchema: {
+      sop_id: z.string().describe('SOP ID'),
+      tags: z.array(z.string()).describe('Tags to add'),
+    },
+    annotations: WRITE_IDEMPOTENT,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_log_observation',
+    title: 'Log Observation',
+    inputSchema: {
+      source: z.enum(['shell', 'git', 'file', 'manual']).describe('Action source type'),
+      description: z.string().describe('Description of the observed action'),
+      command: z.string().optional().describe('Command that was executed (for shell/git sources)'),
+      file_path: z.string().optional().describe('File path (for file source)'),
+      metadata: z.record(z.unknown()).optional().describe('Additional metadata as key-value pairs'),
+    },
+    annotations: WRITE,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_start_observation',
+    title: 'Start Observation Session',
+    inputSchema: {
+      title: z.string().optional().describe('Session title (e.g. "Claude Code Session")'),
+    },
+    annotations: WRITE_IDEMPOTENT, // returns the existing session when one is active
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_stop_observation',
+    title: 'Stop Observation Session',
+    inputSchema: {},
+    annotations: WRITE,
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_get_stats',
+    title: 'Get Statistics',
+    inputSchema: {},
+    annotations: READ_ONLY,
+    outputSchema: z.object({}).passthrough(),
+  },
+  {
+    name: 'shadowing_export_sops',
+    title: 'Export SOPs',
+    inputSchema: {
+      sop_ids: z.array(z.string()).optional().describe('SOP IDs to export. If empty, exports all approved SOPs.'),
+    },
+    annotations: WRITE, // creates a new export directory on every call
+    outputSchema: ObjectResultSchema,
+  },
+  {
+    name: 'shadowing_list_tasks',
+    title: 'List Tasks',
+    inputSchema: {
+      status: z.enum(TASK_STATUS_VALUES).optional().describe('Filter by task status'),
+    },
+    annotations: READ_ONLY,
+    outputSchema: z.object({ tasks: z.array(z.unknown()) }),
+    arrayKey: 'tasks',
+  },
+  {
+    name: 'shadowing_get_timeline',
+    title: 'Get Session Timeline',
+    inputSchema: {
+      session_id: z.string().describe('Observation session ID'),
+      source: z.enum(['window', 'shell', 'git', 'file', 'manual']).optional().describe('Filter by action source'),
+      limit: z.number().optional().describe('Max actions to return (default 50)'),
+    },
+    annotations: READ_ONLY,
+    outputSchema: z.object({ actions: z.array(z.unknown()) }),
+    arrayKey: 'actions',
+  },
+];
+
+const SERVER_INSTRUCTIONS =
+  'Shadowing tracks what the user works on and turns it into SOPs. ' +
+  'Call shadowing_start_task when the user begins a piece of work and shadowing_complete_task when it is done. ' +
+  'Use shadowing_log_observation to record notable actions (commands, file edits) during a task. ' +
+  'SOPs start as drafts: review them with shadowing_get_sop, refine with shadowing_update_sop, ' +
+  'then shadowing_approve_sop before exporting with shadowing_export_sops.';
+
+/**
+ * Build the SDK server on top of the MCPServer business logic.
+ * Exported separately so tests can drive it via an in-memory transport.
+ */
+export function buildMcpServer(db: ShadowingDB, config: ShadowingConfig): McpServer {
+  const logic = new MCPServer(db, config);
+
+  const server = new McpServer(
+    { name: 'shadowing-mcp', version: getPackageVersion() },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
+
+  for (const reg of TOOL_REGISTRATIONS) {
+    const description = TOOLS.find(t => t.name === reg.name)?.description ?? reg.title;
+    server.registerTool(
+      reg.name,
+      {
+        title: reg.title,
+        description,
+        inputSchema: reg.inputSchema,
+        outputSchema: reg.outputSchema,
+        annotations: reg.annotations,
+      },
+      (args: Record<string, unknown>) => {
+        try {
+          const result = logic.callTool(reg.name, args ?? {});
+          const structuredContent = reg.arrayKey
+            ? { [reg.arrayKey]: result }
+            : result as Record<string, unknown>;
+          return {
+            content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+            structuredContent,
+          };
+        } catch (err) {
+          return {
+            content: [{ type: 'text' as const, text: err instanceof Error ? err.message : 'Unknown error' }],
+            isError: true,
+          };
+        }
+      },
+    );
+  }
+
+  return server;
+}
+
+/** Names registered with the SDK — must stay in sync with TOOLS (asserted by tests). */
+export function getRegisteredToolNames(): string[] {
+  return TOOL_REGISTRATIONS.map(r => r.name);
+}
+
+// ── Stdio Transport ─────────────────────────────────────────────────────────
+
+export async function startMCPServer(): Promise<void> {
   const config = loadConfig();
   const dbPath = getDbPath();
   const db = new ShadowingDB(dbPath);
@@ -433,59 +670,13 @@ export function startMCPServer(): void {
   // MCP tools log observations (commands, file paths) — redact before persisting.
   db.setCaptureRedactor(createCaptureRedactor(config));
 
-  const server = new MCPServer(db, config);
+  const server = buildMcpServer(db, config);
 
-  const rl = createInterface({ input: process.stdin, terminal: false });
+  // stdio rule: stdout carries ONLY JSON-RPC frames (handled by the SDK
+  // transport); all human-facing output goes to stderr.
+  await server.connect(new StdioServerTransport());
 
-  function send(msg: MCPResponse | MCPNotification): void {
-    const json = JSON.stringify(msg);
-    process.stdout.write(json + '\n');
-  }
-
-  rl.on('line', (line) => {
-    let parsed: MCPRequest | MCPNotification;
-    try {
-      parsed = JSON.parse(line) as MCPRequest | MCPNotification;
-    } catch {
-      return; // Skip malformed lines
-    }
-
-    // Notifications (no id) — just ack
-    if (!('id' in parsed) || parsed.id === undefined) {
-      if ((parsed as MCPNotification).method === 'notifications/initialized') {
-        // Client confirmed initialization — nothing to do
-      }
-      return;
-    }
-
-    const req = parsed as MCPRequest;
-
-    switch (req.method) {
-      case 'initialize':
-        send({ jsonrpc: '2.0', id: req.id, result: server.handleInitialize() });
-        break;
-
-      case 'tools/list':
-        send({ jsonrpc: '2.0', id: req.id, result: server.handleToolsList() });
-        break;
-
-      case 'tools/call': {
-        const params = req.params as { name: string; arguments?: Record<string, unknown> } | undefined;
-        if (!params?.name) {
-          send({ jsonrpc: '2.0', id: req.id, error: { code: -32602, message: 'Missing tool name' } });
-          break;
-        }
-        const result = server.handleToolCall(params.name, params.arguments ?? {});
-        send({ jsonrpc: '2.0', id: req.id, result });
-        break;
-      }
-
-      default:
-        send({ jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `Method not found: ${req.method}` } });
-    }
-  });
-
-  rl.on('close', () => {
+  process.stdin.on('close', () => {
     db.close();
     process.exitCode = 0;
   });

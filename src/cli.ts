@@ -1522,8 +1522,8 @@ program
 program
   .command('mcp')
   .description('Start MCP server (stdio transport for Claude Code)')
-  .action(() => {
-    startMCPServer();
+  .action(async () => {
+    await startMCPServer();
   });
 
 // ── shadowing hook ──────────────────────────────────────────────────────────

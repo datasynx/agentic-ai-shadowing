@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.1.0...v1.2.0) (2026-06-09)
+
+
+### Features
+
+* structured SOP output and configurable API endpoint for enterprise gateways ([da01c33](https://github.com/datasynx/agentic-ai-shadowing/commit/da01c3386a9671ac8464f9babba63028606ab244)), closes [#25](https://github.com/datasynx/agentic-ai-shadowing/issues/25) [#26](https://github.com/datasynx/agentic-ai-shadowing/issues/26) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.1.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.0.1...v1.1.0) (2026-06-09)
 
 

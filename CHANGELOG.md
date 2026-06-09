@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.9.0...v1.10.0) (2026-06-09)
+
+
+### Features
+
+* elicitation-based SOP review (shadowing_review_sop) ([ae2431b](https://github.com/datasynx/agentic-ai-shadowing/commit/ae2431b9f508f334c4aa70f4be7b42ceebbe3e3e)), closes [#30](https://github.com/datasynx/agentic-ai-shadowing/issues/30) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31) [#28](https://github.com/datasynx/agentic-ai-shadowing/issues/28)
+
 # [1.9.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.8.0...v1.9.0) (2026-06-09)
 
 

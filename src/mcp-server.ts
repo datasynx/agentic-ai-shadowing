@@ -1,5 +1,5 @@
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { LATEST_PROTOCOL_VERSION, type ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
@@ -62,13 +62,15 @@ const TOOLS: MCPToolDefinition[] = [
   },
   {
     name: 'shadowing_list_sops',
-    description: 'List all SOPs (Standard Operating Procedures). Filter by status, tag, or search text.',
+    description: 'List SOPs (Standard Operating Procedures). Prefer status/tag/search filters over paging through everything. Paginated: max 200 per page, pass next_cursor as cursor for more.',
     inputSchema: {
       type: 'object',
       properties: {
         status: { type: 'string', enum: ['draft', 'reviewed', 'approved', 'exported', 'archived'], description: 'Filter by SOP status' },
         tag: { type: 'string', description: 'Filter by tag name' },
         search: { type: 'string', description: 'Search in title and content' },
+        limit: { type: 'number', description: 'Page size (default 50, max 200)' },
+        cursor: { type: 'string', description: 'Opaque cursor from a previous page (next_cursor)' },
       },
     },
   },
@@ -167,11 +169,13 @@ const TOOLS: MCPToolDefinition[] = [
   },
   {
     name: 'shadowing_list_tasks',
-    description: 'List all tracked tasks with their status and duration.',
+    description: 'List tracked tasks with status and duration. Paginated: max 200 per page, pass next_cursor as cursor for more.',
     inputSchema: {
       type: 'object',
       properties: {
         status: { type: 'string', enum: ['active', 'paused', 'completed', 'cancelled'], description: 'Filter by task status' },
+        limit: { type: 'number', description: 'Page size (default 50, max 200)' },
+        cursor: { type: 'string', description: 'Opaque cursor from a previous page (next_cursor)' },
       },
     },
   },
@@ -188,18 +192,46 @@ const TOOLS: MCPToolDefinition[] = [
   },
   {
     name: 'shadowing_get_timeline',
-    description: 'Get the action timeline for an observation session.',
+    description: 'Get the action timeline for an observation session. Paginated: max 200 per page, pass next_cursor as cursor for more.',
     inputSchema: {
       type: 'object',
       properties: {
         session_id: { type: 'string', description: 'Observation session ID' },
         source: { type: 'string', enum: ['window', 'shell', 'git', 'file', 'manual'], description: 'Filter by action source' },
-        limit: { type: 'number', description: 'Max actions to return (default 50)' },
+        limit: { type: 'number', description: 'Page size (default 50, max 200)' },
+        cursor: { type: 'string', description: 'Opaque cursor from a previous page (next_cursor)' },
       },
       required: ['session_id'],
     },
   },
 ];
+
+// ── Pagination (#34) ─────────────────────────────────────────────────────────
+// List tools never dump unbounded result sets into model context: default
+// page size 50, hard max 200, opaque cursor (offset encoded as string).
+
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
+
+function clampLimit(value: unknown): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : DEFAULT_PAGE_SIZE;
+  return Math.min(Math.max(n, 1), MAX_PAGE_SIZE);
+}
+
+function parseCursor(value: unknown): number {
+  const n = typeof value === 'string' ? parseInt(value, 10) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function paginate<T>(items: T[], key: string, args: Record<string, unknown>): Record<string, unknown> {
+  const limit = clampLimit(args['limit']);
+  const offset = parseCursor(args['cursor']);
+  const page = items.slice(offset, offset + limit);
+  return {
+    [key]: page,
+    next_cursor: offset + limit < items.length ? String(offset + limit) : null,
+  };
+}
 
 // ── MCP Server ──────────────────────────────────────────────────────────────
 
@@ -305,11 +337,11 @@ export class MCPServer {
         if (args['status']) filter.status = args['status'] as SOPStatus;
         if (args['tag']) filter.tag = args['tag'] as string;
         if (args['search']) filter.search = args['search'] as string;
-        const sops = this.db.listSOPs(filter);
-        return sops.map(s => ({
+        const all = this.db.listSOPs(filter).map(s => ({
           ...s,
           tags: this.db.getTagsForSOP(s.id).map(t => t.name),
         }));
+        return paginate(all, 'sops', args);
       }
 
       case 'shadowing_get_sop': {
@@ -406,14 +438,21 @@ export class MCPServer {
 
       case 'shadowing_list_tasks': {
         const filter = args['status'] ? { status: args['status'] as TaskStatus } : undefined;
-        return this.db.listTasks(filter);
+        return paginate(this.db.listTasks(filter), 'tasks', args);
       }
 
       case 'shadowing_get_timeline': {
         const sessionId = args['session_id'] as string;
         const source = args['source'] as 'window' | 'shell' | 'git' | 'file' | 'manual' | undefined;
-        const limit = (args['limit'] as number) ?? 50;
-        return this.db.getObservedActions(sessionId, { source, limit });
+        // Fetch one extra row beyond the page to know whether more exist
+        const limit = clampLimit(args['limit']);
+        const offset = parseCursor(args['cursor']);
+        const page = this.db.getObservedActions(sessionId, { source, limit: limit + 1, offset });
+        const actions = page.slice(0, limit);
+        return {
+          actions,
+          next_cursor: page.length > limit ? String(offset + limit) : null,
+        };
       }
 
       case 'shadowing_review_sop':
@@ -447,8 +486,6 @@ interface ToolRegistration {
   inputSchema: ZodRawShape;
   annotations: ToolAnnotations;
   outputSchema: ZodTypeAny;
-  /** Array results must be wrapped into an object for structuredContent. */
-  arrayKey?: string;
 }
 
 const READ_ONLY: ToolAnnotations = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
@@ -504,10 +541,11 @@ const TOOL_REGISTRATIONS: ToolRegistration[] = [
       status: z.enum(SOP_STATUS_VALUES).optional().describe('Filter by SOP status'),
       tag: z.string().optional().describe('Filter by tag name'),
       search: z.string().optional().describe('Search in title and content'),
+      limit: z.number().optional().describe('Page size (default 50, max 200)'),
+      cursor: z.string().optional().describe('Opaque cursor from a previous page (next_cursor)'),
     },
     annotations: READ_ONLY,
-    outputSchema: z.object({ sops: z.array(z.unknown()) }),
-    arrayKey: 'sops',
+    outputSchema: z.object({ sops: z.array(z.unknown()), next_cursor: z.string().nullable() }),
   },
   {
     name: 'shadowing_get_sop',
@@ -599,10 +637,11 @@ const TOOL_REGISTRATIONS: ToolRegistration[] = [
     title: 'List Tasks',
     inputSchema: {
       status: z.enum(TASK_STATUS_VALUES).optional().describe('Filter by task status'),
+      limit: z.number().optional().describe('Page size (default 50, max 200)'),
+      cursor: z.string().optional().describe('Opaque cursor from a previous page (next_cursor)'),
     },
     annotations: READ_ONLY,
-    outputSchema: z.object({ tasks: z.array(z.unknown()) }),
-    arrayKey: 'tasks',
+    outputSchema: z.object({ tasks: z.array(z.unknown()), next_cursor: z.string().nullable() }),
   },
   {
     name: 'shadowing_review_sop',
@@ -619,11 +658,11 @@ const TOOL_REGISTRATIONS: ToolRegistration[] = [
     inputSchema: {
       session_id: z.string().describe('Observation session ID'),
       source: z.enum(['window', 'shell', 'git', 'file', 'manual']).optional().describe('Filter by action source'),
-      limit: z.number().optional().describe('Max actions to return (default 50)'),
+      limit: z.number().optional().describe('Page size (default 50, max 200)'),
+      cursor: z.string().optional().describe('Opaque cursor from a previous page (next_cursor)'),
     },
     annotations: READ_ONLY,
-    outputSchema: z.object({ actions: z.array(z.unknown()) }),
-    arrayKey: 'actions',
+    outputSchema: z.object({ actions: z.array(z.unknown()), next_cursor: z.string().nullable() }),
   },
 ];
 
@@ -646,6 +685,49 @@ export function buildMcpServer(db: ShadowingDB, config: ShadowingConfig): McpSer
     { instructions: SERVER_INSTRUCTIONS },
   );
 
+  // Read-only context as resources (#34): hosts can load these as context
+  // instead of spending a tool call.
+  server.registerResource(
+    'global-stats',
+    'shadowing://stats',
+    {
+      title: 'Shadowing statistics',
+      description: 'Global task/SOP/export statistics as JSON.',
+      mimeType: 'application/json',
+    },
+    (uri) => ({
+      contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(db.getGlobalStats(), null, 2) }],
+    }),
+  );
+
+  server.registerResource(
+    'approved-sops',
+    new ResourceTemplate('shadowing://sops/{id}', {
+      list: () => ({
+        resources: db.listSOPs({ status: 'approved' }).map(s => ({
+          uri: `shadowing://sops/${s.id}`,
+          name: s.title,
+          description: s.description ?? undefined,
+          mimeType: 'text/markdown',
+        })),
+      }),
+    }),
+    {
+      title: 'Approved SOPs',
+      description: 'Markdown of an approved Standard Operating Procedure.',
+      mimeType: 'text/markdown',
+    },
+    (uri, variables) => {
+      const sop = db.getSOP(String(variables['id']));
+      if (!sop || sop.status !== 'approved') {
+        throw new Error(`No approved SOP with id ${String(variables['id'])}`);
+      }
+      return {
+        contents: [{ uri: uri.href, mimeType: 'text/markdown', text: sop.content_md }],
+      };
+    },
+  );
+
   registerReviewSopTool(server, db);
 
   for (const reg of TOOL_REGISTRATIONS) {
@@ -663,12 +745,9 @@ export function buildMcpServer(db: ShadowingDB, config: ShadowingConfig): McpSer
       (args: Record<string, unknown>) => {
         try {
           const result = logic.callTool(reg.name, args ?? {});
-          const structuredContent = reg.arrayKey
-            ? { [reg.arrayKey]: result }
-            : result as Record<string, unknown>;
           return {
             content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-            structuredContent,
+            structuredContent: result as Record<string, unknown>,
           };
         } catch (err) {
           return {

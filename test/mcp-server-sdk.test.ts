@@ -106,6 +106,56 @@ describe('MCP SDK server — protocol round-trip (#22)', () => {
   });
 });
 
+describe('pagination (#34) — no unbounded list responses', () => {
+  it('pages list_tasks with next_cursor and respects the max page size', async () => {
+    for (let i = 0; i < 60; i++) {
+      const task = db.createTask(`Task ${i}`);
+      db.completeTask(task.id);
+    }
+
+    const first = await client.callTool({ name: 'shadowing_list_tasks', arguments: {} });
+    const page1 = first.structuredContent as { tasks: unknown[]; next_cursor: string | null };
+    expect(page1.tasks).toHaveLength(50); // default page size
+    expect(page1.next_cursor).toBe('50');
+
+    const second = await client.callTool({ name: 'shadowing_list_tasks', arguments: { cursor: page1.next_cursor } });
+    const page2 = second.structuredContent as { tasks: unknown[]; next_cursor: string | null };
+    expect(page2.tasks).toHaveLength(10);
+    expect(page2.next_cursor).toBeNull();
+
+    const clamped = await client.callTool({ name: 'shadowing_list_tasks', arguments: { limit: 100000 } });
+    expect((clamped.structuredContent as { tasks: unknown[] }).tasks.length).toBeLessThanOrEqual(200);
+  });
+});
+
+describe('resources (#34) — read-only context without tool calls', () => {
+  it('exposes global stats as a JSON resource', async () => {
+    const { resources } = await client.listResources();
+    expect(resources.some(r => r.uri === 'shadowing://stats')).toBe(true);
+
+    const stats = await client.readResource({ uri: 'shadowing://stats' });
+    const parsed = JSON.parse((stats.contents[0] as { text: string }).text) as { total_tasks: number };
+    expect(parsed).toHaveProperty('total_tasks');
+  });
+
+  it('lists APPROVED SOPs as markdown resources (drafts excluded)', async () => {
+    const task = db.createTask('T');
+    const draft = db.createSOP(task.id, { title: 'Draft SOP', content_md: '# Draft' });
+    const approved = db.createSOP(task.id, { title: 'Approved SOP', content_md: '# Approved\nBody' });
+    db.updateSOPStatus(approved.id, 'approved');
+
+    const { resources } = await client.listResources();
+    const uris = resources.map(r => r.uri);
+    expect(uris).toContain(`shadowing://sops/${approved.id}`);
+    expect(uris).not.toContain(`shadowing://sops/${draft.id}`);
+
+    const content = await client.readResource({ uri: `shadowing://sops/${approved.id}` });
+    expect((content.contents[0] as { text: string }).text).toContain('# Approved');
+
+    await expect(client.readResource({ uri: `shadowing://sops/${draft.id}` })).rejects.toThrow();
+  });
+});
+
 describe('stdout purity (stdio rule)', () => {
   it('writes nothing to stdout during a full tool session (only the transport may)', async () => {
     const writes: unknown[] = [];

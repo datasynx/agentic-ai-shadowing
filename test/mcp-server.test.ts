@@ -107,7 +107,8 @@ describe('MCPServer — Task Tools', () => {
     db.createTask('Task B');
     const result = server.handleToolCall('shadowing_list_tasks', {});
     const data = JSON.parse(result.content[0]!.text);
-    expect(data).toHaveLength(2);
+    expect(data.tasks).toHaveLength(2);
+    expect(data.next_cursor).toBeNull();
   });
 
   it('list_tasks filters by status', () => {
@@ -119,8 +120,8 @@ describe('MCPServer — Task Tools', () => {
 
     const result = server.handleToolCall('shadowing_list_tasks', { status: 'paused' });
     const data = JSON.parse(result.content[0]!.text);
-    expect(data).toHaveLength(1);
-    expect(data[0].title).toBe('Paused');
+    expect(data.tasks).toHaveLength(1);
+    expect(data.tasks[0].title).toBe('Paused');
   });
 });
 
@@ -142,20 +143,20 @@ describe('MCPServer — SOP Tools', () => {
   it('list_sops returns SOPs with tags', () => {
     const result = server.handleToolCall('shadowing_list_sops', {});
     const data = JSON.parse(result.content[0]!.text);
-    expect(data).toHaveLength(1);
-    expect(data[0].tags).toEqual(expect.arrayContaining(['test', 'mcp']));
+    expect(data.sops).toHaveLength(1);
+    expect(data.sops[0].tags).toEqual(expect.arrayContaining(['test', 'mcp']));
   });
 
   it('list_sops filters by tag', () => {
     const result = server.handleToolCall('shadowing_list_sops', { tag: 'mcp' });
     const data = JSON.parse(result.content[0]!.text);
-    expect(data).toHaveLength(1);
+    expect(data.sops).toHaveLength(1);
   });
 
   it('list_sops filters by search', () => {
     const result = server.handleToolCall('shadowing_list_sops', { search: 'Test SOP' });
     const data = JSON.parse(result.content[0]!.text);
-    expect(data).toHaveLength(1);
+    expect(data.sops).toHaveLength(1);
   });
 
   it('get_sop returns detail with metrics and versions', () => {
@@ -266,7 +267,8 @@ describe('MCPServer — Observation Tools', () => {
 
     const result = server.handleToolCall('shadowing_get_timeline', { session_id: sessionId });
     const data = JSON.parse(result.content[0]!.text);
-    expect(data).toHaveLength(2);
+    expect(data.actions).toHaveLength(2);
+    expect(data.next_cursor).toBeNull();
   });
 });
 

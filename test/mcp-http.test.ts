@@ -44,7 +44,7 @@ describe('Streamable HTTP transport (#23) — protocol round-trip', () => {
       expect(client.getServerVersion()?.name).toBe('shadowing-mcp');
 
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(17);
+      expect(tools).toHaveLength(18);
 
       const result = await client.callTool({
         name: 'shadowing_start_task',
@@ -111,7 +111,7 @@ describe('Streamable HTTP transport — security envelope', () => {
       { requestInit: { headers: { 'Authorization': 'Bearer sekrit' } } },
     ));
     const { tools } = await client.listTools();
-    expect(tools.length).toBe(17);
+    expect(tools.length).toBe(18);
     await client.close();
   });
 

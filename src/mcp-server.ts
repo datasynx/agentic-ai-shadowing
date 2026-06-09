@@ -176,6 +176,17 @@ const TOOLS: MCPToolDefinition[] = [
     },
   },
   {
+    name: 'shadowing_review_sop',
+    description: 'Review a draft SOP with the user: shows a summary and asks for approval via elicitation (approve / reject / keep as draft). Falls back to a manual-review hint when the client does not support elicitation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sop_id: { type: 'string', description: 'SOP ID to review' },
+      },
+      required: ['sop_id'],
+    },
+  },
+  {
     name: 'shadowing_get_timeline',
     description: 'Get the action timeline for an observation session.',
     inputSchema: {
@@ -405,6 +416,9 @@ export class MCPServer {
         return this.db.getObservedActions(sessionId, { source, limit });
       }
 
+      case 'shadowing_review_sop':
+        throw new Error('shadowing_review_sop requires a connected MCP client (elicitation) — use shadowing_approve_sop for direct approval.');
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -591,6 +605,15 @@ const TOOL_REGISTRATIONS: ToolRegistration[] = [
     arrayKey: 'tasks',
   },
   {
+    name: 'shadowing_review_sop',
+    title: 'Review SOP (elicitation)',
+    inputSchema: {
+      sop_id: z.string().describe('SOP ID to review'),
+    },
+    annotations: WRITE_IDEMPOTENT, // approving an approved SOP is a no-op
+    outputSchema: ObjectResultSchema,
+  },
+  {
     name: 'shadowing_get_timeline',
     title: 'Get Session Timeline',
     inputSchema: {
@@ -623,7 +646,10 @@ export function buildMcpServer(db: ShadowingDB, config: ShadowingConfig): McpSer
     { instructions: SERVER_INSTRUCTIONS },
   );
 
+  registerReviewSopTool(server, db);
+
   for (const reg of TOOL_REGISTRATIONS) {
+    if (reg.name === 'shadowing_review_sop') continue; // registered above (elicitation handler)
     const description = TOOLS.find(t => t.name === reg.name)?.description ?? reg.title;
     server.registerTool(
       reg.name,
@@ -655,6 +681,85 @@ export function buildMcpServer(db: ShadowingDB, config: ShadowingConfig): McpSer
   }
 
   return server;
+}
+
+/**
+ * shadowing_review_sop (#30): elicitation-based in-session approval.
+ * Capability-gated — clients without elicitation get a manual-review hint,
+ * never an elicitation request. Approval here only changes SOP status;
+ * publishing into agent files still goes through the diff+confirm flow (#28).
+ */
+function registerReviewSopTool(server: McpServer, db: ShadowingDB): void {
+  const reg = TOOL_REGISTRATIONS.find(r => r.name === 'shadowing_review_sop')!;
+  const description = TOOLS.find(t => t.name === reg.name)!.description;
+
+  server.registerTool(
+    reg.name,
+    {
+      title: reg.title,
+      description,
+      inputSchema: reg.inputSchema,
+      outputSchema: reg.outputSchema,
+      annotations: reg.annotations,
+    },
+    async (args: Record<string, unknown>) => {
+      const wrap = (result: Record<string, unknown>): { content: Array<{ type: 'text'; text: string }>; structuredContent: Record<string, unknown> } => ({
+        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        structuredContent: result,
+      });
+
+      const sopId = args['sop_id'] as string;
+      const sop = db.getSOP(sopId);
+      if (!sop) {
+        return { content: [{ type: 'text' as const, text: `SOP "${sopId}" not found.` }], isError: true };
+      }
+      if (sop.status === 'approved') {
+        return wrap({ success: true, sop, message: 'SOP is already approved.' });
+      }
+
+      const capabilities = server.server.getClientCapabilities();
+      if (!capabilities?.elicitation) {
+        return wrap({
+          success: false,
+          elicitation_supported: false,
+          message: `Client does not support elicitation. Review manually: shadowing_get_sop ${sopId}, then shadowing_approve_sop.`,
+        });
+      }
+
+      const stepCount = sop.content_md.match(/^###\s+Step/gm)?.length ?? 0;
+      const result = await server.server.elicitInput({
+        message: `Approve SOP "${sop.title}" (v${sop.version}, ${stepCount} steps)? ${sop.description ?? ''}`.trim(),
+        requestedSchema: {
+          type: 'object',
+          properties: {
+            decision: {
+              type: 'string',
+              enum: ['approve', 'reject', 'keep-draft'],
+              description: 'approve = mark the SOP approved; reject = keep as draft and record feedback; keep-draft = decide later',
+            },
+            feedback: { type: 'string', description: 'Optional feedback (stored with the SOP on reject)' },
+          },
+          required: ['decision'],
+        },
+      });
+
+      const decision = result.action === 'accept' ? (result.content?.['decision'] as string | undefined) : undefined;
+
+      if (decision === 'approve') {
+        const approved = db.updateSOPStatus(sopId, 'approved');
+        db.logAudit({ entity_type: 'sop', entity_id: sopId, action: 'status_change', old_value: sop.status, new_value: 'approved', source: 'mcp-elicitation' });
+        return wrap({ success: true, sop: approved, message: `SOP "${approved.title}" approved.` });
+      }
+
+      if (decision === 'reject') {
+        const feedback = (result.content?.['feedback'] as string | undefined) ?? '';
+        db.logAudit({ entity_type: 'sop', entity_id: sopId, action: 'review_rejected', new_value: feedback, source: 'mcp-elicitation' });
+        return wrap({ success: false, sop, message: `SOP stays in draft.${feedback ? ` Feedback recorded: ${feedback}` : ''}` });
+      }
+
+      return wrap({ success: false, sop, message: 'Review postponed — SOP stays in draft.' });
+    },
+  );
 }
 
 /** Names registered with the SDK — must stay in sync with TOOLS (asserted by tests). */

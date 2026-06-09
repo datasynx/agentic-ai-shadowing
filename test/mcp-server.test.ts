@@ -33,9 +33,9 @@ describe('MCPServer — initialize', () => {
 });
 
 describe('MCPServer — tools/list', () => {
-  it('returns all 17 tools', () => {
+  it('returns all 18 tools', () => {
     const result = server.handleToolsList();
-    expect(result.tools.length).toBe(17);
+    expect(result.tools.length).toBe(18);
   });
 
   it('each tool has name, description, and inputSchema', () => {

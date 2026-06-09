@@ -1463,7 +1463,7 @@ program
   1. MCP Server (Model Context Protocol)
      Claude Code can call Shadowing tools directly:
 
-     Available MCP Tools (17):
+     Available MCP Tools (18):
        shadowing_start_task       Start task
        shadowing_complete_task    Complete task (generate SOP)
        shadowing_pause_task       Pause task
@@ -1473,6 +1473,7 @@ program
        shadowing_get_sop          Get SOP detail
        shadowing_update_sop       Edit SOP
        shadowing_approve_sop      Approve SOP
+       shadowing_review_sop       Review via elicitation (approve/reject)
        shadowing_add_tags         Add tags
        shadowing_log_observation  Log action
        shadowing_start_observation  Start session
@@ -1614,7 +1615,7 @@ program
     process.stderr.write(`    PostToolUse → npx shadowing hook (log all tool calls)\n`);
     process.stderr.write(`    Stop        → npx shadowing hook --event stop (end session)\n\n`);
     process.stderr.write(`  MCP Server (.mcp.json):\n`);
-    process.stderr.write(`    shadowing   → npx shadowing mcp (17 shadowing tools)\n\n`);
+    process.stderr.write(`    shadowing   → npx shadowing mcp (18 shadowing tools)\n\n`);
     process.stderr.write(`  Re-running is safe (idempotent). Remove with: shadowing setup-hooks --uninstall\n\n`);
   });
 

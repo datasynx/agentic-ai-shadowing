@@ -132,7 +132,7 @@ flowchart LR
 | **Quality Metrics** | Consistency, maturity, freshness, and overall score per SOP |
 | **PII Anonymization** | Email, IP, URL, phone, file paths, IBAN, credit cards, tax ID, social security number |
 | **Version History** | Every SOP change is versioned with diff view |
-| **Claude Code Integration** | MCP server (17 tools) + hook handler for seamless IDE integration |
+| **Claude Code Integration** | MCP server (18 tools) + hook handler for seamless IDE integration |
 | **Cartography Context** | System landscape from [@datasynx/agentic-ai-cartography](https://github.com/datasynx/agentic-ai-cartography) feeds into SOP generation |
 | **Privacy First** | Consent management, exclusion rules, configurable anonymization |
 | **100% Local** | SQLite DB, no cloud sync, no daemon — the employee controls everything |
@@ -502,7 +502,7 @@ CLI (Commander.js — 27 Commands)
 
   Integrations:
       +-- UIServer             REST API (17 endpoints) + HTML dashboard
-      +-- MCPServer            Model Context Protocol (official SDK, 17 tools, stdio)
+      +-- MCPServer            Model Context Protocol (official SDK, 18 tools, stdio)
       +-- HookHandler          Claude Code event processing
       +-- Cartography          JGF graph import from agentic-ai-cartography
 ```
@@ -527,7 +527,7 @@ removable:
 `shadowing setup-hooks`; both use identical hook commands, so Claude Code's
 duplicate-command deduplication prevents double execution if both are present.
 
-### MCP Server (17 Tools)
+### MCP Server (18 Tools)
 
 ```bash
 shadowing mcp
@@ -583,6 +583,7 @@ All tools are namespaced with the `shadowing_` prefix:
 | `shadowing_get_sop` | Get one SOP by ID (content, tags, metrics, version history) |
 | `shadowing_update_sop` | Update SOP content/title/description (auto-versioned) |
 | `shadowing_approve_sop` | Move a SOP to `approved` status |
+| `shadowing_review_sop` | In-session review via elicitation: approve / reject / keep draft (capability-gated, manual-review fallback) |
 | `shadowing_add_tags` | Add tags to a SOP |
 | `shadowing_log_observation` | Log a manual observation action to the active session |
 | `shadowing_start_observation` | Start an observation session |
@@ -725,7 +726,7 @@ In a local SQLite database at `~/.datasynx/shadowing/shadowing.db`. No database 
 No. Shadowing works standalone; SOPs are simply generated without the system-landscape context. Install [Cartography](https://www.npmjs.com/package/@datasynx/agentic-ai-cartography) and run `shadowing import-graph` to enrich SOPs with infrastructure context.
 
 **Which AI tools can drive it?**
-Anything that speaks MCP — Claude Code, Codex, Cursor, Claude Desktop. Run `shadowing mcp` (17 tools) or `shadowing setup-hooks` to wire it into Claude Code automatically.
+Anything that speaks MCP — Claude Code, Codex, Cursor, Claude Desktop. Run `shadowing mcp` (18 tools) or `shadowing setup-hooks` to wire it into Claude Code automatically.
 
 **Is it really free?**
 Yes. MIT-licensed and self-hosted. No seats, no metering, no telemetry.

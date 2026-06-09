@@ -42,9 +42,9 @@ describe('MCP SDK server — protocol round-trip (#22)', () => {
     await expect(client.ping()).resolves.toBeDefined();
   });
 
-  it('tools/list exposes all 17 tools with annotations and schemas', async () => {
+  it('tools/list exposes all 18 tools with annotations and schemas', async () => {
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(17);
+    expect(tools).toHaveLength(18);
 
     const names = tools.map(t => t.name).sort();
     expect(names).toEqual([...getRegisteredToolNames()].sort());

@@ -100,6 +100,10 @@ export { Exporter } from './exporter.js';
 // MCP Server (Claude Code Integration)
 export { MCPServer, startMCPServer, buildMcpServer, getRegisteredToolNames } from './mcp-server.js';
 
+// Claude Code Setup (hooks + .mcp.json, idempotent install/uninstall)
+export { applyClaudeSetup, settingsPathForScope } from './claude-setup.js';
+export type { SetupScope, SetupOptions, SetupResult, SetupFileChange } from './claude-setup.js';
+
 // Hook Handler (Claude Code Hooks)
 export { processHookEvent, classifyToolAction, buildActionDescription, isGitCommand, runHookHandler } from './hook-handler.js';
 export type { HookEvent } from './hook-handler.js';

@@ -22,6 +22,7 @@ import { checkCartographyInstalled, locateJGFFile } from './cartography-check.js
 import { loadJGFFile } from './cartography.js';
 import { startMCPServer } from './mcp-server.js';
 import { runHookHandler } from './hook-handler.js';
+import { applyClaudeSetup, type SetupScope } from './claude-setup.js';
 import { getPackageVersion } from './version.js';
 import { setLogLevel } from './logger.js';
 import type { ExclusionRule } from './types.js';
@@ -1540,75 +1541,69 @@ program
 
 program
   .command('setup-hooks')
-  .description('Configure Claude Code hooks + MCP server')
+  .description('Configure Claude Code hooks + MCP server (idempotent)')
   .option('--project-dir <path>', 'Project directory (default: cwd)')
-  .action((opts: { projectDir?: string }) => {
+  .option('--scope <scope>', 'Settings scope: local (settings.local.json, default), project (settings.json), user (~/.claude/settings.json)', 'local')
+  .option('--dry-run', 'Show what would change without writing anything')
+  .option('--uninstall', 'Remove the shadowing hooks and MCP registration')
+  .action((opts: { projectDir?: string; scope?: string; dryRun?: boolean; uninstall?: boolean }) => {
     const projectDir = opts.projectDir ?? process.cwd();
-    const claudeDir = join(projectDir, '.claude');
-    const settingsPath = join(claudeDir, 'settings.json');
+    const scope = (opts.scope ?? 'local') as SetupScope;
+    if (!['local', 'project', 'user'].includes(scope)) {
+      process.stderr.write(`  Invalid scope: ${scope}. Use local, project, or user.\n`);
+      process.exitCode = 1;
+      return;
+    }
 
-    // Read existing settings
-    let settings: Record<string, unknown> = {};
-    if (existsSync(settingsPath)) {
-      try {
-        settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
-      } catch {
-        settings = {};
+    let result;
+    try {
+      result = applyClaudeSetup({ projectDir, scope, dryRun: opts.dryRun, uninstall: opts.uninstall });
+    } catch (err) {
+      process.stderr.write(`  ${err instanceof Error ? err.message : String(err)}\n`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const verb = opts.dryRun ? 'Would change' : 'Changed';
+
+    if (result.alreadyConfigured) {
+      process.stderr.write('\n  Claude Code integration is already configured — nothing to do.\n\n');
+      return;
+    }
+    if (result.changes.length === 0) {
+      process.stderr.write('\n  Nothing to remove — shadowing is not configured here.\n\n');
+      return;
+    }
+
+    process.stderr.write('\n');
+    for (const change of result.changes) {
+      if (change.after === null) {
+        process.stderr.write(`  ${verb}: ${change.path} (deleted — contained only the shadowing entry)\n`);
+        continue;
       }
-    } else {
-      mkdirSync(claudeDir, { recursive: true });
+      const status = change.before === null ? 'created' : 'updated';
+      process.stderr.write(`  ${verb}: ${change.path} (${status})\n`);
+      const diff = diffTexts(change.before ?? '', change.after);
+      process.stderr.write(formatDiff(diff).split('\n').map(l => `    ${l}`).join('\n') + '\n');
     }
 
-    // Add hooks configuration
-    const hooks: Record<string, unknown[]> = (settings['hooks'] as Record<string, unknown[]>) ?? {};
-
-    const hookCommand = 'npx shadowing hook';
-
-    // PostToolUse hook — captures all tool usage
-    if (!hooks['PostToolUse']) hooks['PostToolUse'] = [];
-    const postToolHooks = hooks['PostToolUse'] as Array<{ matcher?: string; command?: string }>;
-    if (!postToolHooks.some(h => h.command?.includes('shadowing hook'))) {
-      postToolHooks.push({
-        matcher: '*',
-        command: hookCommand,
-      });
+    if (opts.dryRun) {
+      process.stderr.write('\n  Dry run — no files were written.\n\n');
+      return;
     }
 
-    // Stop hook — marks session end
-    if (!hooks['Stop']) hooks['Stop'] = [];
-    const stopHooks = hooks['Stop'] as Array<{ matcher?: string; command?: string }>;
-    if (!stopHooks.some(h => h.command?.includes('shadowing hook'))) {
-      stopHooks.push({
-        matcher: '',
-        command: `${hookCommand} --event stop`,
-      });
+    if (opts.uninstall) {
+      process.stderr.write('\n  Shadowing hooks and MCP registration removed.\n\n');
+      return;
     }
 
-    settings['hooks'] = hooks;
-
-    // Add MCP server configuration
-    const mcpServers: Record<string, unknown> = (settings['mcpServers'] as Record<string, unknown>) ?? {};
-    mcpServers['shadowing'] = {
-      command: 'npx',
-      args: ['shadowing', 'mcp'],
-      type: 'stdio',
-    };
-    settings['mcpServers'] = mcpServers;
-
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
-
-    process.stderr.write(`\nClaude Code integration configured.\n\n`);
+    process.stderr.write(`\nClaude Code integration configured (scope: ${scope}).\n\n`);
     process.stderr.write(`  Hooks:\n`);
-    process.stderr.write(`    PostToolUse → shadowing hook (log all tool calls)\n`);
-    process.stderr.write(`    Stop        → shadowing hook --event stop (End session)\n\n`);
-    process.stderr.write(`  MCP Server:\n`);
+    process.stderr.write(`    PostToolUse → npx shadowing hook (log all tool calls)\n`);
+    process.stderr.write(`    Stop        → npx shadowing hook --event stop (end session)\n\n`);
+    process.stderr.write(`  MCP Server (.mcp.json):\n`);
     process.stderr.write(`    shadowing   → npx shadowing mcp (17 shadowing tools)\n\n`);
-    process.stderr.write(`  Configuration file: ${settingsPath}\n\n`);
-    process.stderr.write(`  Claude Code can now:\n`);
-    process.stderr.write(`    - Start/complete tasks via MCP tools\n`);
-    process.stderr.write(`    - Read, edit, and export SOPs\n`);
-    process.stderr.write(`    - Automatically capture workflow actions\n`);
-    process.stderr.write(`    - Manage observation sessions\n\n`);
+    process.stderr.write(`  Re-running is safe (idempotent). Remove with: shadowing setup-hooks --uninstall\n\n`);
   });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

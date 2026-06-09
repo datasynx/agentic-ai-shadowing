@@ -289,9 +289,17 @@ shadowing scrub                         Re-apply redaction to stored data (idemp
 shadowing import-graph <path>           Import Cartography graph (JGF)
 shadowing infra [dir]                   Extract infrastructure context
 shadowing mcp                           Start MCP server (stdio transport)
-shadowing setup-hooks                   Configure Claude Code hooks + MCP
+shadowing setup-hooks                   Configure Claude Code hooks + MCP (idempotent)
+  --scope <local|project|user>          Settings target (default: local — personal, not committed)
+  --dry-run                             Preview the diff, write nothing
+  --uninstall                           Remove exactly the shadowing entries
 shadowing guide                         Complete guide
 ```
+
+`setup-hooks` writes hook entries into `.claude/settings.local.json` (or the chosen
+scope) and the MCP registration into the project's `.mcp.json`. Re-running is a
+no-op; foreign entries are never touched; unparseable config files abort the run
+instead of being overwritten.
 
 ---
 

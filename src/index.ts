@@ -124,6 +124,12 @@ export type { HookEvent } from './hook-handler.js';
 export { createWindowDetector, detectActiveWindow, detectPlatform, parseWindowsPSOutput } from './window-detector.js';
 export type { DetectorPlatform } from './window-detector.js';
 
+// Task-boundary segmentation + optional file watching
+export { suggestTaskBoundaries } from './segmentation.js';
+export type { BoundarySuggestion, SegmentationOptions } from './segmentation.js';
+export { createFileWatcher, shouldIgnorePath } from './file-watcher.js';
+export type { FileWatcherOptions } from './file-watcher.js';
+
 // Session Analyzer (Agentic Core)
 export { SessionAnalyzer, clusterBySilence, summarizeActionGroup } from './session-analyzer.js';
 export type { ActionCluster, AnalysisResult } from './session-analyzer.js';

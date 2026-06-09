@@ -260,11 +260,18 @@ shadowing observe [options]             Start observation mode
   --auto-sop                              Auto-generate SOPs after stop
   --no-window                             Without window detection
   --no-shell                              Without shell history tracking
+  --watch-files [dir]                     Watch a directory for file changes
+                                          (off by default; requires "file" consent;
+                                          .git/node_modules + exclusion rules filtered,
+                                          events debounced and buffer-capped)
 
 shadowing sessions                      List observation sessions
 shadowing timeline [session-id]         Show session timeline
 shadowing analyze [session-id]          Session → detect tasks → generate SOPs
 ```
+
+`analyze` also prints heuristic **task-boundary suggestions** (idle gaps ≥ 15 min,
+git branch switches, directory changes) — hints for review, never silent splits.
 
 ### Metrics & Export
 

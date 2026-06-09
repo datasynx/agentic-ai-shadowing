@@ -23,6 +23,8 @@ import { loadJGFFile } from './cartography.js';
 import { startMCPServer } from './mcp-server.js';
 import { runHookHandler } from './hook-handler.js';
 import { applyClaudeSetup, type SetupScope } from './claude-setup.js';
+import { suggestTaskBoundaries } from './segmentation.js';
+import { createFileWatcher } from './file-watcher.js';
 import { applyHarness, detectHarnesses, planHarness, HARNESS_TARGETS, type HarnessTarget } from './harness.js';
 import {
   planSkillPublish, planAgentsMdIndex, applyPublishPlan, skillNameForSOP,
@@ -797,6 +799,7 @@ program
   .option('--work-hours', 'Only capture during work hours')
   .option('--auto-sop', 'Automatically detect tasks and generate SOPs after observation')
   .option('--no-window', 'Disable window detection')
+  .option('--watch-files [dir]', 'Watch a directory for file changes (off by default; requires "file" consent)')
   .action(async (opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
@@ -843,6 +846,20 @@ program
     const { input } = await import('@inquirer/prompts');
 
     const session = observer.start();
+
+    // Optional file watching (#29): off by default, gated behind 'file' consent;
+    // exclusion rules + redact-on-capture apply to every logged event.
+    let fileWatcher: ReturnType<typeof createFileWatcher> | null = null;
+    if (opts.watchFiles) {
+      if (!privacy.hasConsent('file')) {
+        process.stderr.write('  --watch-files requires consent for the "file" scope:\n');
+        process.stderr.write('    shadowing consent --grant file\n');
+      } else {
+        const watchDir = typeof opts.watchFiles === 'string' ? opts.watchFiles : process.cwd();
+        fileWatcher = createFileWatcher(db, session.id, watchDir);
+        process.stderr.write(`  File watching active: ${watchDir}\n`);
+      }
+    }
     process.stderr.write(`\n  Observation started (Session: ${session.id.substring(0, 8)})\n`);
     process.stderr.write(`  Interval: ${opts.interval}ms\n`);
     process.stderr.write('  Commands: "stop" = end, "pause" = pause, "note" = add note\n\n');
@@ -856,6 +873,7 @@ program
         case 'stop':
         case 'quit':
         case 'exit': {
+          if (fileWatcher) await fileWatcher.close();
           const completed = observer.stop();
           if (completed) {
             process.stderr.write(`  Session ended. ${completed.total_actions} actions captured.\n`);
@@ -1086,6 +1104,18 @@ program
     }
 
     process.stderr.write(`\n  Analyzing session ${targetSessionId.substring(0, 8)} (${actions.length} actions)...\n`);
+
+    // Heuristic task-boundary suggestions (#29) — shown even without an API
+    // key; explicit start/stop markers always win over these hints.
+    const boundaries = suggestTaskBoundaries(actions);
+    if (boundaries.length > 0) {
+      process.stderr.write(`\n  Suggested task boundaries (heuristic):\n`);
+      const reasonLabel = { idle_gap: 'idle gap', branch_switch: 'branch switch', cwd_change: 'directory change' } as const;
+      for (const b of boundaries) {
+        process.stderr.write(`    ~ ${b.at.substring(11, 16)}  ${reasonLabel[b.reason]}: ${b.detail}\n`);
+      }
+      process.stderr.write('\n');
+    }
 
     try {
       const config = loadConfig();

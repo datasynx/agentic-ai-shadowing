@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.0.1...v1.1.0) (2026-06-09)
+
+
+### Bug Fixes
+
+* non-zero exit codes on not-found lookups and self-healing release versioning ([5c72b46](https://github.com/datasynx/agentic-ai-shadowing/commit/5c72b466021e3067447ac78c9201e923191d0ac6)), closes [#16](https://github.com/datasynx/agentic-ai-shadowing/issues/16) [#17](https://github.com/datasynx/agentic-ai-shadowing/issues/17)
+
+
+### Features
+
+* enterprise security & privacy hardening — secret redaction, redact-on-capture, dashboard XSS fix, CORS lockdown ([c2fa83e](https://github.com/datasynx/agentic-ai-shadowing/commit/c2fa83ed2ce223bb5cba211e20c296e731ce1cfc)), closes [#18](https://github.com/datasynx/agentic-ai-shadowing/issues/18) [#19](https://github.com/datasynx/agentic-ai-shadowing/issues/19) [#20](https://github.com/datasynx/agentic-ai-shadowing/issues/20) [#21](https://github.com/datasynx/agentic-ai-shadowing/issues/21) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31) [hi#entropy](https://github.com/hi/issues/entropy)
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

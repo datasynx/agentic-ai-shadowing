@@ -98,7 +98,8 @@ export type { UIServerOptions } from './ui-server.js';
 export { Exporter } from './exporter.js';
 
 // MCP Server (Claude Code Integration)
-export { MCPServer, startMCPServer, buildMcpServer, getRegisteredToolNames } from './mcp-server.js';
+export { MCPServer, startMCPServer, buildMcpServer, createMcpHttpServer, getRegisteredToolNames } from './mcp-server.js';
+export type { McpHttpOptions, StartMCPServerOptions } from './mcp-server.js';
 
 // Claude Code Setup (hooks + .mcp.json, idempotent install/uninstall)
 export { applyClaudeSetup, settingsPathForScope } from './claude-setup.js';

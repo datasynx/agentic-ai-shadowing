@@ -1,5 +1,7 @@
+import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { LATEST_PROTOCOL_VERSION, type ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { z, type ZodRawShape, type ZodTypeAny } from 'zod';
 import { ShadowingDB } from './db.js';
@@ -660,15 +662,125 @@ export function getRegisteredToolNames(): string[] {
   return TOOL_REGISTRATIONS.map(r => r.name);
 }
 
-// ── Stdio Transport ─────────────────────────────────────────────────────────
+// ── Streamable HTTP Transport (#23) ──────────────────────────────────────────
 
-export async function startMCPServer(): Promise<void> {
+export interface McpHttpOptions {
+  /** Bearer token required on every request (default: SHADOWING_MCP_TOKEN env, unset = no auth). */
+  authToken?: string;
+}
+
+/**
+ * Stateless Streamable HTTP server on a single /mcp endpoint.
+ * Security posture: bind loopback (caller's responsibility via listen host),
+ * Origin validation with 403 on mismatch (DNS-rebinding protection), and an
+ * optional bearer token. Stateless by design — our state lives in SQLite, and
+ * the upcoming spec generation moves the protocol core to stateless anyway.
+ */
+export function createMcpHttpServer(db: ShadowingDB, config: ShadowingConfig, opts?: McpHttpOptions): Server {
+  const authToken = opts?.authToken ?? process.env['SHADOWING_MCP_TOKEN'];
+
+  function originAllowed(req: IncomingMessage): boolean {
+    const origin = req.headers['origin'];
+    if (!origin) return true; // non-browser clients
+    try {
+      const url = new URL(origin);
+      if (req.headers['host'] && url.host === req.headers['host']) return true;
+      return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+    } catch {
+      return false;
+    }
+  }
+
+  function deny(res: ServerResponse, status: number, message: string): void {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message }, id: null }));
+  }
+
+  return createHttpServer((req, res) => {
+    void (async () => {
+      const path = new URL(req.url ?? '/', 'http://localhost').pathname;
+      if (path !== '/mcp') {
+        deny(res, 404, 'Not found — the MCP endpoint is /mcp');
+        return;
+      }
+      if (!originAllowed(req)) {
+        deny(res, 403, 'Origin not allowed');
+        return;
+      }
+      if (authToken) {
+        const header = req.headers['authorization'];
+        if (header !== `Bearer ${authToken}`) {
+          deny(res, 401, 'Unauthorized');
+          return;
+        }
+      }
+      if (req.method !== 'POST') {
+        // Stateless mode: no server-initiated SSE streams, no sessions to delete
+        deny(res, 405, 'Method not allowed — stateless server, POST only');
+        return;
+      }
+
+      let body: unknown;
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(chunk as Buffer);
+        body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      } catch {
+        deny(res, 400, 'Invalid JSON body');
+        return;
+      }
+
+      // Stateless: a fresh server + transport per request avoids id collisions
+      const server = buildMcpServer(db, config);
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      res.on('close', () => {
+        void transport.close();
+        void server.close();
+      });
+      try {
+        await server.connect(transport);
+        await transport.handleRequest(req, res, body);
+      } catch {
+        if (!res.headersSent) deny(res, 500, 'Internal server error');
+      }
+    })();
+  });
+}
+
+// ── Transport startup ────────────────────────────────────────────────────────
+
+export interface StartMCPServerOptions {
+  http?: boolean;
+  port?: number;
+  host?: string;
+}
+
+export async function startMCPServer(opts?: StartMCPServerOptions): Promise<void> {
   const config = loadConfig();
   const dbPath = getDbPath();
   const db = new ShadowingDB(dbPath);
   db.initialize();
   // MCP tools log observations (commands, file paths) — redact before persisting.
   db.setCaptureRedactor(createCaptureRedactor(config));
+
+  if (opts?.http) {
+    const port = opts.port ?? 3848;
+    const host = opts.host ?? '127.0.0.1';
+    if (host !== '127.0.0.1' && host !== 'localhost' && !process.env['SHADOWING_MCP_TOKEN']) {
+      process.stderr.write(
+        'shadowing-mcp: refusing to bind a non-loopback host without SHADOWING_MCP_TOKEN set.\n' +
+        'Exposure beyond localhost without authentication is unsupported.\n',
+      );
+      process.exitCode = 1;
+      db.close();
+      return;
+    }
+    const server = createMcpHttpServer(db, config);
+    server.listen(port, host, () => {
+      process.stderr.write(`shadowing-mcp: Streamable HTTP server on http://${host}:${port}/mcp (stateless)\n`);
+    });
+    return;
+  }
 
   const server = buildMcpServer(db, config);
 

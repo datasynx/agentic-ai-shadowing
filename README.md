@@ -542,6 +542,34 @@ Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)
 as `io.github.datasynx/agentic-ai-shadowing` (`server.json` is version-synced
 with every npm release).
 
+### Remote MCP (Streamable HTTP)
+
+```bash
+shadowing mcp --http [--port 3848]      # stateless /mcp endpoint on 127.0.0.1
+SHADOWING_MCP_TOKEN=… shadowing mcp --http --host 0.0.0.0   # token required off-loopback
+```
+
+Security envelope: loopback binding by default, `Origin` validation with 403 on
+mismatch (DNS-rebinding protection), optional bearer token. Client config:
+
+```bash
+claude mcp add --transport http shadowing http://127.0.0.1:3848/mcp
+```
+
+```toml
+# Codex (~/.codex/config.toml) — inline tokens are rejected by Codex; use the env var
+[mcp_servers.shadowing]
+url = "http://127.0.0.1:3848/mcp"
+bearer_token_env_var = "SHADOWING_MCP_TOKEN"
+```
+
+```yaml
+# Hermes (~/.hermes/config.yaml)
+mcp_servers:
+  shadowing:
+    url: "http://127.0.0.1:3848/mcp"
+```
+
 All tools are namespaced with the `shadowing_` prefix:
 
 | Tool | Description |

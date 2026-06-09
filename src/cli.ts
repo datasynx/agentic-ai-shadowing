@@ -1527,9 +1527,16 @@ program
 
 program
   .command('mcp')
-  .description('Start MCP server (stdio transport for Claude Code)')
-  .action(async () => {
-    await startMCPServer();
+  .description('Start MCP server (stdio by default; --http for Streamable HTTP)')
+  .option('--http', 'Serve Streamable HTTP on /mcp instead of stdio (stateless)')
+  .option('--port <port>', 'HTTP port (default: 3848)')
+  .option('--host <host>', 'Bind host (default: 127.0.0.1; non-loopback requires SHADOWING_MCP_TOKEN)')
+  .action(async (opts: { http?: boolean; port?: string; host?: string }) => {
+    await startMCPServer({
+      http: opts.http,
+      port: opts.port ? parseInt(opts.port, 10) : undefined,
+      host: opts.host,
+    });
   });
 
 // ── shadowing hook ──────────────────────────────────────────────────────────

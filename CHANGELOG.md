@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.2.0...v1.3.0) (2026-06-09)
+
+
+### Features
+
+* migrate MCP server to official @modelcontextprotocol/sdk v1.29 ([e7aee88](https://github.com/datasynx/agentic-ai-shadowing/commit/e7aee88d9229a8459122ee3cd0de5bd051a8012c)), closes [#22](https://github.com/datasynx/agentic-ai-shadowing/issues/22) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.2.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.1.0...v1.2.0) (2026-06-09)
 
 

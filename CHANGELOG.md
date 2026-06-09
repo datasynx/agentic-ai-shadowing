@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.5.0...v1.6.0) (2026-06-09)
+
+
+### Features
+
+* MCP Registry manifest with release-synced versioning ([ab80f3c](https://github.com/datasynx/agentic-ai-shadowing/commit/ab80f3cd79a9dfd5dbe0d1a36220a2a3a7208a24)), closes [#32](https://github.com/datasynx/agentic-ai-shadowing/issues/32) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.5.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.4.0...v1.5.0) (2026-06-09)
 
 

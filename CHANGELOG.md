@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.10.0...v1.11.0) (2026-06-09)
+
+
+### Features
+
+* MCP pagination and read-only resources ([9fafb73](https://github.com/datasynx/agentic-ai-shadowing/commit/9fafb7370348e218c2344ffeb075e8ac516bb4a1)), closes [#34](https://github.com/datasynx/agentic-ai-shadowing/issues/34) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31)
+
 # [1.10.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.9.0...v1.10.0) (2026-06-09)
 
 

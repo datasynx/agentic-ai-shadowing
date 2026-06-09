@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.6.0...v1.7.0) (2026-06-09)
+
+
+### Features
+
+* multi-framework harness adapters (Codex, OpenClaw, Hermes, AGENTS.md) ([909a500](https://github.com/datasynx/agentic-ai-shadowing/commit/909a5002b6d9b6bb6f8a9909056e1b9a78d18c05)), closes [#27](https://github.com/datasynx/agentic-ai-shadowing/issues/27) [#31](https://github.com/datasynx/agentic-ai-shadowing/issues/31) [#24](https://github.com/datasynx/agentic-ai-shadowing/issues/24)
+
 # [1.6.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.5.0...v1.6.0) (2026-06-09)
 
 

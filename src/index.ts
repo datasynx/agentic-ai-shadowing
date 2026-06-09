@@ -108,6 +108,13 @@ export type { SetupScope, SetupOptions, SetupResult, SetupFileChange } from './c
 export { applyHarness, planHarness, detectHarnesses, agentsMdSection, HARNESS_TARGETS } from './harness.js';
 export type { HarnessTarget, HarnessPlan, HarnessApplyResult, HarnessEnv, ExecFn, ExecResult } from './harness.js';
 
+// SOP Publishing (approved SOPs → SKILL.md / AGENTS.md index, approval-gated)
+export {
+  buildSkillMd, skillNameForSOP, skillPathForTarget, parameterizeContent,
+  planSkillPublish, planAgentsMdIndex, applyPublishPlan, buildAgentsMdIndex,
+} from './sop-publisher.js';
+export type { PublishTarget, PublishPlan, ParameterizedContent, IndexEntry } from './sop-publisher.js';
+
 // Hook Handler (Claude Code Hooks)
 export { processHookEvent, classifyToolAction, buildActionDescription, isGitCommand, runHookHandler } from './hook-handler.js';
 export type { HookEvent } from './hook-handler.js';

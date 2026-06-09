@@ -275,6 +275,23 @@ shadowing export --all                  Export all approved SOPs
 shadowing ui [--port <n>]               Start web dashboard (default: 3847)
 ```
 
+### Publish into agent context
+
+```
+shadowing publish <sop-id>              Publish an APPROVED SOP as a skill
+  --as <skill|agents-md>                SKILL.md directory or AGENTS.md index section
+  --target <claude|agents|hermes>       Skill root(s): .claude/skills, .agents/skills, ~/.hermes/skills
+  --dry-run / --yes                     Preview diff / skip confirmation
+```
+
+Skills follow the [agentskills.io](https://agentskills.io) standard (readable by
+Claude Code, Codex, OpenClaw, Hermes). Hard rules: only `approved` SOPs are
+eligible, content is anonymized again before writing, concrete literals (ports,
+branch names) are lifted into `{{variables}}` with a parameters table, and the
+write **always** shows a diff and asks first — generated content never reaches
+agent context silently. The AGENTS.md mode maintains a small managed index
+(≤ 2 KiB) instead of inlining SOP bodies.
+
 ### Privacy
 
 ```

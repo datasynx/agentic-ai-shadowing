@@ -24,6 +24,10 @@ import { startMCPServer } from './mcp-server.js';
 import { runHookHandler } from './hook-handler.js';
 import { applyClaudeSetup, type SetupScope } from './claude-setup.js';
 import { applyHarness, detectHarnesses, planHarness, HARNESS_TARGETS, type HarnessTarget } from './harness.js';
+import {
+  planSkillPublish, planAgentsMdIndex, applyPublishPlan, skillNameForSOP,
+  type PublishPlan, type PublishTarget,
+} from './sop-publisher.js';
 import { getPackageVersion } from './version.js';
 import { setLogLevel } from './logger.js';
 import type { ExclusionRule } from './types.js';
@@ -1688,6 +1692,105 @@ program
 
     if (failures > 0) process.exitCode = 1;
     process.stderr.write('\n');
+  });
+
+// ── shadowing publish (SOP → agent context) ─────────────────────────────────
+
+program
+  .command('publish <sop-id>')
+  .description('Publish an APPROVED SOP into agent context (SKILL.md / AGENTS.md index) — always shows a diff and asks first')
+  .option('--as <mode>', 'skill (SKILL.md directory) or agents-md (index section in AGENTS.md)', 'skill')
+  .option('--target <targets...>', 'Skill roots: claude (.claude/skills), agents (.agents/skills), hermes (~/.hermes/skills)', ['claude'])
+  .option('--project-dir <path>', 'Project directory (default: cwd)')
+  .option('--dry-run', 'Show the diff without writing')
+  .option('--yes', 'Apply without interactive confirmation')
+  .action(async (sopIdPrefix: string, opts: { as: string; target: string[]; projectDir?: string; dryRun?: boolean; yes?: boolean }) => {
+    let db: ShadowingDB;
+    try { db = openDB(); } catch { return; }
+    const config = loadConfig();
+    const projectDir = opts.projectDir ?? process.cwd();
+    const anonymizer = new Anonymizer(config.anonymization);
+
+    const sop = findSOP(db, sopIdPrefix);
+    if (!sop) { db.close(); return; }
+
+    const plans: PublishPlan[] = [];
+    try {
+      if (opts.as === 'agents-md') {
+        const approved = db.listSOPs({ status: 'approved' });
+        if (!approved.some(s => s.id === sop.id)) {
+          throw new Error(`SOP "${sop.title}" is ${sop.status} — only approved SOPs can be published.`);
+        }
+        const entries = approved.map(s => ({
+          title: anonymizer.anonymize(s.title),
+          description: anonymizer.anonymize(s.description ?? ''),
+          skillName: skillNameForSOP(s),
+        }));
+        plans.push(planAgentsMdIndex(projectDir, entries));
+      } else if (opts.as === 'skill') {
+        const tags = db.getTagsForSOP(sop.id).map(t => t.name);
+        for (const target of opts.target) {
+          if (!['claude', 'agents', 'hermes'].includes(target)) {
+            throw new Error(`Unknown target: ${target}. Valid: claude, agents, hermes`);
+          }
+          plans.push(planSkillPublish(sop, tags, anonymizer, target as PublishTarget, { projectDir }));
+        }
+      } else {
+        throw new Error(`Unknown mode: ${opts.as}. Valid: skill, agents-md`);
+      }
+    } catch (err) {
+      process.stderr.write(`  ${err instanceof Error ? err.message : String(err)}\n`);
+      process.exitCode = 1;
+      db.close();
+      return;
+    }
+
+    // Show the diff for every planned write — never silent (#28)
+    let anyChange = false;
+    for (const plan of plans) {
+      if (plan.before === plan.after) {
+        process.stderr.write(`  Unchanged: ${plan.path}\n`);
+        continue;
+      }
+      anyChange = true;
+      process.stderr.write(`\n  ${plan.before === null ? 'Create' : 'Update'}: ${plan.path}\n`);
+      const diff = diffTexts(plan.before ?? '', plan.after);
+      process.stderr.write(formatDiff(diff).split('\n').map(l => `    ${l}`).join('\n') + '\n');
+    }
+
+    if (!anyChange) {
+      process.stderr.write('\n  Everything already published and up to date.\n');
+      db.close();
+      return;
+    }
+
+    if (opts.dryRun) {
+      process.stderr.write('\n  Dry run — no files were written.\n');
+      db.close();
+      return;
+    }
+
+    if (!opts.yes) {
+      const { confirm } = await import('@inquirer/prompts');
+      const proceed = await confirm({ message: 'Write these files?', default: false });
+      if (!proceed) {
+        process.stderr.write('  Aborted — nothing was written.\n');
+        db.close();
+        return;
+      }
+    }
+
+    for (const plan of plans) {
+      if (plan.before === plan.after) continue;
+      applyPublishPlan(plan);
+      process.stderr.write(`  Written: ${plan.path}\n`);
+    }
+    db.logAudit({
+      entity_type: 'sop', entity_id: sop.id, action: 'publish',
+      new_value: JSON.stringify({ mode: opts.as, targets: opts.target }),
+      source: 'cli',
+    });
+    db.close();
   });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

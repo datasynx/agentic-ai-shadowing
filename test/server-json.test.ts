@@ -36,6 +36,12 @@ describe('server.json ↔ package.json consistency', () => {
     }
   });
 
+  it('description stays within the registry limit of 100 characters (#36)', () => {
+    // registry.modelcontextprotocol.io rejects longer descriptions with 422,
+    // and the publish step is non-blocking — so this must fail loudly here.
+    expect([...serverJson.description].length).toBeLessThanOrEqual(100);
+  });
+
   it('registers the npm package with stdio transport and the mcp subcommand', () => {
     const pkg = serverJson.packages[0]!;
     expect(pkg.registryType).toBe('npm');

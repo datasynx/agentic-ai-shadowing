@@ -62,7 +62,7 @@
     }
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.74.0",
+    "@anthropic-ai/sdk": "^0.104.1",
     "@inquirer/prompts": "^7.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.6.0",

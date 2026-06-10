@@ -448,8 +448,9 @@ consistency * 0.35 + maturity * 0.35 + freshness * 0.30
 ### Redact-on-capture (data at rest)
 
 PII and secrets are redacted **before observation data is written to SQLite** —
-window titles, shell commands, file paths, and task notes never reach disk in
-raw form (config: `anonymization.redact_on_capture`, default `true`). Export-time
+window titles, shell commands, file paths, task titles/descriptions, and task
+notes never reach disk in raw form (config: `anonymization.redact_on_capture`,
+default `true`), enforced at the DB layer for every entry path. Export-time
 anonymization runs as a second layer on top. Databases written by older versions
 can be cleaned retroactively:
 
@@ -739,7 +740,7 @@ Anything that speaks MCP — Claude Code, Codex, Cursor, Claude Desktop. Run `sh
 Yes. MIT-licensed and self-hosted. No seats, no metering, no telemetry.
 
 **How is PII handled?**
-Twice. At capture time, window titles, commands, file paths, and notes are redacted before they reach SQLite (`redact_on_capture`, default on). At export time, every SOP runs through the Anonymizer again: emails, IPs, URLs, phone numbers, and file paths are redacted (configurable), while financial identifiers and developer secrets (API tokens, JWTs, private keys, high-entropy strings) are *always* redacted. You can preview the anonymized output before exporting.
+Twice. At capture time, window titles, commands, file paths, task titles/descriptions, and notes are redacted before they reach SQLite (`redact_on_capture`, default on). At export time, every SOP runs through the Anonymizer again: emails, IPs, URLs, phone numbers, and file paths are redacted (configurable), while financial identifiers and developer secrets (API tokens, JWTs, private keys, high-entropy strings) are *always* redacted. You can preview the anonymized output before exporting.
 
 **Can a malicious website talk to the local dashboard?**
 No. The API requires a Bearer token, and cross-origin requests are rejected with 403 by default (no CORS wildcard). Cross-origin callers must be explicitly allowlisted via `ui_allowed_origins`.

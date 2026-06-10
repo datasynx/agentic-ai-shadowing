@@ -19,8 +19,10 @@ const SLOW_THRESHOLD_MS = 30_000;
 
 // ── Structured output (tool use) ────────────────────────────────────────────
 // The model fills a tool schema instead of us regex-parsing free text (#25).
+// Exported so every SOP-producing path (SOPGenerator, SessionAnalyzer) uses
+// the same tool contract.
 
-const SOP_TOOL_NAME = 'emit_sop';
+export const SOP_TOOL_NAME = 'emit_sop';
 
 const SOPToolResultSchema = z.object({
   title: z.string().min(1),
@@ -29,7 +31,7 @@ const SOPToolResultSchema = z.object({
   tags: z.array(z.string()).default([]),
 });
 
-const SOP_TOOL_DEFINITION: Anthropic.Tool = {
+export const SOP_TOOL_DEFINITION: Anthropic.Tool = {
   name: SOP_TOOL_NAME,
   description: 'Emit the finished Standard Operating Procedure as structured data.',
   input_schema: {
@@ -48,6 +50,33 @@ const SOP_TOOL_DEFINITION: Anthropic.Tool = {
 export interface AnthropicLikeClient {
   messages: {
     create(params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message>;
+  };
+}
+
+/**
+ * Extract and validate the structured tool-use result from a response.
+ * Returns null (→ text-parsing fallback) when the block is missing or invalid.
+ */
+export function extractStructuredSOP(response: Anthropic.Message): ParsedSOPResponse | null {
+  const toolBlock = response.content.find(
+    (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use' && block.name === SOP_TOOL_NAME,
+  );
+  if (!toolBlock) return null;
+
+  const validated = SOPToolResultSchema.safeParse(toolBlock.input);
+  if (!validated.success) {
+    log.warn('Structured SOP output failed schema validation', {
+      issues: validated.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '),
+    });
+    return null;
+  }
+
+  const { title, description, content_md, tags } = validated.data;
+  return {
+    title: title.trim(),
+    description: description.trim(),
+    content_md: content_md.trim(),
+    tags: tags.map(t => t.toLowerCase().replace(/^#/, '').trim()).filter(t => t.length > 0),
   };
 }
 
@@ -250,31 +279,8 @@ At the end of the response, add a JSON block with tags:
     });
   }
 
-  /**
-   * Extract and validate the structured tool-use result.
-   * Returns null (→ text-parsing fallback) when the block is missing or invalid.
-   */
   private extractStructuredSOP(response: Anthropic.Message): ParsedSOPResponse | null {
-    const toolBlock = response.content.find(
-      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use' && block.name === SOP_TOOL_NAME,
-    );
-    if (!toolBlock) return null;
-
-    const validated = SOPToolResultSchema.safeParse(toolBlock.input);
-    if (!validated.success) {
-      log.warn('Structured SOP output failed schema validation', {
-        issues: validated.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '),
-      });
-      return null;
-    }
-
-    const { title, description, content_md, tags } = validated.data;
-    return {
-      title: title.trim(),
-      description: description.trim(),
-      content_md: content_md.trim(),
-      tags: tags.map(t => t.toLowerCase().replace(/^#/, '').trim()).filter(t => t.length > 0),
-    };
+    return extractStructuredSOP(response);
   }
 
   private parseResponse(text: string, fallbackTitle: string): {

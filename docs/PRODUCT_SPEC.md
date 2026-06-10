@@ -160,10 +160,12 @@ Configurable via `config.anonymization.custom_replacements`.
 
 ### 6.4 Redact-on-Capture
 With `anonymization.redact_on_capture` (default `true`), window titles, shell
-commands, file paths, and task notes are redacted **before** they are persisted
-to SQLite. Export-time anonymization remains as a second layer. The pipeline is
-idempotent (re-running over redacted text is a no-op); `shadowing scrub`
-retroactively redacts databases written by older versions.
+commands, file paths, task titles/descriptions, and task notes are redacted
+**before** they are persisted to SQLite — enforced at the DB layer
+(`createTask`/`updateTask`/`logObservedAction`), so every entry path (CLI, MCP
+tools, hook handler) is covered. Export-time anonymization remains as a second
+layer. The pipeline is idempotent (re-running over redacted text is a no-op);
+`shadowing scrub` retroactively redacts databases written by older versions.
 
 ## 7. Export
 

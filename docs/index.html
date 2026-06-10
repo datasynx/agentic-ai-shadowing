@@ -405,7 +405,7 @@ shadowing export --all</code></pre>
       <section id="anonymization">
         <h2>Privacy &amp; Anonymization</h2>
         <h3>Redact-on-capture</h3>
-        <p>PII and secrets are redacted <strong>before</strong> observation data is written to SQLite — window titles, shell commands, file paths, and task notes never reach disk in raw form (<code>anonymization.redact_on_capture</code>, default <code>true</code>). Export-time anonymization runs as a second layer. Older databases can be cleaned retroactively with the idempotent <code>shadowing scrub</code> command.</p>
+        <p>PII and secrets are redacted <strong>before</strong> observation data is written to SQLite — window titles, shell commands, file paths, task titles/descriptions, and task notes never reach disk in raw form (<code>anonymization.redact_on_capture</code>, default <code>true</code>). Export-time anonymization runs as a second layer. Older databases can be cleaned retroactively with the idempotent <code>shadowing scrub</code> command.</p>
         <h3>Redaction patterns</h3>
         <table>
           <tr><th>Pattern</th><th>Replacement</th><th>Configurable</th></tr>

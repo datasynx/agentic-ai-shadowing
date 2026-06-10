@@ -13,10 +13,19 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ShadowingConfig, Task, ObservedAction } from './types.js';
 import type { ShadowingDB } from './db.js';
-import { SOPGenerationError } from './sop-generator.js';
+import {
+  SOPGenerationError,
+  SOP_TOOL_NAME,
+  SOP_TOOL_DEFINITION,
+  extractStructuredSOP,
+  type AnthropicLikeClient,
+} from './sop-generator.js';
 import { withRetry } from './retry.js';
 import { parseSOPResponse } from './sop-parser.js';
 import { createAnthropicClient } from './anthropic-client.js';
+import { getLogger } from './logger.js';
+
+const log = getLogger('session-analyzer');
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -106,14 +115,15 @@ export function summarizeActionGroup(actions: ObservedAction[]): string {
 // ── Session Analyzer ────────────────────────────────────────────────────────
 
 export class SessionAnalyzer {
-  private client: Anthropic;
+  private client: AnthropicLikeClient;
 
   constructor(
     private config: ShadowingConfig,
     private db: ShadowingDB,
+    client?: AnthropicLikeClient,
   ) {
     // Shared construction point: configurable endpoint + credential env (#26)
-    this.client = createAnthropicClient(config);
+    this.client = client ?? createAnthropicClient(config);
   }
 
   /**
@@ -329,9 +339,10 @@ Respond ONLY with a JSON array:
     cluster: ActionCluster,
   ): Promise<{ title: string; description: string; content_md: string; tags: string[] }> {
     const lang = this.config.sop_generation.sop_language === 'de' ? 'German' : 'English';
+    const useStructured = this.config.sop_generation.use_structured_output !== false;
     const actionSummary = summarizeActionGroup(cluster.actions);
 
-    const systemPrompt = `You are an SOP analyst. Create a Standard Operating Procedure (SOP) in ${lang}.
+    const baseRules = `You are an SOP analyst. Create a Standard Operating Procedure (SOP) in ${lang}.
 
 You receive:
 1. A detected task title and description
@@ -351,7 +362,13 @@ RULES:
    ## Notes
 2. Derive the steps from the ACTUAL actions, not from assumptions
 3. Generalize specific paths and parameters into placeholders
-4. Do NOT include any personally identifiable information or company secrets
+4. Do NOT include any personally identifiable information or company secrets`;
+
+    const systemPrompt = useStructured
+      ? `${baseRules}
+
+Return the result by calling the ${SOP_TOOL_NAME} tool.`
+      : `${baseRules}
 
 At the end, add tags:
 \`\`\`json
@@ -373,8 +390,21 @@ ${actionSummary}`;
         temperature: this.config.sop_generation.temperature,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
+        ...(useStructured ? {
+          tools: [SOP_TOOL_DEFINITION],
+          tool_choice: { type: 'tool' as const, name: SOP_TOOL_NAME },
+        } : {}),
       }),
     );
+
+    if (useStructured) {
+      const structured = extractStructuredSOP(response);
+      if (structured) return structured;
+      // Fall back to text parsing below — loud, never silent (#25)
+      log.warn('No valid structured tool output in response — falling back to text parsing', {
+        task_id: task.id,
+      });
+    }
 
     const text = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === 'text')

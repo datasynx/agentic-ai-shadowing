@@ -97,6 +97,47 @@ describe('redact-on-capture — task notes', () => {
   });
 });
 
+describe('redact-on-capture — task title and description', () => {
+  // Tasks are created via CLI, MCP (shadowing_start_task) and the hook
+  // handler — all of them go through db.createTask, so the redaction must
+  // live at the DB layer, not only in TaskManager.addNote.
+  it('redacts secrets and PII in createTask', () => {
+    db.setCaptureRedactor(defaultRedactor());
+
+    const task = db.createTask(
+      'Mail an chef@firma.example senden',
+      'Token ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8 nutzen, Server 192.168.1.50',
+    );
+
+    expect(task.title).not.toContain('chef@firma.example');
+    expect(task.title).toContain('[email@example.com]');
+    expect(task.description).not.toContain('ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8');
+    expect(task.description).toContain('[github-token]');
+    expect(task.description).not.toContain('192.168.1.50');
+
+    // Verify at the DB level, not just the returned object
+    const stored = db.getTask(task.id);
+    expect(stored!.description).not.toContain('ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8');
+  });
+
+  it('redacts secrets in updateTask (MCP complete_task notes path)', () => {
+    db.setCaptureRedactor(defaultRedactor());
+    const task = db.createTask('Deploy service');
+
+    const updated = db.updateTask(task.id, {
+      description: 'auth via Bearer sk-ant-api03-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789',
+    });
+
+    expect(updated.description).not.toContain('sk-ant-api03');
+  });
+
+  it('persists raw task data when no redactor is set (opt-out path)', () => {
+    const task = db.createTask('Mail jane.doe@example.org', 'server 10.0.0.5');
+    expect(task.title).toContain('jane.doe@example.org');
+    expect(task.description).toContain('10.0.0.5');
+  });
+});
+
 describe('shadowing scrub — retroactive redaction', () => {
   it('scrubs previously raw observed actions and is idempotent', () => {
     // Write RAW data first (pre-redact-on-capture database)

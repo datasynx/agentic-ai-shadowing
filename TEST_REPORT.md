@@ -1,9 +1,12 @@
-# Testreport — @datasynx/agentic-ai-shadowing v0.1.0
+# Testreport — @datasynx/agentic-ai-shadowing v1.12.x
 
-**Datum:** 2026-02-25
-**Tester:** E2E NPM Package Testing
-**Paket:** `@datasynx/agentic-ai-shadowing@0.1.0`
-**Node:** v22.22.0 | TypeScript 5.7.2 | Vitest 3.2.4
+**Datum:** 2026-06-10
+**Tester:** End-to-End-Verifikation nach Enterprise-Hardening (v1.1.0–v1.12.x)
+**Node:** v22.22.2 | TypeScript 5.7+ | Vitest 3.x
+
+> Ersetzt den Report vom 2026-02-25 (v0.1.0). Der alte Stand ist über die
+> Git-Historie abrufbar. Die dort gemeldeten Bugs (BUG-001–004) sind im Zuge
+> des Hardenings behoben worden.
 
 ---
 
@@ -11,227 +14,103 @@
 
 | Kategorie | Ergebnis |
 |-----------|----------|
-| **npm install** | OK — 0 Vulnerabilities, 165 Packages |
-| **tsc --noEmit (Lint)** | OK — keine Fehler |
-| **tsup Build** | OK — CLI (151 KB) + Library (188 KB) + Types (36 KB) |
-| **Unit Tests (Original)** | **373/373 bestanden** (19 Testsuites) |
-| **E2E Integration Tests** | **52/52 bestanden** (1 Testsuite) |
-| **Gesamtergebnis** | **425/425 Tests bestanden** |
-
-### Bewertung: **BESTANDEN** mit Empfehlungen
+| `npm install` | OK — 0 Vulnerabilities |
+| `tsc --noEmit` (Lint) | OK — keine Fehler |
+| `tsup` Build | OK — CLI 211 KB, Library + Types |
+| Unit-/Integrationstests | **1295/1295 bestanden** (64 Dateien) |
+| E2E (CLI + MCP stdio + MCP HTTP + UI-Server) | bestanden (Details unten) |
+| **Gesamtergebnis** | **BESTANDEN** — 2 Befunde gefunden und im selben Lauf behoben |
 
 ---
 
-## 2. Getestete Features
+## 2. E2E-Testumfang
 
-### 2.1 Core-Module (Direkt getestet)
+Vollständiger Durchstich in isoliertem `$HOME` gegen den gebauten `dist/cli.js`,
+SOP-Generierung gegen einen lokalen Mock-Anthropic-Endpoint via
+`sop_generation.base_url` + `api_key_env` (No-Egress-Verifikation des
+Enterprise-Gateway-Features aus #26).
 
-| Modul | Tests | Status | Anmerkungen |
-|-------|-------|--------|-------------|
-| `ShadowingDB` | 27 + 15 E2E | OK | CRUD Tasks, SOPs, Tags, Executions, Versions |
-| `TaskManager` | 30 + 7 E2E | OK | Start/Pause/Resume/Complete/Cancel/Notes |
-| `Anonymizer` | 26 + 4 E2E | OK | Email, IP, URL, Phone, Path, IBAN, CC, Custom |
-| `Exporter` | 12 + 2 E2E | OK | Manifest, Anonymisierung, Multi-SOP |
-| `Metrics` | 17 + 9 E2E | OK | Consistency, Maturity, Freshness, Overall |
-| `SOPGenerator` | 14 | OK | Prompt-Aufbau, Response-Parsing (Mock) |
-| `Diff` | 11 + 3 E2E | OK | LCS-Algorithmus, Formatierung |
-| `Observer` | 28 | OK | Polling, Heartbeat-Dedup |
-| `Privacy` | 16 + 3 E2E | OK | Consent, Exclusion Rules, Purge |
-| `Config` | 11 + 2 E2E | OK | Zod-Validierung, Defaults |
-| `Cartography` | 25 + 10 | OK | Graph-Loading, JGF, Context |
-| `MCP Server` | 30 | OK | Tool-Definitionen, JSON-RPC |
-| `Hook Handler` | 37 | OK | Action-Klassifikation |
-| `Shell History` | 21 | OK | Bash/Zsh/Fish/PowerShell |
-| `Window Detector` | 14 | OK | Linux/macOS/Windows |
-| `UI Server` | 15 | OK | REST-API-Endpunkte |
-| `Infra Context` | 13 | OK | Graph-Extraktion |
-| `Session Analyzer` | 16 | OK | Clustering, Summarization |
-
-### 2.2 CLI-Befehle (E2E Smoke-Tests)
-
-| Befehl | Status | Anmerkungen |
-|--------|--------|-------------|
-| `shadowing --help` | OK | Alle 28 Befehle gelistet |
-| `shadowing --version` | OK | Zeigt 0.1.0 |
-| `shadowing init` | OK | DB + Config erstellt |
-| `shadowing status` | OK | Zeigt "Kein aktiver Task" |
-| `shadowing list` | OK | Zeigt "Keine SOPs" |
-| `shadowing stats` | OK | Statistiken-Dashboard |
-| `shadowing guide` | OK | Umfangreiche Anleitung |
-| `shadowing sessions` | OK | Leere Session-Liste |
-| `shadowing export --all` | OK | Fehler bei 0 approved SOPs |
-| `shadowing infra` | OK | Infrastruktur-Kontext |
-| `shadowing start` | Nicht getestet | Interaktiver Modus (benötigt stdin) |
-| `shadowing observe` | Nicht getestet | Polling-basiert (benötigt Systemzugriff) |
-| `shadowing ui` | Nicht getestet | Startet HTTP-Server |
-| `shadowing mcp` | Nicht getestet | MCP-Server (stdio) |
-
-### 2.3 Vollständiger Lifecycle-Test
-
-Task-Erstellung → Pause/Resume → Complete → SOP-Erstellung → Tags →
-Versionierung → Metriken → Status-Workflow (Draft→Reviewed→Approved) →
-Anonymisierung → Export → Manifest-Validierung → DB-Logging → Cascade Delete
-
-**Ergebnis:** Vollständig bestanden.
+| Pfad | Getestet | Ergebnis |
+|------|----------|----------|
+| `init` → Verzeichnis-/DB-/Config-Anlage | ✓ | OK |
+| `status`, `list`, `show`, `stats`, `guide` | ✓ | OK |
+| MCP stdio: `initialize` (Protokoll 2025-06-18), `tools/list` (18 Tools), `resources/list` (`shadowing://stats`) | ✓ | OK |
+| MCP: Task-Lifecycle (`start_task` → `get_status` → `complete_task`) | ✓ | OK (Befund 1, s. u.) |
+| MCP: Observation-Session (`start_observation`, 4× `log_observation`, `stop_observation`) | ✓ | OK — Redact-on-Capture greift (Token/E-Mail vor SQLite-Write ersetzt) |
+| MCP: Schema-Validierung (ungültige `source`-Enum, fehlende Pflichtfelder) | ✓ | korrekt abgelehnt |
+| `analyze <session>` → Task-Erkennung → SOP-Generierung (Mock-API) | ✓ | OK (Befund 2, s. u.) |
+| MCP: `update_sop`, `add_tags`, `approve_sop`, `export_sops` | ✓ | OK |
+| Export: Anonymisierung (E-Mail, IP, URL, Pfad, GitHub-Token), `manifest.json` mit `redaction_summary` | ✓ | **0 Leaks** im Exportverzeichnis |
+| `shadowing scrub` (retroaktive Redaction) | ✓ | OK — verseuchter Alt-Datensatz bereinigt, idempotent |
+| UI-Server: Bearer-Token-Pflicht (401 ohne Token), CORS-Lockdown (403 cross-origin, same-origin OK), Token-Durchstich `/api/stats`, `/api/sops` | ✓ | OK |
+| MCP Streamable HTTP: Loopback-POST 200, fremde Origin 403, GET 405 | ✓ | OK |
+| `setup --dry-run`, `setup-hooks --dry-run` (Diff-Ausgabe, kein Write) | ✓ | OK |
+| Unique-Active-Task-Constraint (zweiter aktiver Task abgelehnt) | ✓ | OK |
 
 ---
 
-## 3. Gefundene Bugs
+## 3. Befunde und Behebung (in diesem Lauf gefixt)
 
-### BUG-001: `formatDuration()` unterdrückt Sekunden bei Stunden > 0
+### Befund 1 (P1, Security): Redact-on-Capture griff nicht für Task-Titel/-Beschreibung
 
-**Schweregrad:** Niedrig (Kosmetik)
-**Datei:** `src/task-manager.ts:90`
-**Beschreibung:** Wenn `hours > 0`, werden Sekunden nicht angezeigt.
-- `formatDuration(3661)` → `"1h 1min"` (erwartet: `"1h 1min 1s"`)
-- `formatDuration(7200)` → `"2h"` (erwartet: `"2h 0min 0s"`)
+**Symptom:** `shadowing_start_task` (MCP) bzw. Task-Anlage generell persistierte
+GitHub-Token, E-Mail-Adresse und interne IP **unredigiert** in SQLite. Nur
+Notizen (`TaskManager.addNote`) und Observations waren abgedeckt — im
+Widerspruch zur Zusage „Secrets never persisted" (#20/#21).
 
-**Ursache:** Zeile 90: `if (secs > 0 && hours === 0)` — Die Bedingung `hours === 0` schließt Sekunden aus.
+**Fix:** Redaction zentral in die DB-Schicht verlagert: `db.createTask()` und
+`db.updateTask()` wenden jetzt den installierten Capture-Redactor auf Titel und
+Beschreibung an. Damit sind alle Eintrittspfade abgedeckt (CLI, MCP inkl.
+`complete_task`-Notes-Append, Hook-Handler, Session-Analyzer). Opt-out
+(`redact_on_capture: false`) bleibt funktional. `shadowing scrub` bereinigt
+Alt-Datenbanken weiterhin retroaktiv (im Lauf verifiziert).
 
-**Fix-Vorschlag:**
-```typescript
-if (secs > 0) parts.push(`${secs}s`);
-// oder: if (hours > 0) parts.push(`${mins}min`); ohne Sekunden-Unterdrückung
-```
+**Tests:** 3 neue Tests in `test/redact-on-capture.test.ts`
+(createTask/updateTask/Opt-out). Retest des Original-Szenarios via MCP:
+`Mail an [email@example.com], Token [github-token], Server [internal-ip]` —
+0 leckende Zeilen in der DB.
 
-### BUG-002: Exporter schlägt bei gleichem Timestamp fehl (ENOTEMPTY)
+### Befund 2 (P2, Konsistenz): Session-Analyzer nutzte den strukturierten Tool-use-Output nicht
 
-**Schweregrad:** Mittel
-**Datei:** `src/exporter.ts:94`
-**Beschreibung:** `renameSync(tmpDir, exportDir)` scheitert, wenn das Zielverzeichnis bereits existiert (z.B. bei zwei Exporten innerhalb derselben Sekunde).
+**Symptom:** Die SOP-Generierung über `shadowing analyze`
+(`SessionAnalyzer.generateSOPFromCluster`) lief noch über Freitext + lenienten
+Parser — Issue #25 (Structured Output via `emit_sop`-Tool) war nur im
+`SOPGenerator` gelandet. Folge: WARN-Logs („No tags found / No title heading"),
+fehlende Tags, fragiles Parsing.
 
-**Ursache:** `renameSync` kann nicht über ein existierendes nicht-leeres Verzeichnis renamen.
+**Fix:** Tool-Definition und Extraktion (`SOP_TOOL_NAME`, `SOP_TOOL_DEFINITION`,
+`extractStructuredSOP`) aus `sop-generator.ts` exportiert und im
+Session-Analyzer wiederverwendet — gleicher Vertrag, gleicher lauter
+Text-Fallback, `use_structured_output`-Config wird respektiert. Zusätzlich ist
+der Client jetzt injizierbar (`AnthropicLikeClient`), analog zum SOPGenerator.
 
-**Fix-Vorschlag:**
-```typescript
-// Millisekunden in Timestamp aufnehmen
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-// oder: Suffix-Counter bei Kollision
-```
-
-### BUG-003: CLI schreibt alles auf stderr statt stdout
-
-**Schweregrad:** Niedrig (Design-Entscheidung)
-**Datei:** `src/cli.ts` (durchgängig)
-**Beschreibung:** Alle Benutzerausgaben gehen über `process.stderr.write()`. Nur `--help` und `--version` (via Commander) gehen auf stdout.
-
-**Auswirkung:** `shadowing status | grep "aktiv"` funktioniert nicht ohne `2>&1`. Automatisierung und Piping sind erschwert.
-
-**Empfehlung:** Nutzerausgaben auf stdout, Diagnose/Warnungen auf stderr. Alternativ: `--quiet` Flag für machine-readable stdout-Ausgabe.
-
-### BUG-004: GlobalStats zeigt `null` statt `0` bei leeren Tabellen
-
-**Schweregrad:** Mittel
-**Datei:** `src/db.ts:815-821`
-**Beschreibung:** SQLite `SUM(CASE WHEN ... THEN 1 ELSE 0 END)` gibt `NULL` zurück wenn die Tabelle leer ist (0 Zeilen). Die CLI zeigt dann `"null abgeschlossen"` statt `"0 abgeschlossen"`.
-
-**Fix-Vorschlag:**
-```sql
-COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) as active_tasks,
-COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed_tasks
-```
+**Tests:** 3 neue Integrationstests in `test/session-analyzer.test.ts`
+(Tool forciert + strukturierte Übernahme inkl. Tags, Text-Fallback,
+`use_structured_output=false`). E2E-Retest gegen Mock: SOP-Request kommt als
+Tool-use an, Titel/Tags stammen aus dem strukturierten Ergebnis, keine
+Parser-Warnungen mehr.
 
 ---
 
-## 4. Sicherheitsbewertung
+## 4. Sicherheitsbewertung (Stand v1.12.x + Fixes)
 
-| Aspekt | Bewertung | Anmerkung |
-|--------|-----------|-----------|
-| SQL-Injection | OK | Alle Queries nutzen parametrisierte Statements |
-| PII-Schutz | OK | Anonymizer mit konfigurierbaren Patterns + Always-On |
-| IBAN/CC immer aktiv | OK | Nicht deaktivierbar — sichere Default |
-| Consent-System | OK | Granulare Zustimmung mit Audit-Log |
-| Exclusion Rules | OK | Sensible Apps/Patterns konfigurierbar |
-| Data Degradation | OK | Automatisches Löschen/Anonymisieren alter Daten |
-| Dependency-Audit | OK | 0 bekannte Vulnerabilities |
-| Foreign Keys + WAL | OK | Datenintegrität gesichert |
-| API-Key-Handling | OK | ANTHROPIC_API_KEY nur aus ENV, nie gespeichert |
+| Aspekt | Bewertung | Verifikation |
+|--------|-----------|--------------|
+| Secrets-never-persisted (Tasks, Notizen, Observations) | OK | E2E + Testkorpus (`redact-on-capture.test.ts`, `anonymizer-secrets.test.ts`) |
+| Export-Anonymisierung (zweite Schicht) | OK | E2E: 0 Leaks, `redaction_summary` im Manifest |
+| Dashboard: Bearer-Auth + CORS-Lockdown + XSS-Escaping | OK | E2E (401/403) + `dashboard-xss.test.ts`, `ui-server-cors.test.ts` |
+| MCP HTTP: Loopback-Default, Origin-Validierung, Token off-loopback | OK | E2E (200/403/405) + `mcp-http.test.ts` |
+| Keine stillen Config-Writes (Diff + Confirm, `--dry-run`) | OK | E2E `setup`/`setup-hooks` Dry-Runs |
+| Konfigurierbarer Endpoint (`base_url`) → No-Egress-Betrieb | OK | E2E komplett gegen lokalen Mock gefahren |
 
 ---
 
-## 5. Performance
+## 5. Fazit
 
-| Metrik | Wert | Bewertung |
-|--------|------|-----------|
-| npm install | 5s | OK |
-| tsc --noEmit | < 2s | OK |
-| tsup build | < 3s | Gut |
-| Unit Tests (373) | 3.0s | Ausgezeichnet |
-| E2E Tests (52) | ~57s | OK (CLI-Spawns dominieren) |
-| CLI Startup (cold) | ~3s | Akzeptabel (tsx + native Module) |
-| CLI Startup (warm) | ~2.5s | Akzeptabel |
-| dist/cli.js | 151 KB | Gut |
-| dist/index.js | 188 KB | Gut |
+Alle 16 Hardening-Issues (siehe `docs/HARDENING_2026-06.md`) sind umgesetzt und
+im E2E-Durchstich verifiziert. Die beiden im Lauf gefundenen Lücken — eine
+echte P1-Redaction-Lücke auf dem Task-Pfad und eine #25-Konsistenzlücke im
+Session-Analyzer — wurden direkt behoben, mit Tests abgesichert (1289 → 1295)
+und erneut end-to-end verifiziert.
 
----
-
-## 6. Empfehlungen
-
-### Priorität: Hoch
-
-1. **BUG-004 fixen:** `COALESCE` in `getGlobalStats()` verwenden. Zeigt sonst `null` im UI.
-
-2. **BUG-002 fixen:** Exporter-Timestamp auf Millisekunden-Granularität erweitern oder Suffix-Counter einführen, um Race Conditions bei schnellen Exporten zu vermeiden.
-
-3. **SOP-Generierung testen (mit echtem API-Key):** Der SOP-Generator wurde nur mit Mocks getestet. Ein Integrationstest mit echtem `ANTHROPIC_API_KEY` sollte in einer CI/CD-Pipeline laufen.
-
-### Priorität: Mittel
-
-4. **CLI stdout/stderr trennen:** Benutzerausgaben auf stdout, damit Piping funktioniert (`shadowing list | grep "SAP"`). Warnungen/Diagnostik bleiben auf stderr.
-
-5. **Vitest Worker-Timeout:** Bei Gesamtlauf aller Tests tritt ein `onTaskUpdate` Timeout auf. Worker-Konfiguration für lange CLI-Tests anpassen.
-
-6. **Interaktive CLI-Tests:** `shadowing start` (der Hauptbefehl) ist interaktiv und konnte nicht automatisiert getestet werden. Empfehlung: `--non-interactive` Flag oder Refactoring für programmatische Steuerung.
-
-### Priorität: Niedrig
-
-7. **BUG-001 fixen:** `formatDuration()` Sekunden auch bei hours > 0 anzeigen für Präzision.
-
-8. **`engines.node >= 20`** sollte geprüft werden: Package nutzt `node:` Prefix-Imports und ESM — funktioniert nicht mit Node 18.
-
-9. **Peer Dependency `@datasynx/agentic-ai-cartography`:** Optional markiert — funktioniert korrekt als standalone. Hinweis bei `init` ist gut.
-
-10. **Export-Verzeichnis-Konfigurierbarkeit:** Exporter nutzt `getExportsDir()` (fest unter `~/.datasynx/shadowing/exports`). Ein `--output` Flag wäre für CI nützlich.
-
----
-
-## 7. Test-Coverage-Matrix
-
-```
-Modul                    Unit  E2E  CLI  Gesamt
-──────────────────────   ────  ───  ───  ──────
-ShadowingDB              27    15   -    42
-TaskManager              30     7   -    37
-Anonymizer               26     4   -    30
-Exporter                 12     2   -    14
-Metrics                  17     9   -    26
-SOPGenerator (Mock)      14     -   -    14
-Diff                     11     3   -    14
-Observer                 28     -   -    28
-Privacy                  16     3   -    19
-Config                   11     2   -    13
-Cartography              25     -   -    25
-Cartography-Check        10     -   -    10
-MCP Server               30     -   -    30
-Hook Handler             37     -   -    37
-Shell History            21     -   -    21
-Window Detector          14     -   -    14
-UI Server                15     -   -    15
-Session Analyzer         16     -   -    16
-Infra Context            13     -   -    13
-CLI Smoke                 -     -   11   11
-GlobalStats Edge          -     1   -     1
-Data Degradation          -     1   -     1
-──────────────────────   ────  ───  ───  ──────
-GESAMT                   373   47    11  425+6=425
-```
-
----
-
-## 8. Fazit
-
-Das Paket `@datasynx/agentic-ai-shadowing` v0.1.0 ist **produktionsreif** für den MVP-Scope. Die Architektur ist sauber modular, die Testabdeckung umfassend (425 Tests), und die Sicherheitsmechanismen (Anonymisierung, Consent, Data Degradation) sind solide implementiert.
-
-Die 4 identifizierten Bugs sind nicht kritisch — BUG-004 (NULL in Stats) und BUG-002 (Export-Kollision) sollten vor einem Release behoben werden. Die übrigen sind kosmetisch bzw. Design-Entscheidungen.
-
-**Empfehlung: Release-ready nach Fix von BUG-002 und BUG-004.**
+**Empfehlung: Merge nach `main` (Release via semantic-release).**

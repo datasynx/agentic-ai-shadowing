@@ -1,6 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { clusterBySilence, summarizeActionGroup } from '../src/session-analyzer.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type Anthropic from '@anthropic-ai/sdk';
+import { clusterBySilence, summarizeActionGroup, SessionAnalyzer } from '../src/session-analyzer.js';
+import { ShadowingDB } from '../src/db.js';
+import { getDefaultConfig } from '../src/config.js';
 import type { ObservedAction } from '../src/types.js';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { unlinkSync } from 'node:fs';
 
 // ── Helper: create mock actions ─────────────────────────────────────────────
 
@@ -261,5 +267,147 @@ describe('summarizeActionGroup', () => {
     const summary = summarizeActionGroup(actions);
     expect(summary).not.toContain('(0s)');
     expect(summary).toContain('Shell:');
+  });
+});
+
+// ── analyzeSession — structured SOP output (#25 parity) ─────────────────────
+
+describe('SessionAnalyzer.analyzeSession — structured output', () => {
+  const DB_PATH = join(tmpdir(), `shadowing-session-analyzer-${Date.now()}.db`);
+  let db: ShadowingDB;
+
+  beforeEach(() => {
+    db = new ShadowingDB(DB_PATH);
+    db.initialize();
+  });
+
+  afterEach(() => {
+    db.close();
+    try { unlinkSync(DB_PATH); } catch { /* ok */ }
+  });
+
+  function message(content: Anthropic.ContentBlock[]): Anthropic.Message {
+    return {
+      id: 'msg_test',
+      type: 'message',
+      role: 'assistant',
+      model: 'test-model',
+      content,
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: { input_tokens: 1, output_tokens: 1 } as Anthropic.Usage,
+    };
+  }
+
+  const TASK_IDENTIFICATION_TEXT =
+    '```json\n[{"title":"SAP export","description":"Export and send report","action_blocks":[0],"complexity":2}]\n```';
+
+  function seedSession(): string {
+    const session = db.startObservationSession('test');
+    db.logObservedAction(session.id, { source: 'shell', command: 'sap-cli export --month 2026-05' });
+    db.logObservedAction(session.id, { source: 'manual', window_title: 'sent report to management' });
+    return session.id;
+  }
+
+  it('requests the emit_sop tool for SOP generation and uses its structured result', async () => {
+    const sessionId = seedSession();
+    const calls: Anthropic.MessageCreateParamsNonStreaming[] = [];
+
+    const fakeClient = {
+      messages: {
+        create: async (params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message> => {
+          calls.push(params);
+          if (!params.tools?.length) {
+            return message([{ type: 'text', text: TASK_IDENTIFICATION_TEXT, citations: null } as Anthropic.TextBlock]);
+          }
+          return message([{
+            type: 'tool_use',
+            id: 'toolu_test',
+            name: 'emit_sop',
+            input: {
+              title: 'SOP: SAP Export',
+              description: 'Monthly export procedure',
+              content_md: '# SOP: SAP Export\n\n## Steps\n### Step 1: Run export',
+              tags: ['sap', 'export', 'monthly'],
+            },
+          } as Anthropic.ToolUseBlock]);
+        },
+      },
+    };
+
+    const analyzer = new SessionAnalyzer(getDefaultConfig(), db, fakeClient);
+    const result = await analyzer.analyzeSession(sessionId);
+
+    expect(result.tasks_created).toHaveLength(1);
+    expect(result.sops_generated).toHaveLength(1);
+
+    // The SOP-generation call must force the emit_sop tool (structured output, #25)
+    const sopCall = calls[1]!;
+    expect(sopCall.tools?.map(t => t.name)).toEqual(['emit_sop']);
+    expect(sopCall.tool_choice).toEqual({ type: 'tool', name: 'emit_sop' });
+
+    const sop = db.getSOP(result.sops_generated[0]!.sop_id);
+    expect(sop!.title).toBe('SOP: SAP Export');
+    expect(sop!.content_md).toContain('### Step 1: Run export');
+    expect(db.getTagsForSOP(sop!.id).map(t => t.name).sort()).toEqual(['export', 'monthly', 'sap']);
+  });
+
+  it('falls back to text parsing when the response carries no tool block', async () => {
+    const sessionId = seedSession();
+    let sawToolRequest = false;
+
+    const fakeClient = {
+      messages: {
+        create: async (params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message> => {
+          if (!params.tools?.length) {
+            return message([{ type: 'text', text: TASK_IDENTIFICATION_TEXT, citations: null } as Anthropic.TextBlock]);
+          }
+          sawToolRequest = true;
+          // Model ignored the tool and answered as text (legacy / gateway behavior)
+          return message([{
+            type: 'text',
+            text: '# SOP: Fallback\n\n## Steps\n### Step 1: Do it\n\n```json\n{"tags": ["fallback"]}\n```',
+            citations: null,
+          } as Anthropic.TextBlock]);
+        },
+      },
+    };
+
+    const analyzer = new SessionAnalyzer(getDefaultConfig(), db, fakeClient);
+    const result = await analyzer.analyzeSession(sessionId);
+
+    expect(sawToolRequest).toBe(true);
+    expect(result.sops_generated).toHaveLength(1);
+    const sop = db.getSOP(result.sops_generated[0]!.sop_id);
+    expect(sop!.title).toBe('SOP: Fallback');
+  });
+
+  it('honors use_structured_output=false (plain text request, no tools)', async () => {
+    const sessionId = seedSession();
+    const config = getDefaultConfig();
+    config.sop_generation.use_structured_output = false;
+    const toolRequests: boolean[] = [];
+
+    const fakeClient = {
+      messages: {
+        create: async (params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message> => {
+          toolRequests.push(Boolean(params.tools?.length));
+          if (toolRequests.length === 1) {
+            return message([{ type: 'text', text: TASK_IDENTIFICATION_TEXT, citations: null } as Anthropic.TextBlock]);
+          }
+          return message([{
+            type: 'text',
+            text: '# SOP: Plain\n\n## Steps\n### Step 1: Do it\n\n```json\n{"tags": ["plain"]}\n```',
+            citations: null,
+          } as Anthropic.TextBlock]);
+        },
+      },
+    };
+
+    const analyzer = new SessionAnalyzer(config, db, fakeClient);
+    const result = await analyzer.analyzeSession(sessionId);
+
+    expect(toolRequests).toEqual([false, false]);
+    expect(result.sops_generated).toHaveLength(1);
   });
 });

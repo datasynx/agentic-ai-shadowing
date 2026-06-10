@@ -184,15 +184,18 @@ export class ShadowingDB {
 
   /**
    * Install a redact-on-capture function (see createCaptureRedactor in
-   * anonymizer.ts). When set, window titles, commands and file paths are
-   * redacted BEFORE they are persisted, so PII/secrets never reach disk.
+   * anonymizer.ts). When set, window titles, commands, file paths and task
+   * titles/descriptions are redacted BEFORE they are persisted, so
+   * PII/secrets never reach disk.
    */
   setCaptureRedactor(redactor: ((text: string) => string) | null): void {
     this.captureRedactor = redactor;
   }
 
-  private redactCapture(value: string | undefined): string | undefined {
-    if (value === undefined || this.captureRedactor === null) return value;
+  private redactCapture(value: string | null): string | null;
+  private redactCapture(value: string | undefined): string | undefined;
+  private redactCapture(value: string | null | undefined): string | null | undefined {
+    if (value === undefined || value === null || this.captureRedactor === null) return value;
     return this.captureRedactor(value);
   }
 
@@ -256,7 +259,10 @@ export class ShadowingDB {
       VALUES (?, ?)
       RETURNING *
     `);
-    return this.mapTask(stmt.get(title, description ?? null) as RawTask);
+    return this.mapTask(stmt.get(
+      this.redactCapture(title),
+      this.redactCapture(description) ?? null,
+    ) as RawTask);
   }
 
   getTask(id: string): Task | null {
@@ -287,8 +293,8 @@ export class ShadowingDB {
     const fields: string[] = [];
     const values: unknown[] = [];
 
-    if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
-    if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+    if (updates.title !== undefined) { fields.push('title = ?'); values.push(this.redactCapture(updates.title)); }
+    if (updates.description !== undefined) { fields.push('description = ?'); values.push(this.redactCapture(updates.description)); }
     if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
     fields.push("updated_at = datetime('now')");
 

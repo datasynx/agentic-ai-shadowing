@@ -23,6 +23,7 @@
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run lint && npm run test && npm run build"
   },
@@ -46,7 +47,10 @@
     "type": "git",
     "url": "git+https://github.com/datasynx/agentic-ai-shadowing.git"
   },
-  "homepage": "https://www.linkedin.com/company/datasynx-ai/",
+  "bugs": {
+    "url": "https://github.com/datasynx/agentic-ai-shadowing/issues"
+  },
+  "homepage": "https://datasynx.github.io/agentic-ai-shadowing/",
   "license": "MIT",
   "publishConfig": {
     "access": "public",

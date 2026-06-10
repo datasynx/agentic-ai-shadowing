@@ -790,11 +790,22 @@ No. Observation is explicitly started by the employee, governed by consent and e
 ## Development
 
 ```bash
-npm run dev    # tsx src/cli.ts
-npm run test   # vitest (1179 tests, 51 test files)
-npm run lint   # tsc --noEmit
-npm run build  # tsup
+npm run dev            # tsx src/cli.ts
+npm run test           # vitest
+npm run test:coverage  # vitest with coverage thresholds
+npm run lint           # tsc --noEmit (strict)
+npm run build          # tsup
 ```
+
+---
+
+## Contributing
+
+Contributions are welcome. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for setup,
+the quality gates (lint · test · coverage · build), and the Conventional-Commit
+workflow. By participating you agree to the
+[Code of Conduct](CODE_OF_CONDUCT.md). Found a security issue? Please report it
+privately — see [SECURITY.md](SECURITY.md).
 
 ---
 

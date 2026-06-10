@@ -45,6 +45,22 @@ jobs:
       - name: Test (vitest)
         run: npm test
 
+  coverage:
+    name: Coverage gate
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Test with coverage thresholds
+        # Fails if coverage of the testable core drops below the thresholds
+        # in vitest.config.ts (lines 87 / statements 85 / functions 88 / branches 78).
+        run: npm run test:coverage
+
   security:
     name: Audit & Licenses
     runs-on: ubuntu-latest

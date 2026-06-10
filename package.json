@@ -67,7 +67,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.6.0",
     "chokidar": "^5.0.0",
-    "commander": "^12.1.0",
+    "commander": "^15.0.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

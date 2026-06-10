@@ -131,8 +131,15 @@ optionales File-Watching (chokidar) — consent-gated, **off by default**. —
 - Harness-Adapter **CLI-first** (Fremd-Configs nie direkt schreiben)
 - Distributionspriorität: **Plugin > Registry > setup-hooks**
 
-## Offene Punkte (extern)
+## Offene Punkte (extern, als Issues getrackt)
 
-- Plugin-Marketplace-Submission + erster `mcp-publisher`-Registry-Lauf
-  (brauchen Owner-Accounts; laufen beim nächsten Release automatisch an)
-- Watch-Items: MCP SDK v2 GA, SEP-2640 (Skills over MCP), OpenClaw-Config-Churn
+- [#35](https://github.com/datasynx/agentic-ai-shadowing/issues/35) —
+  Plugin-Marketplace-Submission (braucht Owner-Account)
+- [#36](https://github.com/datasynx/agentic-ai-shadowing/issues/36) —
+  ersten `mcp-publisher`-Registry-Lauf verifizieren (OIDC, Owner-Setup)
+- [#37](https://github.com/datasynx/agentic-ai-shadowing/issues/37) —
+  Watch: MCP SDK v2 GA inkl. der aus #34 verschobenen Tool-Konsolidierung
+- [#38](https://github.com/datasynx/agentic-ai-shadowing/issues/38) —
+  Watch: SEP-2640 (Skills over MCP) → Auswirkung auf die Publish-Pipeline
+- [#39](https://github.com/datasynx/agentic-ai-shadowing/issues/39) —
+  Watch: OpenClaw/Hermes/Codex-Config-Churn, CLI-first-Adapter aktuell halten

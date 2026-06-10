@@ -519,20 +519,55 @@ CLI (Commander.js — 27 Commands)
 
 ## Claude Code Integration
 
-### Plugin (recommended)
+Drive Shadowing straight from a Claude Code conversation — start and complete
+tasks, generate and review SOPs, export — without leaving the chat. Full
+walkthrough: **[docs/CLAUDE_CODE.md](docs/CLAUDE_CODE.md)**.
 
-The repository ships a Claude Code plugin under [`plugin/`](plugin/) that bundles
-the MCP server registration, the observation hooks, and a skill that teaches
-Claude when to track tasks — one install, no manual settings edits, cleanly
-removable:
+### Get started in two steps
+
+**1. Install the plugin** (recommended — bundles the MCP server, the
+observation hooks, and a skill that teaches Claude when to track tasks). In a
+Claude Code session:
 
 ```
-/plugin install shadowing
+/plugin marketplace add datasynx/claude-plugins
+/plugin install shadowing@datasynx
 ```
 
-(Until the marketplace listing is live, install from a local checkout with
-`claude --plugin-dir ./plugin`.) The zero-dependency alternative remains
-`shadowing setup-hooks`; both use identical hook commands, so Claude Code's
+The plugin launches the server via `npx`, so no separate global install is
+needed. Restart Claude Code when prompted so the MCP server and hooks load.
+
+**2. Initialize the local database** (one-time, in your terminal):
+
+```bash
+npx @datasynx/agentic-ai-shadowing init
+export ANTHROPIC_API_KEY=sk-ant-...   # only needed when you generate SOPs
+```
+
+That's it. Now just talk to Claude:
+
+> "Start a task called *Onboard new vendor in SAP*."
+> *…you do the work, narrating or letting the hooks observe…*
+> "Complete the task and turn it into an SOP."
+> "List my approved SOPs" · "Show SOP a3f8c210" · "Export all approved SOPs."
+
+Verify the server is connected anytime with `/mcp` inside the session (it lists
+`shadowing` with its tool count).
+
+### Connect the MCP server manually (without the plugin)
+
+If you only want the MCP tools — no hooks, no skill — register the server
+directly. Install the package first so the `shadowing` binary is on `PATH`
+(`npm install -g @datasynx/agentic-ai-shadowing`), then:
+
+```bash
+claude mcp add --transport stdio shadowing -- shadowing mcp   # current project
+claude mcp add --transport stdio --scope user shadowing -- shadowing mcp  # all projects
+```
+
+Check it with `claude mcp list` / `claude mcp get shadowing`. The
+zero-dependency hooks-only alternative remains `shadowing setup-hooks`; the
+plugin and `setup-hooks` use identical hook commands, so Claude Code's
 duplicate-command deduplication prevents double execution if both are present.
 
 ### MCP Server (18 Tools)

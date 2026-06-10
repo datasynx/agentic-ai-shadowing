@@ -1,0 +1,63 @@
+name: Bug report
+description: Report something that isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please do **not** include secrets, tokens, or
+        personal data in logs or examples.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: "When I run `shadowing …`, I expected … but got …"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. shadowing init
+        2. shadowing …
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: Output of `shadowing --version` (or the npm version).
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - CLI
+        - MCP server (stdio)
+        - MCP server (HTTP)
+        - Web dashboard / REST API
+        - Export / anonymization
+        - Claude Code plugin / hooks
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS + Node version (`node --version`).
+      placeholder: "macOS 15 · Node 22.12"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Re-run with `LOG_LEVEL=debug` and paste relevant output (redact anything sensitive).
+      render: shell

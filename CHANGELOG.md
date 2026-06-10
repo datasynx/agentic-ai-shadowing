@@ -1,3 +1,15 @@
+# [2.0.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.3...v2.0.0) (2026-06-10)
+
+
+* feat(deps)!: require Node >= 22.12, upgrade zod 4 / commander 15 / inquirer 8 ([19920e3](https://github.com/datasynx/agentic-ai-shadowing/commit/19920e34fef11d4ecd11b683912982bfa833e8b8))
+
+
+### BREAKING CHANGES
+
+* Node.js >= 22.12.0 is now required (Node 20 is EOL).
+
+https://claude.ai/code/session_01EBjXR9PCj5kGRvBYoj4Xp1
+
 ## [1.12.3](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.2...v1.12.3) (2026-06-10)
 
 

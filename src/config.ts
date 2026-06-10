@@ -10,7 +10,7 @@ const log = getLogger('config');
 // ── Config Schema (Zod) ─────────────────────────────────────────────────────
 
 const AnonymizationSchema = z.object({
-  custom_replacements: z.record(z.string()).default({}),
+  custom_replacements: z.record(z.string(), z.string()).default({}),
   redact_emails: z.boolean().default(true),
   redact_ips: z.boolean().default(true),
   redact_urls: z.boolean().default(true),
@@ -18,7 +18,7 @@ const AnonymizationSchema = z.object({
   redact_file_paths: z.boolean().default(true),
   redact_high_entropy: z.boolean().default(true),
   redact_on_capture: z.boolean().default(true),
-}).default({});
+}).prefault({});
 
 const SOPGenerationSchema = z.object({
   model: z.string().min(1).default('claude-sonnet-4-20250514'),
@@ -30,13 +30,13 @@ const SOPGenerationSchema = z.object({
   base_url: z.string().url().nullable().default(null),
   api_key_env: z.string().min(1).default('ANTHROPIC_API_KEY'),
   use_structured_output: z.boolean().default(true),
-}).default({});
+}).prefault({});
 
 const MetricsWeightsSchema = z.object({
   consistency: z.number().min(0).max(1).default(0.35),
   maturity: z.number().min(0).max(1).default(0.35),
   freshness: z.number().min(0).max(1).default(0.30),
-}).default({});
+}).prefault({});
 
 export const ConfigSchema = z.object({
   version: z.string().default('1.0.0'),
@@ -53,7 +53,7 @@ export const ConfigSchema = z.object({
   sop_generation: SOPGenerationSchema,
   metrics: z.object({
     quality_score_weights: MetricsWeightsSchema,
-  }).default({}),
+  }).prefault({}),
 });
 
 export type ValidatedConfig = z.infer<typeof ConfigSchema>;

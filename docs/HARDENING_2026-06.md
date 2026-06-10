@@ -186,3 +186,18 @@ optionales File-Watching (chokidar) — consent-gated, **off by default**. —
   `cartography-check.ts` bleibt als dokumentierte CLI-Guidance-Ausnahme.
 - **`docs/ENTERPRISE_TASKS.md`**: Status-Abgleich — alle 14 Tasks des
   Evaluation-Reports sind umgesetzt und referenziert.
+
+### Runde 3: Dependency-Modernisierung → v2.0.0
+
+- **Node 20 gedroppt** (EOL seit 2026-04-30): `engines.node >= 22.12.0`,
+  CI-Matrix `22/24`. Auslöser: commander 15 verlangt ≥ 22.12 — ein Paket,
+  das Node-20-Support verspricht, dessen Deps aber 22.12 voraussetzen, wäre
+  unehrliche Metadata. **Breaking Change → Major-Release.**
+- **Dependabot-Welle als ein atomarer Commit** statt sechs einzelner PRs
+  (vermeidet sequenzielle Lockfile-Rebases): zod 4.4 (Migration:
+  `z.record(key, value)`, `.default({})` → `.prefault({})`),
+  commander 15, @inquirer/prompts 8.5, upload-artifact v7, Minor/Patch-Welle
+  via `npm update`. Die PRs #40–#45 wurden als superseded geschlossen.
+- **`@types/node` bewusst auf ^22 gepinnt** (= älteste unterstützte
+  Runtime) + Dependabot-Ignore für Majors: neuere Typen würden tsc APIs
+  durchwinken, die auf der Mindest-Node nicht existieren.

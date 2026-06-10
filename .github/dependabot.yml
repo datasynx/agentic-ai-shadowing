@@ -21,3 +21,9 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # @types/node must track the OLDEST supported runtime (engines.node),
+      # not the newest — newer majors would let tsc accept APIs that don't
+      # exist on the minimum supported Node. Bump manually with engines.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]

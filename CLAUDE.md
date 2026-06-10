@@ -4,7 +4,7 @@ Observes employee tasks, generates SOPs (Standard Operating Procedures) — full
 
 ## Tech Stack
 
-TypeScript 5.7+ strict, ESM only, Node 20+
+TypeScript 5.7+ strict, ESM only, Node 22+
 @anthropic-ai/sdk + better-sqlite3 + commander + @inquirer/prompts + zod
 Build: tsup | Test: vitest | Dev: tsx
 

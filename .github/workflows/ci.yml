@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       - name: Type check (tsc --noEmit)
@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['20', '22', '24']
+        node: ['22', '24']
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       - name: Dependency Audit (production tree — what consumers install)
@@ -72,7 +72,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       - name: Build
@@ -91,13 +91,13 @@ jobs:
       - name: Generate SBOM (CycloneDX)
         run: npm sbom --sbom-format cyclonedx > sbom-cyclonedx.json || true
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
           retention-days: 7
       - name: Upload SBOM
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom-cyclonedx.json

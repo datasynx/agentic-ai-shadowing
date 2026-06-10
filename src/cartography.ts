@@ -7,7 +7,7 @@ const NodeSchema = z.object({
   id: z.string(),
   label: z.string(),
   type: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const EdgeSchema = z.object({
@@ -20,7 +20,7 @@ const EdgeSchema = z.object({
 const GraphSchema = z.object({
   nodes: z.array(NodeSchema),
   edges: z.array(EdgeSchema),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type CartographyNode = z.infer<typeof NodeSchema>;
@@ -31,7 +31,7 @@ export type CartographyGraph = z.infer<typeof GraphSchema>;
 
 const JGFNodeSchema = z.object({
   label: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const JGFEdgeSchema = z.object({
@@ -39,7 +39,7 @@ const JGFEdgeSchema = z.object({
   target: z.string(),
   relation: z.string().optional(),
   label: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const JGFGraphSchema = z.object({
@@ -47,9 +47,9 @@ const JGFGraphSchema = z.object({
     type: z.string().optional(),
     label: z.string().optional(),
     directed: z.boolean().optional(),
-    nodes: z.record(JGFNodeSchema),
+    nodes: z.record(z.string(), JGFNodeSchema),
     edges: z.array(JGFEdgeSchema).optional().default([]),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   }),
 });
 

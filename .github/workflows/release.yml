@@ -46,7 +46,7 @@ jobs:
       - name: Generate SBOM
         run: npm sbom --sbom-format cyclonedx > sbom-cyclonedx.json || true
       - name: Upload SBOM
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom-cyclonedx.json

@@ -164,7 +164,7 @@ Shadowing detects windows and shell history natively on **Linux**, **macOS**, an
 
 ## Requirements
 
-- **Node.js >= 20** (Linux, macOS, or Windows)
+- **Node.js >= 22.12** (Linux, macOS, or Windows)
 - **`ANTHROPIC_API_KEY`** environment variable — required **only for SOP generation**. Task tracking, observation, export, the dashboard, and metrics all work without it; you only need a key when you ask Claude to turn a task into an SOP.
 - **[@datasynx/agentic-ai-cartography](https://github.com/datasynx/agentic-ai-cartography)** (optional, for infrastructure context)
 

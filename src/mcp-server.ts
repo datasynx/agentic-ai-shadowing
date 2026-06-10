@@ -598,7 +598,7 @@ const TOOL_REGISTRATIONS: ToolRegistration[] = [
       description: z.string().describe('Description of the observed action'),
       command: z.string().optional().describe('Command that was executed (for shell/git sources)'),
       file_path: z.string().optional().describe('File path (for file source)'),
-      metadata: z.record(z.unknown()).optional().describe('Additional metadata as key-value pairs'),
+      metadata: z.record(z.string(), z.unknown()).optional().describe('Additional metadata as key-value pairs'),
     },
     annotations: WRITE,
     outputSchema: ObjectResultSchema,

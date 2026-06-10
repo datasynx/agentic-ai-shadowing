@@ -136,10 +136,34 @@ optionales File-Watching (chokidar) — consent-gated, **off by default**. —
 - [#35](https://github.com/datasynx/agentic-ai-shadowing/issues/35) —
   Plugin-Marketplace-Submission (braucht Owner-Account)
 - [#36](https://github.com/datasynx/agentic-ai-shadowing/issues/36) —
-  ersten `mcp-publisher`-Registry-Lauf verifizieren (OIDC, Owner-Setup)
+  ✅ erledigt (2026-06-10): erster Lauf (v1.12.1) war still mit HTTP 422
+  fehlgeschlagen (`description` > 100 Zeichen). Fix in `d4b2690`
+  (Description gekürzt + Regressionstest in `test/server-json.test.ts`),
+  v1.12.2 ist erfolgreich in der MCP Registry publiziert.
 - [#37](https://github.com/datasynx/agentic-ai-shadowing/issues/37) —
   Watch: MCP SDK v2 GA inkl. der aus #34 verschobenen Tool-Konsolidierung
 - [#38](https://github.com/datasynx/agentic-ai-shadowing/issues/38) —
   Watch: SEP-2640 (Skills over MCP) → Auswirkung auf die Publish-Pipeline
 - [#39](https://github.com/datasynx/agentic-ai-shadowing/issues/39) —
   Watch: OpenClaw/Hermes/Codex-Config-Churn, CLI-first-Adapter aktuell halten
+
+---
+
+## Nachtrag 2026-06-10 — CI/CD-Wartung
+
+- **#36 abgeschlossen** (siehe oben): MCP-Registry-Publish verifiziert; der
+  Registry-Step emittiert bei Fehlschlag jetzt eine `::warning::`-Annotation
+  auf der Run-Summary, statt (wie beim ersten Lauf) per `continue-on-error`
+  vollständig still zu bleiben. — `.github/workflows/release.yml`.
+- **Node-20-Runner-Deprecation** (Zwangsumstellung auf Node 24 ab
+  2026-06-16): alle First-Party-Actions auf die Node-24-Majors gehoben —
+  `checkout@v6`, `setup-node@v6`, `upload-artifact@v6`, `configure-pages@v6`,
+  `upload-pages-artifact@v5`, `deploy-pages@v5`. —
+  `.github/workflows/{ci,release,pages}.yml`.
+- **Node 24 (aktuelles LTS) in die CI-Test-Matrix** aufgenommen (`20/22/24`);
+  Quality-/Build-Jobs bleiben bewusst auf Node 20 (= `engines`-Minimum).
+- **`bin`-Pfad in `package.json` normalisiert** (`./dist/cli.js` →
+  `dist/cli.js`): beseitigt die irreführende `npm warn publish
+  "bin[shadowing]" … invalid and removed`-Warnung. Das publizierte Paket war
+  funktional nie betroffen (verifiziert: `npx @datasynx/agentic-ai-shadowing@1.12.2
+  --version` → `1.12.2`, `bin` im Registry-Manifest vorhanden).

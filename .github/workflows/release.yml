@@ -28,11 +28,11 @@ jobs:
       # (the `secrets` context is not available in step-level `if`).
       HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22' # semantic-release v25 requires Node >= 22.14
           cache: 'npm'
@@ -46,7 +46,7 @@ jobs:
       - name: Generate SBOM
         run: npm sbom --sbom-format cyclonedx > sbom-cyclonedx.json || true
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom
           path: sbom-cyclonedx.json
@@ -63,6 +63,9 @@ jobs:
       # Publish the server.json manifest to the official MCP Registry (#32).
       # Runs only when semantic-release actually cut a release (tag at HEAD);
       # non-blocking so a registry outage can never fail the npm release.
+      # On failure, emit a ::warning:: annotation so the failure is visible on
+      # the run summary — continue-on-error alone swallowed the first failed
+      # publish entirely (#36).
       - name: Publish to MCP Registry
         if: env.HAS_NPM_TOKEN == 'true'
         continue-on-error: true
@@ -71,6 +74,7 @@ jobs:
             echo "::notice::No release tag at HEAD — skipping MCP Registry publish."
             exit 0
           fi
+          trap 'echo "::warning title=MCP Registry publish failed::mcp-publisher did not publish $(git tag --points-at HEAD) — the npm release is unaffected. Re-publish manually or with the next release."' ERR
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/').tar.gz" | tar xz mcp-publisher
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish

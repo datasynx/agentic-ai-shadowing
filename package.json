@@ -5,7 +5,7 @@
   "description": "Agentic AI Shadowing — observes tasks, generates SOPs, fully local and anonymized",
   "type": "module",
   "bin": {
-    "shadowing": "./dist/cli.js"
+    "shadowing": "dist/cli.js"
   },
   "exports": {
     ".": {

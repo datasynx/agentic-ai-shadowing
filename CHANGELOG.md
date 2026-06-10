@@ -1,3 +1,10 @@
+## [1.12.2](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.1...v1.12.2) (2026-06-10)
+
+
+### Bug Fixes
+
+* **mcp-registry:** shorten server.json description to registry limit ([#36](https://github.com/datasynx/agentic-ai-shadowing/issues/36)) ([d4b2690](https://github.com/datasynx/agentic-ai-shadowing/commit/d4b2690325d3ac0850a0a1edf7236e113906cfb7))
+
 ## [1.12.1](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.0...v1.12.1) (2026-06-10)
 
 

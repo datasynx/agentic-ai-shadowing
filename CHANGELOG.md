@@ -1,3 +1,10 @@
+## [1.12.3](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.2...v1.12.3) (2026-06-10)
+
+
+### Bug Fixes
+
+* **security:** enforce input limits at the DB layer, add CodeQL/Dependabot/SECURITY.md ([ff8cd23](https://github.com/datasynx/agentic-ai-shadowing/commit/ff8cd234c3e75a97770aa3d2ab507c022b48b5ed))
+
 ## [1.12.2](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.1...v1.12.2) (2026-06-10)
 
 

@@ -48,4 +48,6 @@ so a broken merge cannot ship a release.
 
 ## Tasks
 
-@plan.md
+Active work is tracked in **GitHub Issues**. Historical context:
+`docs/ENTERPRISE_TASKS.md` (enterprise-readiness tasks) and
+`docs/HARDENING_2026-06.md` (hardening log).

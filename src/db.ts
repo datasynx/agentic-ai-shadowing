@@ -10,6 +10,12 @@ import { getLogger } from './logger.js';
 
 const log = getLogger('db');
 
+// Input limits enforced at the DB layer (TASK-08); the REST API uses the
+// same values in its Zod schemas (src/ui-server.ts).
+const MAX_TITLE_CHARS = 500;
+const MAX_DESCRIPTION_CHARS = 10_000;
+const MAX_SOP_CONTENT_BYTES = 500_000;
+
 // ── Schema ───────────────────────────────────────────────────────────────────
 
 const SCHEMA = `
@@ -251,9 +257,51 @@ export class ShadowingDB {
     this.db.close();
   }
 
+  // ── Input limits (TASK-08) ───────────────────────────────────────────────
+  // Central enforcement at the DB layer so every entry path (CLI, REST API,
+  // MCP tools, hook handler) is covered, mirroring the redact-on-capture
+  // design. The REST API additionally validates via Zod for better 4xx
+  // messages; these guards are the backstop.
+
+  private validateTitle(title: string): void {
+    if (title.trim().length === 0) {
+      throw new ShadowingError('title must not be empty', 'validation_error');
+    }
+    if (title.length > MAX_TITLE_CHARS) {
+      throw new ShadowingError(
+        `title exceeds ${MAX_TITLE_CHARS} characters`,
+        'validation_error',
+        { length: title.length, max: MAX_TITLE_CHARS },
+      );
+    }
+  }
+
+  private validateDescription(description: string | null | undefined): void {
+    if (description != null && description.length > MAX_DESCRIPTION_CHARS) {
+      throw new ShadowingError(
+        `description exceeds ${MAX_DESCRIPTION_CHARS} characters`,
+        'validation_error',
+        { length: description.length, max: MAX_DESCRIPTION_CHARS },
+      );
+    }
+  }
+
+  private validateSOPContent(contentMd: string): void {
+    const bytes = Buffer.byteLength(contentMd, 'utf-8');
+    if (bytes > MAX_SOP_CONTENT_BYTES) {
+      throw new ShadowingError(
+        `content_md exceeds ${MAX_SOP_CONTENT_BYTES} bytes`,
+        'sop_content_too_large',
+        { bytes, max: MAX_SOP_CONTENT_BYTES },
+      );
+    }
+  }
+
   // ── Tasks ────────────────────────────────────────────────────────────────
 
   createTask(title: string, description?: string): Task {
+    this.validateTitle(title);
+    this.validateDescription(description);
     const stmt = this.db.prepare(`
       INSERT INTO tasks (title, description)
       VALUES (?, ?)
@@ -290,6 +338,8 @@ export class ShadowingDB {
   }
 
   updateTask(id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'status'>>): Task {
+    if (updates.title !== undefined) this.validateTitle(updates.title);
+    if (updates.description !== undefined) this.validateDescription(updates.description);
     const fields: string[] = [];
     const values: unknown[] = [];
 
@@ -391,6 +441,9 @@ export class ShadowingDB {
     ai_generated?: boolean;
     tags?: string[];
   }): SOP {
+    this.validateTitle(data.title);
+    this.validateDescription(data.description);
+    this.validateSOPContent(data.content_md);
     const stmt = this.db.prepare(`
       INSERT INTO sops (task_id, title, description, content_md, ai_generated)
       VALUES (?, ?, ?, ?, ?)
@@ -450,6 +503,9 @@ export class ShadowingDB {
   }
 
   updateSOP(id: string, updates: Partial<Pick<SOP, 'title' | 'description' | 'content_md'>>, changeSummary?: string): SOP {
+    if (updates.title !== undefined) this.validateTitle(updates.title);
+    if (updates.description !== undefined) this.validateDescription(updates.description);
+    if (updates.content_md !== undefined) this.validateSOPContent(updates.content_md);
     // Snapshot current version before updating content
     if (updates.content_md !== undefined) {
       const current = this.getSOP(id);

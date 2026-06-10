@@ -80,6 +80,8 @@ export function ensureCartography(): CartographyCheckResult {
   const result = checkCartographyInstalled();
 
   if (!result.installed) {
+    // CLI-facing installation guidance, not an operational log entry —
+    // intentionally raw stderr (see TASK-01 acceptance criteria).
     process.stderr.write(
       `agentic-ai-cartography is not installed.\n` +
       `Shadowing uses the nodes from agentic-ai-cartography as a foundation.\n` +

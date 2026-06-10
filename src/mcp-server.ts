@@ -12,6 +12,9 @@ import { calculateSOPMetrics } from './metrics.js';
 import { loadConfig, getDbPath } from './config.js';
 import { getPackageVersion } from './version.js';
 import type { ShadowingConfig, SOPStatus, TaskStatus } from './types.js';
+import { getLogger } from './logger.js';
+
+const log = getLogger('mcp-server');
 
 interface MCPToolDefinition {
   name: string;
@@ -951,9 +954,10 @@ export async function startMCPServer(opts?: StartMCPServerOptions): Promise<void
     const port = opts.port ?? 3848;
     const host = opts.host ?? '127.0.0.1';
     if (host !== '127.0.0.1' && host !== 'localhost' && !process.env['SHADOWING_MCP_TOKEN']) {
-      process.stderr.write(
-        'shadowing-mcp: refusing to bind a non-loopback host without SHADOWING_MCP_TOKEN set.\n' +
-        'Exposure beyond localhost without authentication is unsupported.\n',
+      log.error(
+        'refusing to bind a non-loopback host without SHADOWING_MCP_TOKEN set — ' +
+        'exposure beyond localhost without authentication is unsupported',
+        { host },
       );
       process.exitCode = 1;
       db.close();
@@ -961,7 +965,7 @@ export async function startMCPServer(opts?: StartMCPServerOptions): Promise<void
     }
     const server = createMcpHttpServer(db, config);
     server.listen(port, host, () => {
-      process.stderr.write(`shadowing-mcp: Streamable HTTP server on http://${host}:${port}/mcp (stateless)\n`);
+      log.info(`Streamable HTTP server on http://${host}:${port}/mcp (stateless)`);
     });
     return;
   }
@@ -977,5 +981,5 @@ export async function startMCPServer(opts?: StartMCPServerOptions): Promise<void
     process.exitCode = 0;
   });
 
-  process.stderr.write('shadowing-mcp: Server started (stdio)\n');
+  log.info('Server started (stdio)');
 }

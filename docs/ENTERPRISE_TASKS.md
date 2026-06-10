@@ -6,6 +6,29 @@
 
 ---
 
+## Status (2026-06-10): ✅ alle 14 Tasks umgesetzt
+
+| Task | Umsetzung |
+|------|-----------|
+| TASK-01 Structured Logging | `src/logger.ts` (NDJSON via `LOG_FORMAT=json`, `LOG_LEVEL`), migriert inkl. `mcp-server`/`config`; einzige bewusste Ausnahme: CLI-Guidance in `cartography-check.ts` |
+| TASK-02 SOP Audit-Trail | `audit_log`-Tabelle + Logging in `src/db.ts` |
+| TASK-03 API Response Size Limit | `response_too_large`-Guard in `src/sop-generator.ts` |
+| TASK-04 REST-API Auth | Bearer-Token (`SHADOWING_UI_TOKEN`/generiert) in `src/ui-server.ts` |
+| TASK-05 Rate-Limiting | Sliding-Window + 429/`Retry-After` in `src/ui-server.ts` |
+| TASK-06 Zentraler Error-Handler | zentrales Mapping inkl. `ShadowingError.httpStatus` in `src/ui-server.ts` |
+| TASK-07 PII-Redaktion-Logging | `RedactionSummary` in `src/anonymizer.ts`, aggregiert im Export-Manifest |
+| TASK-08 Input-Validierung | Zod-Limits in `src/ui-server.ts` **+ zentrale DB-Layer-Guards** in `src/db.ts` (Titel ≤ 500, Beschreibung ≤ 10 000, SOP-Content ≤ 500 000 Bytes; `test/db-input-limits.test.ts`) |
+| TASK-09 Concurrency-Tests | `test/db-concurrency.test.ts` |
+| TASK-10 API-Kosten-Tracking | `api_usage`-Tabelle, Stats-Aggregation |
+| TASK-11 Performance-Metriken | `duration_ms` in `api_usage` |
+| TASK-12 Error-Codes | `ShadowingError` + Code-Union in `src/errors.ts` |
+| TASK-13 UI/MCP-Negative-Tests | `test/mcp-server-negative.test.ts`, `test/ui-server-enterprise.test.ts` |
+| TASK-14 Request-Tracing | `X-Request-Id`-Generierung/-Propagation in `src/ui-server.ts` |
+
+Die folgende Spezifikation bleibt als historische Referenz erhalten.
+
+---
+
 ## TASK-01: Structured Logging mit Log-Levels und Timestamps einführen
 
 | Feld | Inhalt |

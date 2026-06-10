@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Keep the freshly bumped action majors current automatically (Node 24
+  # migration 2026-06; see docs/HARDENING_2026-06.md).
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    # One grouped PR for routine bumps; majors stay individual so breaking
+    # changes get reviewed on their own.
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]

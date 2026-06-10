@@ -167,3 +167,22 @@ optionales File-Watching (chokidar) — consent-gated, **off by default**. —
   "bin[shadowing]" … invalid and removed`-Warnung. Das publizierte Paket war
   funktional nie betroffen (verifiziert: `npx @datasynx/agentic-ai-shadowing@1.12.2
   --version` → `1.12.2`, `bin` im Registry-Manifest vorhanden).
+
+### Runde 2: Supply-Chain & Governance
+
+- **Dependabot** (`.github/dependabot.yml`): wöchentliche Updates für npm
+  (Minor/Patch gruppiert, Majors einzeln) und GitHub Actions — hält u. a.
+  die Node-24-Action-Pins automatisch aktuell.
+- **CodeQL-SAST** (`.github/workflows/codeql.yml`): `javascript-typescript`,
+  Push/PR auf `main` + wöchentlicher Schedule, `codeql-action@v4`.
+- **`SECURITY.md`**: Private Vulnerability Reporting, Support-Policy (nur
+  letztes Release), Scope-Hinweise (Redaction-Bypässe = high severity).
+- **TASK-08 vervollständigt**: Input-Limits jetzt zentral im DB-Layer
+  (`db.createTask/updateTask/createSOP/updateSOP`) statt nur in der
+  REST-API — deckt CLI, MCP und Hook-Handler ab. Neu:
+  `test/db-input-limits.test.ts` (13 Tests).
+- **TASK-01 vervollständigt**: letzte `process.stderr.write`-Reste in
+  `mcp-server.ts` und `config.ts` auf den strukturierten Logger migriert;
+  `cartography-check.ts` bleibt als dokumentierte CLI-Guidance-Ausnahme.
+- **`docs/ENTERPRISE_TASKS.md`**: Status-Abgleich — alle 14 Tasks des
+  Evaluation-Reports sind umgesetzt und referenziert.

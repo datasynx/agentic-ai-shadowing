@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { z } from 'zod';
 import type { ShadowingConfig } from './types.js';
+import { getLogger } from './logger.js';
+
+const log = getLogger('config');
 
 // ── Config Schema (Zod) ─────────────────────────────────────────────────────
 
@@ -138,9 +141,8 @@ export function loadConfig(): ShadowingConfig {
       return result.data as ShadowingConfig;
     }
     // Validation failed — log warning and fall back to merge with defaults
-    process.stderr.write(
-      `  Warning: Config validation failed: ${result.error.issues.map(i => i.message).join(', ')}\n` +
-      `  Using defaults for invalid fields.\n`,
+    log.warn(
+      `config validation failed: ${result.error.issues.map(i => i.message).join(', ')} — using defaults for invalid fields`,
     );
     const loaded = data as Partial<ShadowingConfig>;
     return {

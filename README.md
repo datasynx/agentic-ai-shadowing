@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/datasynx/agentic-ai-shadowing/main/docs/assets/datasynx-logo.png" alt="Datasynx" width="220" />
+
 # Datasynx Shadowing · `shadowing`
 
 ### The SOPs your team never has time to write.

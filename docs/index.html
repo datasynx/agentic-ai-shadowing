@@ -369,12 +369,39 @@ shadowing export --all</code></pre>
 
       <section id="cmd-integration">
         <h2>Integration</h2>
+
+        <h3>Use it from Claude Code</h3>
+        <p>
+          Drive Shadowing straight from a Claude Code conversation — start and
+          complete tasks, generate and review SOPs, export — without leaving the
+          chat. Two steps:
+        </p>
+        <p><strong>1.</strong> Install the plugin (bundles the MCP server, the
+          observation hooks, and a skill). In a Claude Code session:</p>
+        <pre><code>/plugin marketplace add datasynx/claude-plugins
+/plugin install shadowing@datasynx</code></pre>
+        <p><strong>2.</strong> Initialize the local database once, in your terminal:</p>
+        <pre><code>npx @datasynx/agentic-ai-shadowing init
+export ANTHROPIC_API_KEY=sk-ant-...   # only needed to generate SOPs</code></pre>
+        <p>Then just talk to Claude:</p>
+        <pre><code>"Start a task called 'Onboard new vendor in SAP'."
+… do the work …
+"Complete the task and turn it into an SOP."
+"List my approved SOPs."   "Export all approved SOPs."</code></pre>
+        <div class="alert alert-blue">
+          Full step-by-step guide (example prompts, manual <code>claude mcp add</code>
+          setup, troubleshooting):
+          <a href="https://github.com/datasynx/agentic-ai-shadowing/blob/main/docs/CLAUDE_CODE.md">docs/CLAUDE_CODE.md</a>.
+          Verify the connection anytime with <code>/mcp</code> inside a session.
+        </div>
+
+        <h3>CLI commands</h3>
         <table>
           <tr><th>Command</th><th>Description</th></tr>
           <tr><td><code>shadowing import-graph &lt;path&gt;</code></td><td>Import Cartography graph (JGF)</td></tr>
           <tr><td><code>shadowing infra [dir]</code></td><td>Extract infrastructure context</td></tr>
           <tr><td><code>shadowing mcp</code></td><td>Start MCP server (stdio transport)</td></tr>
-          <tr><td><code>shadowing setup-hooks</code></td><td>Configure Claude Code hooks + MCP</td></tr>
+          <tr><td><code>shadowing setup-hooks</code></td><td>Configure Claude Code hooks + MCP (no plugin)</td></tr>
           <tr><td><code>shadowing guide</code></td><td>Complete guide</td></tr>
         </table>
         <div class="alert alert-blue">

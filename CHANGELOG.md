@@ -1,3 +1,10 @@
+## [1.12.1](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.0...v1.12.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* enforce redact-on-capture for task titles/descriptions, structured SOP output in analyzer ([dc1319c](https://github.com/datasynx/agentic-ai-shadowing/commit/dc1319c3dfd667fc762df1165c2ab40071cbc405)), closes [20/#21](https://github.com/datasynx/agentic-ai-shadowing/issues/21) [#25](https://github.com/datasynx/agentic-ai-shadowing/issues/25)
+
 # [1.12.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.11.0...v1.12.0) (2026-06-09)
 
 

@@ -138,6 +138,56 @@ describe('redact-on-capture — task title and description', () => {
   });
 });
 
+describe('redact-on-capture — SOP title, description and content', () => {
+  // SOPs are created/edited via CLI ($EDITOR), MCP (shadowing_update_sop) and
+  // the web dashboard PUT route — all go through db.createSOP/updateSOP, so the
+  // redaction must live at the DB layer (PRODUCT_SPEC §6.4, issue #53).
+  it('redacts secrets and PII in createSOP', () => {
+    db.setCaptureRedactor(defaultRedactor());
+    const task = db.createTask('Deploy service');
+
+    const sop = db.createSOP(task.id, {
+      title: 'Onboarding for chef@firma.example',
+      description: 'Server 192.168.1.50',
+      content_md: '# Steps\nUse token ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8',
+    });
+
+    expect(sop.title).not.toContain('chef@firma.example');
+    expect(sop.title).toContain('[email@example.com]');
+    expect(sop.description).not.toContain('192.168.1.50');
+    expect(sop.content_md).not.toContain('ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8');
+    expect(sop.content_md).toContain('[github-token]');
+
+    // Verify at the DB level, not just the returned object
+    const stored = db.getSOP(sop.id);
+    expect(stored!.content_md).not.toContain('ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8');
+  });
+
+  it('redacts secrets in updateSOP (editor / dashboard edit path)', () => {
+    db.setCaptureRedactor(defaultRedactor());
+    const task = db.createTask('Deploy service');
+    const sop = db.createSOP(task.id, { title: 'Clean SOP', content_md: '# Steps' });
+
+    const updated = db.updateSOP(sop.id, {
+      content_md: '# Steps\nauth via Bearer sk-ant-api03-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789',
+    });
+
+    expect(updated.content_md).not.toContain('sk-ant-api03');
+    const stored = db.getSOP(sop.id);
+    expect(stored!.content_md).not.toContain('sk-ant-api03');
+  });
+
+  it('persists raw SOP data when no redactor is set (opt-out path)', () => {
+    const task = db.createTask('Deploy service');
+    const sop = db.createSOP(task.id, {
+      title: 'Mail jane.doe@example.org',
+      content_md: 'server 10.0.0.5',
+    });
+    expect(sop.title).toContain('jane.doe@example.org');
+    expect(sop.content_md).toContain('10.0.0.5');
+  });
+});
+
 describe('shadowing scrub — retroactive redaction', () => {
   it('scrubs previously raw observed actions and is idempotent', () => {
     // Write RAW data first (pre-redact-on-capture database)
@@ -174,5 +224,33 @@ describe('shadowing scrub — retroactive redaction', () => {
     expect(task!.description).not.toContain('10.0.0.5');
 
     expect(db.scrubTasks(redactor)).toBe(0);
+  });
+
+  it('scrubs SOP rows and historical version snapshots, idempotently', () => {
+    // Write RAW data (no redactor) — a pre-redact-on-capture database. The
+    // update creates a sop_versions snapshot holding the raw v1 content.
+    const task = db.createTask('Deploy service');
+    const sop = db.createSOP(task.id, {
+      title: 'SOP for jane.doe@example.org',
+      content_md: '# v1\nuse token ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8',
+    });
+    db.updateSOP(sop.id, { content_md: '# v2\nserver 10.0.0.5 affected' });
+
+    const anonymizer = new Anonymizer(getDefaultConfig().anonymization);
+    const redactor = (text: string): string => anonymizer.anonymize(text);
+
+    // 1 sops row (title + current content) + 1 sop_versions row (v1 snapshot)
+    expect(db.scrubSOPs(redactor)).toBe(2);
+
+    const stored = db.getSOP(sop.id);
+    expect(stored!.title).not.toContain('jane.doe@example.org');
+    expect(stored!.content_md).not.toContain('10.0.0.5');
+
+    const versions = db.getSOPVersions(sop.id);
+    expect(versions.map(v => v.content_md).join(' '))
+      .not.toContain('ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8');
+
+    // Second run changes nothing (idempotent)
+    expect(db.scrubSOPs(redactor)).toBe(0);
   });
 });

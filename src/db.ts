@@ -492,9 +492,9 @@ export class ShadowingDB {
         RETURNING *
       `).get(
         taskId,
-        data.title,
-        data.description ?? null,
-        data.content_md,
+        this.redactCapture(data.title),
+        this.redactCapture(data.description) ?? null,
+        this.redactCapture(data.content_md),
         data.ai_generated !== false ? 1 : 0,
       ) as RawSOP;
 
@@ -565,11 +565,11 @@ export class ShadowingDB {
       const fields: string[] = [];
       const values: unknown[] = [];
 
-      if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
-      if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+      if (updates.title !== undefined) { fields.push('title = ?'); values.push(this.redactCapture(updates.title)); }
+      if (updates.description !== undefined) { fields.push('description = ?'); values.push(this.redactCapture(updates.description)); }
       if (updates.content_md !== undefined) {
         fields.push('content_md = ?');
-        values.push(updates.content_md);
+        values.push(this.redactCapture(updates.content_md));
         fields.push('version = version + 1');
       }
       fields.push("updated_at = datetime('now')");
@@ -948,6 +948,53 @@ export class ShadowingDB {
         const description = row.description === null ? null : redactor(row.description);
         if (title !== row.title || description !== row.description) {
           update.run(title, description, row.id);
+          changed++;
+        }
+      }
+    });
+    tx();
+    return changed;
+  }
+
+  /**
+   * Re-apply redaction to SOP free-text — `sops` (title/description/content_md)
+   * and historical `sop_versions` snapshots (title/content_md). One-time cleanup
+   * for databases written before SOP redact-on-capture (see `shadowing scrub`).
+   * Idempotent; returns the total number of rows that changed.
+   */
+  scrubSOPs(redactor: (text: string) => string): number {
+    const sops = this.db.prepare(
+      'SELECT id, title, description, content_md FROM sops',
+    ).all() as Array<{ id: string; title: string; description: string | null; content_md: string }>;
+
+    const updateSop = this.db.prepare(
+      "UPDATE sops SET title = ?, description = ?, content_md = ?, updated_at = datetime('now') WHERE id = ?",
+    );
+
+    const versions = this.db.prepare(
+      'SELECT id, title, content_md FROM sop_versions',
+    ).all() as Array<{ id: string; title: string | null; content_md: string | null }>;
+
+    const updateVersion = this.db.prepare(
+      'UPDATE sop_versions SET title = ?, content_md = ? WHERE id = ?',
+    );
+
+    let changed = 0;
+    const tx = this.db.transaction(() => {
+      for (const row of sops) {
+        const title = redactor(row.title);
+        const description = row.description === null ? null : redactor(row.description);
+        const contentMd = redactor(row.content_md);
+        if (title !== row.title || description !== row.description || contentMd !== row.content_md) {
+          updateSop.run(title, description, contentMd, row.id);
+          changed++;
+        }
+      }
+      for (const row of versions) {
+        const title = row.title === null ? null : redactor(row.title);
+        const contentMd = row.content_md === null ? null : redactor(row.content_md);
+        if (title !== row.title || contentMd !== row.content_md) {
+          updateVersion.run(title, contentMd, row.id);
           changed++;
         }
       }

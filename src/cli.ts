@@ -1280,10 +1280,12 @@ program
 
     const actions = db.scrubObservedActions(redactor);
     const tasks = db.scrubTasks(redactor);
+    const sops = db.scrubSOPs(redactor);
 
     process.stderr.write(`\n  Scrub complete.\n`);
     process.stderr.write(`  Observed actions redacted: ${actions}\n`);
-    process.stderr.write(`  Task records redacted:     ${tasks}\n\n`);
+    process.stderr.write(`  Task records redacted:     ${tasks}\n`);
+    process.stderr.write(`  SOP records redacted:      ${sops}\n\n`);
     db.close();
   });
 

@@ -42,6 +42,17 @@ Kein Wildcard mehr: Same-Origin erlaubt, Cross-Origin standardmäßig 403,
 explizite Allowlist über `ui_allowed_origins`. Zusätzlich Bearer-Token-Pflicht
 auf allen `/api/*`-Routen. — `src/ui-server.ts`, `test/ui-server-cors.test.ts`.
 
+### [#48](https://github.com/datasynx/agentic-ai-shadowing/issues/48) — Dashboard-Bind-Host & Token-Leak über unauth. `/`
+Zwei LAN-Expositionslücken geschlossen: (1) Das Dashboard band an **alle**
+Interfaces (`server.listen(port)` ohne Host) — jetzt Default `127.0.0.1`, und ein
+Non-Loopback-Bind wird ohne `SHADOWING_UI_TOKEN` verweigert (spiegelt den
+MCP-Guard via `isLoopbackHost`/`bindRefusalReason`). (2) Der Auth-Token war in
+die unauthentifizierte `GET /`-HTML interpoliert (`window.__SHADOWING_TOKEN__`)
+— jetzt wird er über das **URL-Fragment** (`/#token=…`) ausgeliefert, das der
+Client in `sessionStorage` verschiebt und danach aus der URL entfernt; ein
+nacktes `GET /` leakt nichts mehr. — `src/cli.ts`, `src/ui-server.ts`,
+`src/dashboard-html.ts`, `test/ui-server*.test.ts`.
+
 ---
 
 ## P2 · Core-Modernisierung (v1.2–v1.5)

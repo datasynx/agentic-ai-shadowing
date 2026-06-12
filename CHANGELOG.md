@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.0...v2.0.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* replace deprecated default Claude model with claude-sonnet-4-6 ([#69](https://github.com/datasynx/agentic-ai-shadowing/issues/69)) ([4d17aab](https://github.com/datasynx/agentic-ai-shadowing/commit/4d17aab9eea9c72c7fdc68a982d190dccd1eb5c9))
+
 # [2.0.0](https://github.com/datasynx/agentic-ai-shadowing/compare/v1.12.3...v2.0.0) (2026-06-10)
 
 

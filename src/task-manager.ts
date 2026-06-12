@@ -46,11 +46,11 @@ export class TaskManager {
     return this.db.resumeTask(paused[0]!.id);
   }
 
-  completeTask(complexityRating?: number): { task: Task; duration: string } {
+  completeTask(complexityRating?: number, notes?: string): { task: Task; duration: string } {
     const active = this.db.getActiveTask();
     if (!active) throw new ShadowingError('No active task to complete.', 'no_active_task');
 
-    const task = this.db.completeTask(active.id);
+    const task = this.db.completeTask(active.id, notes);
 
     const sops = this.db.listSOPs().filter(s => s.task_id === task.id);
     for (const sop of sops) {

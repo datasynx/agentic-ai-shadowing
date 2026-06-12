@@ -309,14 +309,10 @@ export class MCPServer {
       }
 
       case 'shadowing_complete_task': {
-        const result = this.taskManager.completeTask(args['complexity_rating'] as number | undefined);
-        if (args['notes'] && result.task.description) {
-          this.db.updateTask(result.task.id, {
-            description: result.task.description + '\n' + (args['notes'] as string),
-          });
-        } else if (args['notes']) {
-          this.db.updateTask(result.task.id, { description: args['notes'] as string });
-        }
+        const result = this.taskManager.completeTask(
+          args['complexity_rating'] as number | undefined,
+          args['notes'] as string | undefined,
+        );
         return { success: true, task: result.task, duration: result.duration, message: `Task completed (${result.duration}).` };
       }
 
@@ -838,8 +834,8 @@ function registerReviewSopTool(server: McpServer, db: ShadowingDB): void {
       const decision = result.action === 'accept' ? (result.content?.['decision'] as string | undefined) : undefined;
 
       if (decision === 'approve') {
-        const approved = db.updateSOPStatus(sopId, 'approved');
-        db.logAudit({ entity_type: 'sop', entity_id: sopId, action: 'status_change', old_value: sop.status, new_value: 'approved', source: 'mcp-elicitation' });
+        // Audit is written atomically inside updateSOPStatus (#56).
+        const approved = db.updateSOPStatus(sopId, 'approved', { action: 'status_change', source: 'mcp-elicitation' });
         return wrap({ success: true, sop: approved, message: `SOP "${approved.title}" approved.` });
       }
 

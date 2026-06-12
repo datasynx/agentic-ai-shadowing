@@ -217,29 +217,18 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: 
         const body = await readBody(req);
         const parsed = UpdateSOPSchema.safeParse(JSON.parse(body));
         if (!parsed.success) { zodError(res, parsed.error); return; }
-        const oldSop = db.getSOP(id);
-        if (!oldSop) { notFound(res); return; }
-        const sop = db.updateSOP(id, parsed.data);
-        db.logAudit({
-          entity_type: 'sop', entity_id: id, action: 'update',
-          old_value: JSON.stringify({ title: oldSop.title, version: oldSop.version }),
-          new_value: JSON.stringify({ title: sop.title, version: sop.version }),
-          source: 'api',
-        });
+        if (!db.getSOP(id)) { notFound(res); return; }
+        // Audit is written atomically inside updateSOP (#56).
+        const sop = db.updateSOP(id, parsed.data, undefined, { action: 'update', source: 'api' });
         json(res, sop);
       } else if (path.match(/^\/api\/sops\/[a-f0-9]+\/status$/) && req.method === 'PUT') {
         const id = path.split('/')[3]!;
         const body = await readBody(req);
         const parsed = UpdateSOPStatusSchema.safeParse(JSON.parse(body));
         if (!parsed.success) { zodError(res, parsed.error); return; }
-        const oldSop = db.getSOP(id);
-        if (!oldSop) { notFound(res); return; }
-        const sop = db.updateSOPStatus(id, parsed.data.status as SOPStatus);
-        db.logAudit({
-          entity_type: 'sop', entity_id: id, action: 'status_change',
-          old_value: oldSop.status, new_value: parsed.data.status,
-          source: 'api',
-        });
+        if (!db.getSOP(id)) { notFound(res); return; }
+        // Audit is written atomically inside updateSOPStatus (#56).
+        const sop = db.updateSOPStatus(id, parsed.data.status as SOPStatus, { action: 'status_change', source: 'api' });
         json(res, sop);
       } else if (path.match(/^\/api\/sops\/[a-f0-9]+\/tags$/) && req.method === 'PUT') {
         const id = path.split('/')[3]!;

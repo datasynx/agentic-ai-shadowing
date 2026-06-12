@@ -331,8 +331,35 @@ describe('ShadowingDB — Coverage Gaps', () => {
       db.resumeTask(task.id);
 
       const completed = db.completeTask(task.id);
-      // Duration can be 0 or slightly negative due to SQLite datetime second-level precision
+      // Duration is clamped to >= 0 (#56) — sub-second SQLite rounding can no
+      // longer push it negative.
       expect(completed.duration_seconds).not.toBeNull();
+      expect(completed.duration_seconds!).toBeGreaterThanOrEqual(0);
+    });
+
+    it('completeTask clamps duration to 0 when paused time exceeds elapsed (#56)', () => {
+      const task = db.createTask('Clamp test');
+      // Force paused_total_seconds far larger than any elapsed wall-clock time.
+      // Reaching into the raw handle keeps the test deterministic without
+      // waiting real seconds.
+      (db as unknown as { db: { prepare(sql: string): { run(...a: unknown[]): void } } })
+        .db.prepare('UPDATE tasks SET paused_total_seconds = 999999 WHERE id = ?').run(task.id);
+
+      const completed = db.completeTask(task.id);
+      expect(completed.duration_seconds).toBe(0);
+    });
+
+    it('completeTask appends redacted notes to description in a single write (#56)', () => {
+      const task = db.createTask('Notes test', 'initial');
+      const completed = db.completeTask(task.id, 'follow-up note');
+      expect(completed.description).toBe('initial\nfollow-up note');
+      expect(completed.status).toBe('completed');
+    });
+
+    it('completeTask without notes leaves description unchanged (#56)', () => {
+      const task = db.createTask('No notes', 'keep me');
+      const completed = db.completeTask(task.id);
+      expect(completed.description).toBe('keep me');
     });
   });
 
@@ -534,6 +561,64 @@ describe('ShadowingDB — Coverage Gaps', () => {
       db.initialize(); // re-init
       const tasks = db.listTasks();
       expect(tasks.some(t => t.title === 'Persist test')).toBe(true);
+    });
+  });
+
+  // ── Atomic audit param (#56) ────────────────────────────────────────────
+
+  describe('atomic audit param', () => {
+    it('updateSOP writes an audit row in-transaction when audit is passed', () => {
+      const { sop } = createCompletedTaskWithSOP();
+      db.updateSOP(sop.id, { content_md: '# Changed' }, undefined, { action: 'update', source: 'api' });
+      const logs = db.getAuditLog('sop', sop.id);
+      expect(logs).toHaveLength(1);
+      expect(logs[0]!.action).toBe('update');
+      expect(logs[0]!.source).toBe('api');
+      expect(JSON.parse(logs[0]!.new_value!).version).toBe(2);
+    });
+
+    it('updateSOP writes no audit row when audit is omitted', () => {
+      const { sop } = createCompletedTaskWithSOP();
+      db.updateSOP(sop.id, { content_md: '# Changed' });
+      expect(db.getAuditLog('sop', sop.id)).toHaveLength(0);
+    });
+
+    it('updateSOPStatus writes an audit row in-transaction when audit is passed', () => {
+      const { sop } = createCompletedTaskWithSOP();
+      db.updateSOPStatus(sop.id, 'reviewed', { action: 'status_change', source: 'mcp-elicitation' });
+      const logs = db.getAuditLog('sop', sop.id);
+      expect(logs).toHaveLength(1);
+      expect(logs[0]!.action).toBe('status_change');
+      expect(logs[0]!.old_value).toBe('draft');
+      expect(logs[0]!.new_value).toBe('reviewed');
+      expect(logs[0]!.source).toBe('mcp-elicitation');
+    });
+
+    it('updateSOPStatus writes no audit row when audit is omitted', () => {
+      const { sop } = createCompletedTaskWithSOP();
+      db.updateSOPStatus(sop.id, 'reviewed');
+      expect(db.getAuditLog('sop', sop.id)).toHaveLength(0);
+    });
+  });
+
+  // ── Pause/resume error semantics preserved under transactions (#56) ──────
+
+  describe('pause/resume error semantics', () => {
+    it('pausing a non-active task still throws task_not_active', () => {
+      const task = db.createTask('Pause guard');
+      db.pauseTask(task.id);
+      expect(() => db.pauseTask(task.id)).toThrowError(/not active/);
+    });
+
+    it('resuming a non-paused task still throws task_not_paused', () => {
+      const task = db.createTask('Resume guard');
+      expect(() => db.resumeTask(task.id)).toThrowError(/not paused/);
+    });
+
+    it('completing an already-completed task still throws', () => {
+      const task = db.createTask('Complete guard');
+      db.completeTask(task.id);
+      expect(() => db.completeTask(task.id)).toThrowError(/already completed/);
     });
   });
 });

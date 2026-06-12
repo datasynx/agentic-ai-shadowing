@@ -179,6 +179,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_single_active_observation
 
 // ── ShadowingDB ──────────────────────────────────────────────────────────────
 
+/**
+ * Audit provenance a mutating method writes in the SAME transaction as the
+ * mutation it records (see #56). The method derives `old_value`/`new_value`
+ * from the row state it already reads; the caller supplies only what it knows:
+ * the triggering `action` and the `source` channel.
+ */
+export interface AuditContext {
+  action: string;
+  source: string;
+}
+
 export class ShadowingDB {
   private db: Database.Database;
   private captureRedactor: ((text: string) => string) | null = null;
@@ -362,73 +373,94 @@ export class ShadowingDB {
     return this.mapTask(row);
   }
 
-  completeTask(id: string): Task {
-    const current = this.getTask(id);
-    if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
-    if (current.status === 'completed') throw new ShadowingError(`Task ${id} is already completed`, 'task_already_completed', { taskId: id });
-    if (current.status === 'cancelled') throw new ShadowingError(`Task ${id} is cancelled`, 'task_cancelled', { taskId: id });
+  completeTask(id: string, notes?: string): Task {
+    // Atomic guard + write: the status read and the UPDATE run in one
+    // immediate transaction so concurrent CLI/MCP/UI processes can't interleave
+    // between them (#56).
+    const run = this.db.transaction(() => {
+      const current = this.getTask(id);
+      if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+      if (current.status === 'completed') throw new ShadowingError(`Task ${id} is already completed`, 'task_already_completed', { taskId: id });
+      if (current.status === 'cancelled') throw new ShadowingError(`Task ${id} is cancelled`, 'task_cancelled', { taskId: id });
 
-    // Duration = wall-clock time - total paused time (including current pause if paused)
-    const stmt = this.db.prepare(`
-      UPDATE tasks
-      SET status = 'completed',
-          completed_at = datetime('now'),
-          duration_seconds = ROUND((julianday('now') - julianday(started_at)) * 86400)
-            - paused_total_seconds
-            - CASE WHEN paused_at IS NOT NULL
-                THEN ROUND((julianday('now') - julianday(paused_at)) * 86400)
-                ELSE 0
-              END,
-          paused_at = NULL,
-          updated_at = datetime('now')
-      WHERE id = ?
-      RETURNING *
-    `);
-    const row = stmt.get(id) as RawTask | undefined;
-    if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
-    return this.mapTask(row);
+      // Optional completion notes are appended to the description in the SAME
+      // write (no second updateTask round-trip); redacted on capture like all
+      // free text.
+      let description = current.description;
+      if (notes) {
+        const safe = this.redactCapture(notes);
+        description = description ? `${description}\n${safe}` : safe;
+      }
+
+      // Duration = wall-clock time - total paused time (including current pause
+      // if paused), clamped to 0 so sub-second rounding can't go negative (#56).
+      const row = this.db.prepare(`
+        UPDATE tasks
+        SET status = 'completed',
+            completed_at = datetime('now'),
+            duration_seconds = MAX(0,
+              ROUND((julianday('now') - julianday(started_at)) * 86400)
+              - paused_total_seconds
+              - CASE WHEN paused_at IS NOT NULL
+                  THEN ROUND((julianday('now') - julianday(paused_at)) * 86400)
+                  ELSE 0
+                END),
+            ${notes ? 'description = ?,' : ''}
+            paused_at = NULL,
+            updated_at = datetime('now')
+        WHERE id = ?
+        RETURNING *
+      `).get(...(notes ? [description, id] : [id])) as RawTask | undefined;
+      if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+      return this.mapTask(row);
+    });
+    return run.immediate();
   }
 
   pauseTask(id: string): Task {
-    const current = this.getTask(id);
-    if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
-    if (current.status !== 'active') throw new ShadowingError(`Task ${id} is not active (status: ${current.status})`, 'task_not_active', { taskId: id, status: current.status });
+    const run = this.db.transaction(() => {
+      const current = this.getTask(id);
+      if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+      if (current.status !== 'active') throw new ShadowingError(`Task ${id} is not active (status: ${current.status})`, 'task_not_active', { taskId: id, status: current.status });
 
-    const stmt = this.db.prepare(`
-      UPDATE tasks
-      SET status = 'paused',
-          paused_at = datetime('now'),
-          updated_at = datetime('now')
-      WHERE id = ?
-      RETURNING *
-    `);
-    const row = stmt.get(id) as RawTask | undefined;
-    if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
-    return this.mapTask(row);
+      const row = this.db.prepare(`
+        UPDATE tasks
+        SET status = 'paused',
+            paused_at = datetime('now'),
+            updated_at = datetime('now')
+        WHERE id = ?
+        RETURNING *
+      `).get(id) as RawTask | undefined;
+      if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+      return this.mapTask(row);
+    });
+    return run.immediate();
   }
 
   resumeTask(id: string): Task {
-    const current = this.getTask(id);
-    if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
-    if (current.status !== 'paused') throw new ShadowingError(`Task ${id} is not paused (status: ${current.status})`, 'task_not_paused', { taskId: id, status: current.status });
+    const run = this.db.transaction(() => {
+      const current = this.getTask(id);
+      if (!current) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+      if (current.status !== 'paused') throw new ShadowingError(`Task ${id} is not paused (status: ${current.status})`, 'task_not_paused', { taskId: id, status: current.status });
 
-    // Add the pause gap to paused_total_seconds, then clear paused_at
-    const stmt = this.db.prepare(`
-      UPDATE tasks
-      SET status = 'active',
-          paused_total_seconds = paused_total_seconds +
-            CASE WHEN paused_at IS NOT NULL
-              THEN ROUND((julianday('now') - julianday(paused_at)) * 86400)
-              ELSE 0
-            END,
-          paused_at = NULL,
-          updated_at = datetime('now')
-      WHERE id = ?
-      RETURNING *
-    `);
-    const row = stmt.get(id) as RawTask | undefined;
-    if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
-    return this.mapTask(row);
+      // Add the pause gap to paused_total_seconds, then clear paused_at
+      const row = this.db.prepare(`
+        UPDATE tasks
+        SET status = 'active',
+            paused_total_seconds = paused_total_seconds +
+              CASE WHEN paused_at IS NOT NULL
+                THEN ROUND((julianday('now') - julianday(paused_at)) * 86400)
+                ELSE 0
+              END,
+            paused_at = NULL,
+            updated_at = datetime('now')
+        WHERE id = ?
+        RETURNING *
+      `).get(id) as RawTask | undefined;
+      if (!row) throw new ShadowingError(`Task ${id} not found`, 'task_not_found', { taskId: id });
+      return this.mapTask(row);
+    });
+    return run.immediate();
   }
 
   cancelTask(id: string): Task {
@@ -451,28 +483,32 @@ export class ShadowingDB {
     this.validateTitle(data.title);
     this.validateDescription(data.description);
     this.validateSOPContent(data.content_md);
-    const stmt = this.db.prepare(`
-      INSERT INTO sops (task_id, title, description, content_md, ai_generated)
-      VALUES (?, ?, ?, ?, ?)
-      RETURNING *
-    `);
-    const row = stmt.get(
-      taskId,
-      data.title,
-      data.description ?? null,
-      data.content_md,
-      data.ai_generated !== false ? 1 : 0,
-    ) as RawSOP;
+    // Atomic: the SOP row and its tags commit together — a mid-loop failure
+    // must not leave a SOP with a partial tag set (#56).
+    const create = this.db.transaction(() => {
+      const row = this.db.prepare(`
+        INSERT INTO sops (task_id, title, description, content_md, ai_generated)
+        VALUES (?, ?, ?, ?, ?)
+        RETURNING *
+      `).get(
+        taskId,
+        data.title,
+        data.description ?? null,
+        data.content_md,
+        data.ai_generated !== false ? 1 : 0,
+      ) as RawSOP;
 
-    const sop = this.mapSOP(row);
+      const sop = this.mapSOP(row);
 
-    if (data.tags) {
-      for (const tag of data.tags) {
-        this.addTagToSOP(sop.id, tag, data.ai_generated !== false);
+      if (data.tags) {
+        for (const tag of data.tags) {
+          this.addTagToSOP(sop.id, tag, data.ai_generated !== false);
+        }
       }
-    }
 
-    return sop;
+      return sop;
+    });
+    return create();
   }
 
   getSOP(id: string): SOP | null {
@@ -509,49 +545,74 @@ export class ShadowingDB {
     return rows.map(r => this.mapSOP(r));
   }
 
-  updateSOP(id: string, updates: Partial<Pick<SOP, 'title' | 'description' | 'content_md'>>, changeSummary?: string): SOP {
+  updateSOP(id: string, updates: Partial<Pick<SOP, 'title' | 'description' | 'content_md'>>, changeSummary?: string, audit?: AuditContext): SOP {
     if (updates.title !== undefined) this.validateTitle(updates.title);
     if (updates.description !== undefined) this.validateDescription(updates.description);
     if (updates.content_md !== undefined) this.validateSOPContent(updates.content_md);
-    // Snapshot current version before updating content
-    if (updates.content_md !== undefined) {
+    // Atomic: the version snapshot, the version-bump UPDATE, and the optional
+    // audit row all commit together — a crash between them must not desync
+    // version history or drop the audit trail (#56).
+    const apply = this.db.transaction(() => {
       const current = this.getSOP(id);
-      if (current) {
+      // Snapshot current version before updating content
+      if (updates.content_md !== undefined && current) {
         this.db.prepare(`
           INSERT INTO sop_versions (sop_id, version, title, content_md, change_summary)
           VALUES (?, ?, ?, ?, ?)
         `).run(id, current.version, current.title, current.content_md, changeSummary ?? null);
       }
-    }
 
-    const fields: string[] = [];
-    const values: unknown[] = [];
+      const fields: string[] = [];
+      const values: unknown[] = [];
 
-    if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
-    if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
-    if (updates.content_md !== undefined) {
-      fields.push('content_md = ?');
-      values.push(updates.content_md);
-      fields.push('version = version + 1');
-    }
-    fields.push("updated_at = datetime('now')");
+      if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
+      if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+      if (updates.content_md !== undefined) {
+        fields.push('content_md = ?');
+        values.push(updates.content_md);
+        fields.push('version = version + 1');
+      }
+      fields.push("updated_at = datetime('now')");
 
-    values.push(id);
-    const stmt = this.db.prepare(`UPDATE sops SET ${fields.join(', ')} WHERE id = ? RETURNING *`);
-    const row = stmt.get(...values) as RawSOP | undefined;
-    if (!row) throw new ShadowingError(`SOP ${id} not found`, 'sop_not_found', { sopId: id });
-    return this.mapSOP(row);
+      values.push(id);
+      const row = this.db.prepare(`UPDATE sops SET ${fields.join(', ')} WHERE id = ? RETURNING *`)
+        .get(...values) as RawSOP | undefined;
+      if (!row) throw new ShadowingError(`SOP ${id} not found`, 'sop_not_found', { sopId: id });
+      const sop = this.mapSOP(row);
+
+      if (audit && current) {
+        this.insertAuditRow({
+          entity_type: 'sop', entity_id: id, action: audit.action,
+          old_value: JSON.stringify({ title: current.title, version: current.version }),
+          new_value: JSON.stringify({ title: sop.title, version: sop.version }),
+          source: audit.source,
+        });
+      }
+      return sop;
+    });
+    return apply();
   }
 
-  updateSOPStatus(id: string, status: SOPStatus): SOP {
+  updateSOPStatus(id: string, status: SOPStatus, audit?: AuditContext): SOP {
     const extra = status === 'reviewed' ? ", reviewed_at = datetime('now')" :
                   status === 'exported' ? ", exported_at = datetime('now')" : '';
-    const stmt = this.db.prepare(
-      `UPDATE sops SET status = ?, updated_at = datetime('now')${extra} WHERE id = ? RETURNING *`
-    );
-    const row = stmt.get(status, id) as RawSOP | undefined;
-    if (!row) throw new ShadowingError(`SOP ${id} not found`, 'sop_not_found', { sopId: id });
-    return this.mapSOP(row);
+    // Atomic: the status UPDATE and the optional audit row commit together (#56).
+    const apply = this.db.transaction(() => {
+      const current = this.getSOP(id);
+      const row = this.db.prepare(
+        `UPDATE sops SET status = ?, updated_at = datetime('now')${extra} WHERE id = ? RETURNING *`
+      ).get(status, id) as RawSOP | undefined;
+      if (!row) throw new ShadowingError(`SOP ${id} not found`, 'sop_not_found', { sopId: id });
+
+      if (audit && current) {
+        this.insertAuditRow({
+          entity_type: 'sop', entity_id: id, action: audit.action,
+          old_value: current.status, new_value: status, source: audit.source,
+        });
+      }
+      return this.mapSOP(row);
+    });
+    return apply();
   }
 
   deleteSOP(id: string): void {
@@ -1048,12 +1109,17 @@ export class ShadowingDB {
 
   // ── Audit Log ──────────────────────────────────────────────────────────
 
-  logAudit(data: {
+  /**
+   * Insert one audit row. Statement-only (no logging) so it can run inside
+   * another method's transaction, keeping the audit entry atomic with the
+   * mutation it records (#56). Use `logAudit` for standalone audit writes.
+   */
+  private insertAuditRow(data: {
     entity_type: string;
     entity_id: string;
     action: string;
-    old_value?: string;
-    new_value?: string;
+    old_value?: string | null;
+    new_value?: string | null;
     source?: string;
   }): void {
     this.db.prepare(`
@@ -1067,6 +1133,17 @@ export class ShadowingDB {
       data.new_value ?? null,
       data.source ?? 'cli',
     );
+  }
+
+  logAudit(data: {
+    entity_type: string;
+    entity_id: string;
+    action: string;
+    old_value?: string;
+    new_value?: string;
+    source?: string;
+  }): void {
+    this.insertAuditRow(data);
     log.info('Audit entry recorded', {
       entity_type: data.entity_type,
       entity_id: data.entity_id,

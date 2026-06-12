@@ -1,3 +1,10 @@
+## [2.0.7](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.6...v2.0.7) (2026-06-12)
+
+
+### Bug Fixes
+
+* **privacy:** redact US SSN and connection-string credentials ([#54](https://github.com/datasynx/agentic-ai-shadowing/issues/54)) ([0393b4c](https://github.com/datasynx/agentic-ai-shadowing/commit/0393b4c368ddcf298b90a280b9bbac678ce1d928))
+
 ## [2.0.6](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.5...v2.0.6) (2026-06-12)
 
 

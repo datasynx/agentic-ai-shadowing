@@ -105,6 +105,23 @@ Publish, `{{Variablen}}`-Parametrisierung. — `src/sop-publisher.ts`,
 `shadowing mcp --http`: stateless, Loopback-Default, Origin-Validierung,
 Token-Pflicht off-loopback. — `src/mcp-server.ts`, `test/mcp-http.test.ts`.
 
+### [#49](https://github.com/datasynx/agentic-ai-shadowing/issues/49) — MCP-HTTP-Transport-Härtung
+Sechs Lücken im handgerollten `/mcp`-Server geschlossen: (1) SDK-eigene
+DNS-Rebinding-Protection (`enableDnsRebindingProtection` + `allowedHosts`,
+Host-Pin auf den gebundenen Loopback-Host:Port, beim `listening`-Event befüllt)
+als zweite Schicht hinter dem manuellen Origin-Check; (2) konstantzeitiger
+Token-Vergleich (`timingSafeEqual` über SHA-256-Digests) statt `!==`;
+(3) Body-Size-Cap (1 MB) mit früher `Content-Length`-Ablehnung → **413**;
+(4) Per-IP-Rate-Limit → **429** mit `Retry-After`; (5) IPv6-Loopback-Origin-Fix
+(`[::1]` vs. unbracketed `::1` aus `URL().hostname`); (6) generischer 404, der
+den `/mcp`-Pfad nicht mehr vor der Auth preisgibt. Die wiederverwendbaren
+Primitive (`isLoopbackHost`, `RateLimiter`, `readLimitedBody`,
+`timingSafeBearerEqual`) leben jetzt zentral in `src/http-security.ts`; der
+UI-Server nutzt dieselbe Implementierung, womit auch dessen identischer
+`!==`-Token-Vergleich konstantzeitig wird. — `src/http-security.ts`,
+`src/mcp-server.ts`, `src/ui-server.ts`, `test/http-security.test.ts`,
+`test/mcp-http.test.ts`.
+
 ### [#30](https://github.com/datasynx/agentic-ai-shadowing/issues/30) — `shadowing_review_sop`
 Elicitation-basiertes In-Session-Approval, strikt capability-gated (nur wenn
 der Client Elicitation unterstützt). — `test/mcp-elicitation.test.ts`.

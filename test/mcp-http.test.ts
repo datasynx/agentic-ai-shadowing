@@ -7,7 +7,7 @@ import { getDefaultConfig } from '../src/config.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { unlinkSync } from 'node:fs';
-import type { Server } from 'node:http';
+import { request as httpRequest, type Server } from 'node:http';
 
 const DB_PATH = join(tmpdir(), `shadowing-mcp-http-${Date.now()}.db`);
 
@@ -15,10 +15,11 @@ let db: ShadowingDB;
 let server: Server;
 let port: number;
 
-async function startServer(authToken?: string): Promise<void> {
+async function startServer(authToken?: string, extra?: { rateLimitPerMinute?: number }): Promise<void> {
   db = new ShadowingDB(DB_PATH);
   db.initialize();
-  server = createMcpHttpServer(db, getDefaultConfig(), authToken ? { authToken } : undefined);
+  const opts = { ...(authToken ? { authToken } : {}), ...(extra ?? {}) };
+  server = createMcpHttpServer(db, getDefaultConfig(), Object.keys(opts).length ? opts : undefined);
   await new Promise<void>((resolve) => {
     server.listen(0, '127.0.0.1', () => {
       const addr = server.address();
@@ -130,5 +131,80 @@ describe('Streamable HTTP transport — security envelope', () => {
       body: '{ nope',
     });
     expect(res.status).toBe(400);
+  });
+
+  it('allows IPv6 loopback Origins ([::1])', async () => {
+    await startServer();
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'Origin': `http://[::1]:${port}`,
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'x', version: '1' } } }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects oversized bodies with 413 (declared Content-Length)', async () => {
+    await startServer();
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'x'.repeat(1024 * 1024 + 1),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it('returns a generic 404 that does not advertise /mcp', async () => {
+    await startServer();
+    const res = await fetch(`http://127.0.0.1:${port}/secret-endpoint`, { method: 'POST' });
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain('/mcp');
+  });
+
+  it('rate-limits per IP with 429 + Retry-After', async () => {
+    await startServer(undefined, { rateLimitPerMinute: 3 });
+    // The rate check runs before the method check, so GETs (→405) still count.
+    const statuses: number[] = [];
+    let retryAfter: string | null = null;
+    for (let i = 0; i < 4; i++) {
+      const res = await fetch(`http://127.0.0.1:${port}/mcp`);
+      statuses.push(res.status);
+      if (res.status === 429) retryAfter = res.headers.get('retry-after');
+    }
+    expect(statuses.slice(0, 3).every(s => s !== 429)).toBe(true);
+    expect(statuses[3]).toBe(429);
+    expect(retryAfter).not.toBeNull();
+  });
+
+  it('pins the Host header via SDK DNS-rebinding protection (403 on mismatch)', async () => {
+    await startServer();
+    // fetch forbids overriding Host; use raw http to send a foreign Host header.
+    const status = await new Promise<number>((resolve, reject) => {
+      const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' });
+      const req = httpRequest(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/mcp',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream',
+            'Host': 'evil.example.com:1234',
+            'Content-Length': Buffer.byteLength(body),
+          },
+        },
+        (res) => {
+          res.resume();
+          resolve(res.statusCode ?? 0);
+        },
+      );
+      req.on('error', reject);
+      req.end(body);
+    });
+    expect(status).toBe(403);
   });
 });

@@ -1,3 +1,10 @@
+## [2.0.8](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.7...v2.0.8) (2026-06-12)
+
+
+### Bug Fixes
+
+* **db:** versioned user_version migrations with upgrade tests ([#55](https://github.com/datasynx/agentic-ai-shadowing/issues/55)) ([0919219](https://github.com/datasynx/agentic-ai-shadowing/commit/0919219c24827fa4f70360b7cc01ef90d7e92f44))
+
 ## [2.0.7](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.6...v2.0.7) (2026-06-12)
 
 

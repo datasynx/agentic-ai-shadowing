@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShadowingDB } from '../src/db.js';
 import { getDefaultConfig } from '../src/config.js';
-import { createUIServer } from '../src/ui-server.js';
+import { createUIServer, isLoopbackHost, bindRefusalReason } from '../src/ui-server.js';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -170,29 +170,26 @@ describe('UI Server — API', () => {
   });
 });
 
-describe('UI Server — dashboard authentication (issue #9)', () => {
-  it('embeds the auth token in the served dashboard HTML', async () => {
+describe('UI Server — dashboard authentication (issue #48)', () => {
+  it('does not expose the auth token in the unauthenticated GET / HTML', async () => {
     const res = await fetch(`${baseUrl}/`);
     const html = await res.text();
-    expect(html).toContain(TEST_AUTH_TOKEN);
+    expect(html).not.toContain(TEST_AUTH_TOKEN);
+    expect(html).not.toContain('window.__SHADOWING_TOKEN__');
   });
 
-  it('wires the embedded token into the API client Authorization header', async () => {
-    const res = await fetch(`${baseUrl}/`);
-    const html = await res.text();
-    // The browser fetch client must attach a Bearer token to requests.
+  it('delivers the token via the URL fragment, not the page body', async () => {
+    const html = await (await fetch(`${baseUrl}/`)).text();
+    // The client reads the token from the URL fragment into sessionStorage.
+    expect(html).toContain('location.hash');
+    expect(html).toContain('sessionStorage');
+    // And still attaches a Bearer token to API requests.
     expect(html).toMatch(/Authorization['"\]]{0,3}\s*[:=]\s*['"`]Bearer/);
   });
 
-  it('the token embedded in the HTML actually authenticates against the API', async () => {
-    // Simulate the browser: load the page, extract the token, call the API with it.
-    const html = await (await fetch(`${baseUrl}/`)).text();
-    const match = html.match(/window\.__SHADOWING_TOKEN__\s*=\s*["'`]([^"'`]+)["'`]/);
-    expect(match).not.toBeNull();
-    const token = match![1];
-
+  it('authenticates against the API with a Bearer token', async () => {
     const apiRes = await fetch(`${baseUrl}/api/stats`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${TEST_AUTH_TOKEN}` },
     });
     expect(apiRes.status).toBe(200);
   });
@@ -200,5 +197,43 @@ describe('UI Server — dashboard authentication (issue #9)', () => {
   it('still rejects API calls that omit the token', async () => {
     const res = await fetch(`${baseUrl}/api/stats`);
     expect(res.status).toBe(401);
+  });
+});
+
+describe('UI Server — bind host guard (issue #48)', () => {
+  it('treats loopback hosts as loopback', () => {
+    for (const h of ['127.0.0.1', 'localhost', '::1', '[::1]']) {
+      expect(isLoopbackHost(h)).toBe(true);
+    }
+    for (const h of ['0.0.0.0', '192.168.1.5', 'example.com', '::']) {
+      expect(isLoopbackHost(h)).toBe(false);
+    }
+  });
+
+  it('permits a loopback bind without a token', () => {
+    expect(bindRefusalReason('127.0.0.1', false)).toBeNull();
+    expect(bindRefusalReason('localhost', false)).toBeNull();
+  });
+
+  it('refuses a non-loopback bind without a token', () => {
+    expect(bindRefusalReason('0.0.0.0', false)).toMatch(/SHADOWING_UI_TOKEN/);
+  });
+
+  it('permits a non-loopback bind when a token is set', () => {
+    expect(bindRefusalReason('0.0.0.0', true)).toBeNull();
+  });
+
+  it('binds the server to the requested host', async () => {
+    const guardServer = createUIServer(db, getDefaultConfig(), { authToken: 'x' });
+    try {
+      const addr = await new Promise<{ address: string }>((resolve) => {
+        guardServer.listen(0, '127.0.0.1', () => {
+          resolve(guardServer.address() as { address: string });
+        });
+      });
+      expect(addr.address).toBe('127.0.0.1');
+    } finally {
+      await new Promise<void>((resolve) => guardServer.close(() => resolve()));
+    }
   });
 });

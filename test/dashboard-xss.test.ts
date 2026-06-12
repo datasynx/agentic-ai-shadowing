@@ -106,7 +106,7 @@ describe('renderMD — escape-first markdown rendering', () => {
 
 describe('dashboard HTML integration', () => {
   it('injects the client helpers into the served HTML', () => {
-    const html = getDashboardHTML(getDefaultConfig(), 'token');
+    const html = getDashboardHTML(getDefaultConfig());
     expect(html).toContain('var esc = ');
     expect(html).toContain('var escJs = ');
     expect(html).toContain('var renderMD = ');
@@ -124,7 +124,7 @@ describe('dashboard HTML integration', () => {
   });
 
   it('tag interpolation into onclick handlers uses escJs', () => {
-    const html = getDashboardHTML(getDefaultConfig(), 'token');
+    const html = getDashboardHTML(getDefaultConfig());
     expect(html).toContain("removeTag(\\'' + escJs(sopId) + '\\',\\'' + escJs(t) + '\\')");
     expect(html).toContain("filterByTag(\\'' + escJs(t.name)");
     expect(html).toContain("toggleTagFilter(\\'' + escJs(t.name)");

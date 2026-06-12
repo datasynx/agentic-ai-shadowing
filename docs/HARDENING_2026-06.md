@@ -133,6 +133,19 @@ UI-Server nutzt dieselbe Implementierung, womit auch dessen identischer
 `src/mcp-server.ts`, `src/ui-server.ts`, `test/http-security.test.ts`,
 `test/mcp-http.test.ts`.
 
+### [#50](https://github.com/datasynx/agentic-ai-shadowing/issues/50) — `shadowing mcp` Clean-Install-Crash
+Auf einer Maschine ohne `~/.datasynx/shadowing` brach `shadowing mcp` sofort mit
+`Cannot open database because the directory does not exist` ab: das Verzeichnis
+wurde nur von `shadowing init` (`ensureConfigDir`) angelegt, der MCP-Start-Pfad
+(`startMCPServer` → `new ShadowingDB(getDbPath())`) öffnete die DB aber ohne
+Guard und ohne `mkdir`. Da jeder Harness-Adapter `npx … mcp` (nicht `init`)
+registriert, traf das jeden Erstnutzer beim ersten Agent-Lauf. Fix im DB-Layer:
+der `ShadowingDB`-Konstruktor legt das Parent-Verzeichnis selbst per
+`mkdirSync(dirname(dbPath), { recursive: true })` an — deckt den `mcp`-Pfad und
+jeden künftigen DB-Öffner ab, ohne die `existsSync`-Guards von `openDB`/`hook`
+(die vor dem Konstruktor abbrechen) zu verändern. — `src/db.ts`,
+`test/db-dir-autocreate.test.ts`.
+
 ### [#30](https://github.com/datasynx/agentic-ai-shadowing/issues/30) — `shadowing_review_sop`
 Elicitation-basiertes In-Session-Approval, strikt capability-gated (nur wenn
 der Client Elicitation unterstützt). — `test/mcp-elicitation.test.ts`.

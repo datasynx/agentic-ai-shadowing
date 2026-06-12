@@ -1,4 +1,6 @@
 import Database from 'better-sqlite3';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import type {
   Task, TaskStatus, SOP, SOPStatus, Tag, TaskExecution,
   ExportRecord, GlobalStats, SOPVersion,
@@ -182,6 +184,11 @@ export class ShadowingDB {
   private captureRedactor: ((text: string) => string) | null = null;
 
   constructor(dbPath: string) {
+    // better-sqlite3 will not create missing parent dirs — ensure the
+    // config/data dir exists so first-run paths (notably `shadowing mcp`,
+    // which has no prior `init`) don't crash with "directory does not exist".
+    // Idempotent; harmless for ':memory:' (dirname === '.').
+    mkdirSync(dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');

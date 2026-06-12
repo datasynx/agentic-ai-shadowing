@@ -709,7 +709,7 @@ Config: `~/.datasynx/shadowing/config.json`
     "custom_replacements": {}
   },
   "sop_generation": {
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "max_tokens": 4096,
     "temperature": 0.3,
     "include_cartography_context": true,
@@ -734,7 +734,7 @@ no-egress deployment:
   "sop_generation": {
     "base_url": "https://llm-gateway.internal.example/v1",
     "api_key_env": "INTERNAL_GATEWAY_KEY",
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "use_structured_output": true
   }
 }

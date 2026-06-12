@@ -252,7 +252,7 @@ Path: `~/.datasynx/shadowing/config.json`
     "custom_replacements": {}
   },
   "sop_generation": {
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "max_tokens": 4096,
     "temperature": 0.3,
     "include_cartography_context": true,

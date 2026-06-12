@@ -21,7 +21,7 @@ const AnonymizationSchema = z.object({
 }).prefault({});
 
 const SOPGenerationSchema = z.object({
-  model: z.string().min(1).default('claude-sonnet-4-20250514'),
+  model: z.string().min(1).default('claude-sonnet-4-6'),
   max_tokens: z.number().int().positive().max(16384).default(4096),
   temperature: z.number().min(0).max(1).default(0.3),
   include_cartography_context: z.boolean().default(true),
@@ -57,6 +57,24 @@ export const ConfigSchema = z.object({
 });
 
 export type ValidatedConfig = z.infer<typeof ConfigSchema>;
+
+// Models we shipped as a default in older versions that are now deprecated by
+// Anthropic. If a user pinned one in their config.json, warn them (with the
+// drop-in replacement) so SOP generation doesn't silently start 404-ing once
+// the model is retired. Keyed old id → recommended replacement.
+const DEPRECATED_MODELS: Record<string, string> = {
+  'claude-sonnet-4-20250514': 'claude-sonnet-4-6',
+  'claude-opus-4-20250514': 'claude-opus-4-8',
+};
+
+function warnIfDeprecatedModel(config: ShadowingConfig): void {
+  const replacement = DEPRECATED_MODELS[config.sop_generation.model];
+  if (replacement) {
+    log.warn(
+      `configured SOP model "${config.sop_generation.model}" is deprecated and will stop working once retired — set sop_generation.model to "${replacement}" in ${getConfigPath()}`,
+    );
+  }
+}
 
 export function getConfigDir(): string {
   const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? tmpdir();
@@ -94,7 +112,7 @@ export function getDefaultConfig(): ShadowingConfig {
       redact_on_capture: true,
     },
     sop_generation: {
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       temperature: 0.3,
       include_cartography_context: true,
@@ -138,14 +156,16 @@ export function loadConfig(): ShadowingConfig {
     const data = JSON.parse(raw) as unknown;
     const result = ConfigSchema.safeParse(data);
     if (result.success) {
-      return result.data as ShadowingConfig;
+      const config = result.data as ShadowingConfig;
+      warnIfDeprecatedModel(config);
+      return config;
     }
     // Validation failed — log warning and fall back to merge with defaults
     log.warn(
       `config validation failed: ${result.error.issues.map(i => i.message).join(', ')} — using defaults for invalid fields`,
     );
     const loaded = data as Partial<ShadowingConfig>;
-    return {
+    const merged: ShadowingConfig = {
       ...defaults,
       ...loaded,
       anonymization: { ...defaults.anonymization, ...loaded.anonymization },
@@ -157,6 +177,8 @@ export function loadConfig(): ShadowingConfig {
         },
       },
     };
+    warnIfDeprecatedModel(merged);
+    return merged;
   } catch {
     return defaults;
   }

@@ -892,7 +892,7 @@ describe('E2E: Config validation', () => {
     expect(config.version).toBe('1.0.0');
     expect(config.language).toBe('en');
     expect(config.ui_port).toBe(3847);
-    expect(config.sop_generation.model).toBe('claude-sonnet-4-20250514');
+    expect(config.sop_generation.model).toBe('claude-sonnet-4-6');
     expect(config.sop_generation.temperature).toBe(0.3);
     expect(config.anonymization.redact_emails).toBe(true);
     expect(config.metrics.quality_score_weights.consistency).toBe(0.35);

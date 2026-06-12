@@ -1,3 +1,10 @@
+## [2.0.6](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.5...v2.0.6) (2026-06-12)
+
+
+### Bug Fixes
+
+* **privacy:** redact SOP title/description/content on capture and add scrubSOPs ([#53](https://github.com/datasynx/agentic-ai-shadowing/issues/53)) ([9510ca2](https://github.com/datasynx/agentic-ai-shadowing/commit/9510ca2c58a1f46f334bd5a24ab6b4d41ecb5029))
+
 ## [2.0.5](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.4...v2.0.5) (2026-06-12)
 
 

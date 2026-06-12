@@ -11,10 +11,12 @@ export interface RedactionSummary {
   custom_count: number;
   secret_count: number;
   high_entropy_count: number;
+  ssn_count: number;
+  credential_count: number;
 }
 
 function emptyRedactionSummary(): RedactionSummary {
-  return { email_count: 0, ip_count: 0, url_count: 0, phone_count: 0, filepath_count: 0, iban_count: 0, credit_card_count: 0, custom_count: 0, secret_count: 0, high_entropy_count: 0 };
+  return { email_count: 0, ip_count: 0, url_count: 0, phone_count: 0, filepath_count: 0, iban_count: 0, credit_card_count: 0, custom_count: 0, secret_count: 0, high_entropy_count: 0, ssn_count: 0, credential_count: 0 };
 }
 
 export class Anonymizer {
@@ -27,6 +29,11 @@ export class Anonymizer {
 
     // Custom replacements first (most specific)
     result = this.applyCustomReplacements(result, summary);
+
+    // Connection-string / basic-auth credentials BEFORE the email/URL matchers,
+    // which would otherwise mangle `scheme://user:pass@host` (the email pattern
+    // matches the `…@host` fragment and leaves the credentials behind).
+    result = this.redactConnectionCredentials(result, summary);
 
     // Developer secrets are always redacted (never configurable off):
     // known token formats first, then the entropy fallback for unknown formats.
@@ -43,7 +50,8 @@ export class Anonymizer {
     // Specific number patterns BEFORE generic phone pattern (more specific first)
     result = this.redactIBANs(result, summary);
     result = this.redactCreditCards(result, summary);
-    result = this.redactGermanIDs(result);
+    result = this.redactSSN(result, summary);
+    result = this.redactGermanIDs(result, summary);
 
     // Phone last — broadest numeric pattern
     if (this.config.redact_phone_numbers) result = this.redactPhoneNumbers(result, summary);
@@ -67,6 +75,24 @@ export class Anonymizer {
         summary.custom_count += count;
       }
     }
+    return result;
+  }
+
+  /**
+   * Redact connection-string / basic-auth credentials. Always active. Matches
+   * `scheme://[user]:pass@host…` (credentials present) and replaces the WHOLE
+   * URL with a single token, so no residual `…@host` re-triggers the email
+   * matcher (idempotency) and the internal host/port are not leaked either.
+   * The password may itself contain `@`; the greedy match extends to the last
+   * `@` before the host.
+   */
+  private redactConnectionCredentials(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
+      /\b[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s/@]*:[^\s]*@[^\s]+/g,
+      () => { count++; return '[connection-string]'; },
+    );
+    summary.credential_count += count;
     return result;
   }
 
@@ -260,14 +286,36 @@ export class Anonymizer {
     return sum % 10 === 0;
   }
 
-  private redactGermanIDs(text: string): string {
+  /**
+   * US Social Security Numbers: `AAA-GG-SSSS` / `AAA GG SSSS` (consistent
+   * separator). Always active. Guards exclude structurally invalid blocks —
+   * area 000/666/900-999, group 00, serial 0000 — to limit false positives.
+   * Runs before the broad phone matcher so the SSN isn't swallowed as a phone.
+   */
+  private redactSSN(text: string, summary: RedactionSummary): string {
+    let count = 0;
+    const result = text.replace(
+      /\b(\d{3})([- ])(\d{2})\2(\d{4})\b/g,
+      (m, a: string, _sep: string, g: string, ser: string) => {
+        const area = Number(a), group = Number(g), serial = Number(ser);
+        if (area === 0 || area === 666 || area >= 900) return m;
+        if (group === 0 || serial === 0) return m;
+        count++;
+        return '[ssn]';
+      },
+    );
+    summary.ssn_count += count;
+    return result;
+  }
+
+  private redactGermanIDs(text: string, summary: RedactionSummary): string {
     let result = text.replace(
       /\bSteuer-?ID[:\s]+\d{11}\b/gi,
       'Steuer-ID: [tax-id]',
     );
     result = result.replace(
       /\bSV-?(?:Nr|Nummer)[.:\s]+\d{2}\s?\d{6}\s?[A-Z]\s?\d{3}\b/gi,
-      'SV-Nr.: [social-security-number]',
+      () => { summary.ssn_count++; return 'SV-Nr.: [ssn]'; },
     );
     return result;
   }

@@ -24,6 +24,20 @@ describe('Anonymizer — RedactionSummary', () => {
     expect(summary.iban_count).toBe(0);
     expect(summary.credit_card_count).toBe(0);
     expect(summary.custom_count).toBe(0);
+    expect(summary.ssn_count).toBe(0);
+    expect(summary.credential_count).toBe(0);
+  });
+
+  it('counts SSN redactions (US and German)', () => {
+    const anon = new Anonymizer(fullConfig);
+    const { summary } = anon.anonymizeWithSummary('US 123-45-6789 and SV-Nr.: 12 345678 A 123');
+    expect(summary.ssn_count).toBe(2);
+  });
+
+  it('counts connection-string credential redactions', () => {
+    const anon = new Anonymizer(fullConfig);
+    const { summary } = anon.anonymizeWithSummary('postgres://a:b@h1/db mysql://u:p@h2/db');
+    expect(summary.credential_count).toBe(2);
   });
 
   it('counts email redactions', () => {

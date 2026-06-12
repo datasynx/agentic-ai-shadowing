@@ -145,7 +145,29 @@ describe('Anonymizer', () => {
   it('redacts SV-Nummer', () => {
     const anon = new Anonymizer(defaultConfig);
     const result = anon.anonymize('SV-Nr.: 12 345678 A 123');
-    expect(result).toBe('SV-Nr.: [social-security-number]');
+    expect(result).toBe('SV-Nr.: [ssn]');
+  });
+
+  it('redacts US SSN (dashed, spaced and labeled)', () => {
+    const anon = new Anonymizer(defaultConfig);
+    expect(anon.anonymize('SSN 123-45-6789')).toBe('SSN [ssn]');
+    expect(anon.anonymize('123 45 6789')).toBe('[ssn]');
+  });
+
+  it('does not redact structurally invalid SSNs', () => {
+    const anon = new Anonymizer(defaultConfig);
+    for (const bad of ['000-12-3456', '666-12-3456', '900-12-3456', '123-00-4567', '123-45-0000']) {
+      expect(anon.anonymize(bad)).toBe(bad);
+    }
+  });
+
+  it('redacts connection-string credentials as a whole token', () => {
+    const anon = new Anonymizer(defaultConfig);
+    const result = anon.anonymize('DB: postgres://admin:S3cretP@ss@db.internal:5432/prod');
+    expect(result).toBe('DB: [connection-string]');
+    expect(result).not.toContain('admin');
+    expect(result).not.toContain('S3cretP');
+    expect(result).not.toContain('[email@example.com]'); // email matcher must not pre-empt
   });
 
   it('redacts Steuer-ID with hyphen variant', () => {

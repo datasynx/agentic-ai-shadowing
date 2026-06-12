@@ -185,7 +185,38 @@ describe('Anonymizer Edge Cases', () => {
     });
 
     it('should redact Sozialversicherungsnummer', () => {
-      expect(anon.anonymize('SV-Nr.: 12 345678 A 123')).toContain('[social-security-number]');
+      expect(anon.anonymize('SV-Nr.: 12 345678 A 123')).toContain('[ssn]');
+    });
+  });
+
+  describe('US SSN Redaction (always active)', () => {
+    const anon = new Anonymizer(fullConfig);
+
+    it('redacts dashed SSN', () => {
+      expect(anon.anonymize('SSN: 123-45-6789')).toContain('[ssn]');
+    });
+
+    it('redacts spaced SSN', () => {
+      expect(anon.anonymize('123 45 6789')).toBe('[ssn]');
+    });
+
+    it('ignores mixed separators and invalid blocks', () => {
+      expect(anon.anonymize('123-45 6789')).toBe('123-45 6789');
+      expect(anon.anonymize('900-45-6789')).toBe('900-45-6789');
+    });
+  });
+
+  describe('Connection-string credentials (always active)', () => {
+    const anon = new Anonymizer(fullConfig);
+
+    it('redacts the whole credential URL across schemes', () => {
+      expect(anon.anonymize('postgres://admin:S3cretP@ss@db.internal:5432/prod')).toBe('[connection-string]');
+      expect(anon.anonymize('https://user:pw@api.corp/v1')).toBe('[connection-string]');
+      expect(anon.anonymize('redis://:pw@cache:6379')).toBe('[connection-string]');
+    });
+
+    it('leaves credential-free URLs to the URL matcher', () => {
+      expect(anon.anonymize('postgres://db.internal:5432/prod')).not.toContain('[connection-string]');
     });
   });
 

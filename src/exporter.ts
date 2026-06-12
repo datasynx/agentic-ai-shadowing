@@ -41,7 +41,7 @@ export class Exporter {
     const totalRedaction: RedactionSummary = {
       email_count: 0, ip_count: 0, url_count: 0, phone_count: 0,
       filepath_count: 0, iban_count: 0, credit_card_count: 0, custom_count: 0,
-      secret_count: 0, high_entropy_count: 0,
+      secret_count: 0, high_entropy_count: 0, ssn_count: 0, credential_count: 0,
     };
 
     for (let i = 0; i < sopIds.length; i++) {

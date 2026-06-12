@@ -52,6 +52,17 @@ describe('Anonymizer — secret detection (always-on)', () => {
     const result = strict.anonymize('token ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8');
     expect(result).not.toContain('ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8');
   });
+
+  it('redacts SSN and connection-string credentials even with all toggles off', () => {
+    const strict = new Anonymizer(makeConfig({
+      redact_emails: false, redact_ips: false, redact_urls: false,
+      redact_phone_numbers: false, redact_file_paths: false,
+    }));
+    expect(strict.anonymize('SSN 123-45-6789')).toBe('SSN [ssn]');
+    const conn = strict.anonymize('postgres://admin:S3cretP@ss@db.internal/prod');
+    expect(conn).toBe('[connection-string]');
+    expect(conn).not.toContain('S3cretP');
+  });
 });
 
 describe('Anonymizer — high-entropy fallback', () => {
@@ -96,6 +107,7 @@ describe('Anonymizer — idempotency (redact-on-capture + export double-run)', (
     'server 10.0.0.5 and https://internal.corp/wiki/page',
     'export ANTHROPIC_API_KEY=sk-ant-api03-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789',
     'token ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8 in /home/jane/projects/x',
+    'DB postgres://admin:S3cretP@ss@db.internal:5432/prod and SSN 123-45-6789',
     '# SOP Title\n\n## Steps\n- step one\n- step two\n\n```bash\ncurl -H "Authorization: Bearer abc123DEF456ghi789JKL012"\n```',
   ];
 

@@ -1,3 +1,10 @@
+## [2.0.5](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.4...v2.0.5) (2026-06-12)
+
+
+### Bug Fixes
+
+* **db:** wrap multi-statement writes in transactions ([#56](https://github.com/datasynx/agentic-ai-shadowing/issues/56)) ([efbad37](https://github.com/datasynx/agentic-ai-shadowing/commit/efbad370540e2ecb9dcfb9ae51d83a76aab7c03a))
+
 ## [2.0.4](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.3...v2.0.4) (2026-06-12)
 
 

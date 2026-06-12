@@ -82,7 +82,7 @@ describe('Audit Log', () => {
 describe('API Usage', () => {
   it('logs API usage', () => {
     db.logApiUsage({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       input_tokens: 1000,
       output_tokens: 500,
       duration_ms: 2500,
@@ -100,7 +100,7 @@ describe('API Usage', () => {
 
     db.logApiUsage({
       sop_id: sop.id,
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       input_tokens: 200,
       output_tokens: 100,
     });

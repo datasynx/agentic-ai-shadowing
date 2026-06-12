@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -115,7 +115,7 @@ describe('config file operations', () => {
       editor: 'vim',
       cartography_graph_path: null,
       anonymization: { redact_emails: true, redact_ips: true, redact_urls: true, redact_phone_numbers: true, redact_file_paths: true, custom_replacements: {} },
-      sop_generation: { model: 'claude-sonnet-4-20250514', max_tokens: 4096, temperature: 0.3, include_cartography_context: true, auto_generate_tags: true, sop_language: 'en' },
+      sop_generation: { model: 'claude-sonnet-4-6', max_tokens: 4096, temperature: 0.3, include_cartography_context: true, auto_generate_tags: true, sop_language: 'en' },
       metrics: { quality_score_weights: { consistency: 0.35, maturity: 0.35, freshness: 0.30 } },
     }), 'utf8');
 
@@ -123,6 +123,27 @@ describe('config file operations', () => {
     // Merge fallback should keep valid fields
     expect(config.language).toBe('de');
     expect(config.editor).toBe('vim');
+  });
+
+  it('loadConfig warns when the configured model is deprecated', () => {
+    const config = getDefaultConfig();
+    config.sop_generation.model = 'claude-sonnet-4-20250514'; // deprecated, retires 2026-06-15
+    saveConfig(config);
+
+    const warnings: string[] = [];
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(
+      ((line: string | Uint8Array): boolean => { warnings.push(String(line)); return true; }) as typeof process.stderr.write,
+    );
+    try {
+      const loaded = loadConfig();
+      expect(loaded.sop_generation.model).toBe('claude-sonnet-4-20250514');
+    } finally {
+      spy.mockRestore();
+    }
+
+    const joined = warnings.join('\n');
+    expect(joined).toContain('deprecated');
+    expect(joined).toContain('claude-sonnet-4-6'); // the recommended replacement
   });
 });
 

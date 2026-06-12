@@ -260,7 +260,8 @@ Stored at `~/.datasynx/shadowing/config.json`:
 | Test File | Coverage |
 |-----------|----------|
 | `db.test.ts` | CRUD for all 11 tables, constraints, cascading deletes |
-| `db-edge-cases.test.ts` | Edge cases: concurrent access, empty states, migrations |
+| `db-migrations.test.ts` | Versioned `user_version` upgrades from a legacy schema: data preservation, idempotency, error surfacing, atomic rollback |
+| `db-edge-cases.test.ts` | Edge cases: concurrent access, empty states |
 | `task-manager.test.ts` | Task lifecycle, pause/resume, duration formatting |
 | `task-manager-edge-cases.test.ts` | Error conditions, note appending, special characters |
 | `sop-generator.test.ts` | Prompt construction, response parsing, tag extraction |

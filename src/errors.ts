@@ -16,6 +16,7 @@ export type ShadowingErrorCode =
   | 'invalid_status_transition'
   // DB errors
   | 'db_constraint_error'
+  | 'migration_failed'
   | 'session_not_found'
   // Auth errors
   | 'unauthorized'

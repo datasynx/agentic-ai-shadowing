@@ -177,6 +177,74 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_single_active_observation
   ON observation_sessions(status) WHERE status = 'active';
 `;
 
+// ── Migrations ────────────────────────────────────────────────────────────────
+// The static SCHEMA above is the full, current schema applied to fresh DBs via
+// CREATE TABLE/INDEX IF NOT EXISTS. MIGRATIONS bridge OLDER on-disk databases to
+// the current shape, gated by PRAGMA user_version so each step runs at most once.
+// Append a new { version, up } entry (and the version increases accordingly) for
+// every schema change; never edit a shipped migration.
+
+interface Migration {
+  version: number;
+  up(db: Database.Database): void;
+}
+
+const MIGRATIONS: Migration[] = [
+  {
+    // v1 — consolidates the historical pause-tracking columns. audit_log and
+    // api_usage are created by exec(SCHEMA)'s IF NOT EXISTS, so they need no step.
+    // The column guard is a precondition check (legacy DBs may already have them),
+    // NOT an error swallow: a failing ALTER (disk full, lock) propagates.
+    version: 1,
+    up(db) {
+      const cols = db.pragma('table_info(tasks)') as Array<{ name: string }>;
+      const have = new Set(cols.map(c => c.name));
+      if (!have.has('paused_at')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN paused_at TEXT`);
+      }
+      if (!have.has('paused_total_seconds')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN paused_total_seconds INTEGER NOT NULL DEFAULT 0`);
+      }
+    },
+  },
+];
+
+/**
+ * Apply pending migrations to bring `db` up to the highest version in
+ * `migrations`. Gated by PRAGMA user_version; each migration runs in its own
+ * transaction that also stamps the new version, so a partial upgrade rolls back
+ * atomically (user_version is transactional in SQLite). A failing migration
+ * surfaces as ShadowingError('migration_failed') — never swallowed. Exported and
+ * parameterised on `migrations` so the runner itself is testable in isolation.
+ */
+export function applyMigrations(
+  db: Database.Database,
+  migrations: Migration[] = MIGRATIONS,
+): void {
+  const current = db.pragma('user_version', { simple: true }) as number;
+  const target = migrations.reduce((m, x) => Math.max(m, x.version), 0);
+  if (current >= target) return;
+
+  for (const m of migrations) {
+    if (m.version <= current) continue;
+    try {
+      const run = db.transaction(() => {
+        m.up(db);
+        db.pragma(`user_version = ${m.version}`);
+      });
+      run();
+    } catch (cause) {
+      throw new ShadowingError(
+        `Schema migration to version ${m.version} failed`,
+        'migration_failed',
+        { from: current, to: m.version },
+        { cause },
+      );
+    }
+    log.info('applied schema migration', { version: m.version });
+  }
+}
+
 // ── ShadowingDB ──────────────────────────────────────────────────────────────
 
 /**
@@ -228,47 +296,9 @@ export class ShadowingDB {
     this.migrate();
   }
 
-  /** Apply incremental migrations for existing databases. */
+  /** Bring an existing database up to the latest schema version (see applyMigrations). */
   private migrate(): void {
-    // Migration 1: Add pause tracking columns to tasks
-    const cols = this.db.pragma('table_info(tasks)') as Array<{ name: string }>;
-    const colNames = new Set(cols.map(c => c.name));
-
-    if (!colNames.has('paused_at')) {
-      try { this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_at TEXT`); } catch { /* column may already exist */ }
-    }
-    if (!colNames.has('paused_total_seconds')) {
-      try { this.db.exec(`ALTER TABLE tasks ADD COLUMN paused_total_seconds INTEGER NOT NULL DEFAULT 0`); } catch { /* column may already exist */ }
-    }
-
-    // Migration 2: Add audit_log table
-    try {
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS audit_log (
-          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
-          entity_type TEXT NOT NULL, entity_id TEXT NOT NULL,
-          action TEXT NOT NULL, old_value TEXT, new_value TEXT,
-          source TEXT NOT NULL DEFAULT 'cli',
-          created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-        CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
-      `);
-    } catch { /* already exists */ }
-
-    // Migration 3: Add api_usage table
-    try {
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS api_usage (
-          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
-          sop_id TEXT, model TEXT NOT NULL,
-          input_tokens INTEGER NOT NULL DEFAULT 0,
-          output_tokens INTEGER NOT NULL DEFAULT 0,
-          duration_ms INTEGER,
-          created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-        CREATE INDEX IF NOT EXISTS idx_api_usage_sop ON api_usage(sop_id);
-      `);
-    } catch { /* already exists */ }
+    applyMigrations(this.db);
   }
 
   close(): void {

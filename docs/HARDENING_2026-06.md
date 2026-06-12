@@ -242,3 +242,19 @@ optionales File-Watching (chokidar) — consent-gated, **off by default**. —
 - **`@types/node` bewusst auf ^22 gepinnt** (= älteste unterstützte
   Runtime) + Dependabot-Ignore für Majors: neuere Typen würden tsc APIs
   durchwinken, die auf der Mindest-Node nicht existieren.
+
+### [#55](https://github.com/datasynx/agentic-ai-shadowing/issues/55) — Versionierte Schema-Migrationen
+
+Das ad-hoc `migrate()` (Spalten-Sniffing + `try/catch {}`, das jeden Fehler
+verschluckte) wurde durch einen `PRAGMA user_version`-gesteuerten Runner ersetzt
+(`applyMigrations` in `src/db.ts`): eine geordnete `MIGRATIONS`-Liste
+(`{ version, up }`), jede Migration läuft in einer Transaktion, die in
+**demselben** Schritt `user_version` stempelt — ein partielles Upgrade rollt
+atomar zurück (`user_version` ist in SQLite transaktional, empirisch verifiziert).
+Fehler werden als `ShadowingError('migration_failed')` mit `{ from, to }` und
+`cause` propagiert statt geschluckt. `exec(SCHEMA)` bleibt die idempotente
+Basis für Neuinstallationen; `v1` konsolidiert die historischen Pause-Spalten
+(`audit_log`/`api_usage` deckt `CREATE TABLE IF NOT EXISTS` ab). Neuer Test
+`test/db-migrations.test.ts` baut eine Alt-Schema-DB programmatisch und prüft
+sauberes Upgrade, Daten­erhalt, Idempotenz, Versions-Stempel sowie
+Fehler-Surfacing + atomaren Rollback.

@@ -201,6 +201,14 @@ exports/export_YYYY-MM-DDTHH-mm-ss/
 
 REST API on a configurable port (default: 3847).
 
+The dashboard binds to loopback (`127.0.0.1`) by default. Binding a non-loopback
+host (`--host` / `ui_host`) requires `SHADOWING_UI_TOKEN` to be set, mirroring the
+MCP server; otherwise the server refuses to start. The auth token is **not**
+embedded in the unauthenticated `GET /` page — it is delivered to the browser via
+the launch URL fragment (`http://localhost:3847/#token=…`), which the dashboard
+moves into `sessionStorage` and then scrubs from the URL. All `/api/*` routes
+require `Authorization: Bearer <token>`.
+
 ### 8.1 API Endpoints
 | Method | Path | Description |
 |--------|------|-------------|
@@ -242,6 +250,7 @@ Path: `~/.datasynx/shadowing/config.json`
   "polling_interval_minutes": 15,
   "editor": "code",
   "ui_port": 3847,
+  "ui_host": "127.0.0.1",
   "cartography_graph_path": null,
   "anonymization": {
     "redact_emails": true,

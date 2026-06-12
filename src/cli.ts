@@ -693,19 +693,34 @@ program
   .command('ui')
   .description('Start web dashboard')
   .option('-p, --port <port>', 'Port (default: config.ui_port)')
+  .option('--host <host>', 'Bind host (default: config.ui_host or 127.0.0.1)')
   .action(async (opts) => {
     let db: ShadowingDB;
     try { db = openDB(); } catch { return; }
 
     const config = loadConfig();
     const port = opts.port ? parseInt(opts.port, 10) : config.ui_port;
+    const host = opts.host ?? config.ui_host ?? '127.0.0.1';
 
-    const { createUIServer } = await import('./ui-server.js');
+    const { createUIServer, getServerAuthToken, bindRefusalReason, isLoopbackHost } =
+      await import('./ui-server.js');
+
+    const refusal = bindRefusalReason(host, Boolean(process.env['SHADOWING_UI_TOKEN']));
+    if (refusal) {
+      process.stderr.write(`\n  ${refusal}\n\n`);
+      process.exitCode = 1;
+      db.close();
+      return;
+    }
+
     const server = createUIServer(db, config);
+    const token = getServerAuthToken(server) ?? '';
 
-    server.listen(port, () => {
+    server.listen(port, host, () => {
+      const shown = isLoopbackHost(host) ? 'localhost' : host;
       process.stderr.write(`\n  Shadowing Dashboard started.\n`);
-      process.stderr.write(`  http://localhost:${port}\n\n`);
+      process.stderr.write(`  http://${shown}:${port}/#token=${token}\n\n`);
+      process.stderr.write('  Open the URL above — it carries the dashboard auth token.\n');
       process.stderr.write('  Ctrl+C to quit.\n');
     });
 

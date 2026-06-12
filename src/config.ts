@@ -44,6 +44,7 @@ export const ConfigSchema = z.object({
   polling_interval_minutes: z.number().int().positive().default(15),
   editor: z.string().min(1).default(process.env['EDITOR'] ?? 'code'),
   ui_port: z.number().int().min(1024).max(65535).default(3847),
+  ui_host: z.string().min(1).default('127.0.0.1'),
   ui_auth_token: z.string().optional(),
   ui_rate_limit_per_minute: z.number().int().positive().optional(),
   ui_allowed_origins: z.array(z.string()).optional(),
@@ -100,6 +101,7 @@ export function getDefaultConfig(): ShadowingConfig {
     polling_interval_minutes: 15,
     editor: process.env['EDITOR'] ?? 'code',
     ui_port: 3847,
+    ui_host: '127.0.0.1',
     cartography_graph_path: null,
     anonymization: {
       custom_replacements: {},

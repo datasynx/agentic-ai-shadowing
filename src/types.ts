@@ -123,6 +123,7 @@ export interface ShadowingConfig {
   polling_interval_minutes: number;
   editor: string;
   ui_port: number;
+  ui_host: string;
   ui_auth_token?: string;
   ui_rate_limit_per_minute?: number;
   /** Cross-origin origins allowed to call the UI API. Same-origin is always allowed; default: none. */

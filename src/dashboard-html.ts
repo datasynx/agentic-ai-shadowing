@@ -2,10 +2,7 @@ import type { ShadowingConfig } from './types.js';
 import { getPackageVersion } from './version.js';
 import { getDashboardClientHelpers } from './dashboard-client.js';
 
-export function getDashboardHTML(config: ShadowingConfig, authToken = ''): string {
-  // Token is a hex string from randomBytes; JSON.stringify keeps the inline
-  // script well-formed and prevents breaking out of the assignment.
-  const tokenLiteral = JSON.stringify(authToken);
+export function getDashboardHTML(config: ShadowingConfig): string {
   const version = getPackageVersion();
   return `<!DOCTYPE html>
 <html lang="en">
@@ -375,11 +372,25 @@ tr.selected td { background: var(--accent-bg); }
 /* ═══════════════════════════════════════════════════════════════════════════
    API Client
    ═══════════════════════════════════════════════════════════════════════════ */
-// Same-origin auth token injected by the server so the dashboard can call /api/*.
-window.__SHADOWING_TOKEN__ = ${tokenLiteral};
+// Auth token arrives in the URL fragment (never sent to the server); persist it
+// to sessionStorage for the tab session, then scrub the fragment from the URL so
+// it is not retrievable from an unauthenticated GET / and is not shoulder-surfed.
+(function () {
+  try {
+    const m = location.hash.match(/(?:^#|&)token=([^&]*)/);
+    if (m && m[1]) {
+      sessionStorage.setItem('shadowing_token', decodeURIComponent(m[1]));
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  } catch (e) { /* sessionStorage unavailable */ }
+})();
+function getToken() {
+  try { return sessionStorage.getItem('shadowing_token') || ''; } catch (e) { return ''; }
+}
 function authHeaders(extra) {
   const h = Object.assign({}, extra || {});
-  if (window.__SHADOWING_TOKEN__) h['Authorization'] = 'Bearer ' + window.__SHADOWING_TOKEN__;
+  const t = getToken();
+  if (t) h['Authorization'] = 'Bearer ' + t;
   return h;
 }
 const API = {

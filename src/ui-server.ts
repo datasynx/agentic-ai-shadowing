@@ -13,6 +13,23 @@ import { getLogger } from './logger.js';
 
 const log = getLogger('ui-server');
 
+// ── Bind Host Guard ────────────────────────────────────────────────────────────
+
+/** Loopback hostnames the UI server may bind without an auth token. */
+export function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
+}
+
+/**
+ * Refusal reason if binding `host` without a token is disallowed, else null.
+ * Mirrors the MCP server's non-loopback guard (src/mcp-server.ts).
+ */
+export function bindRefusalReason(host: string, hasToken: boolean): string | null {
+  if (isLoopbackHost(host) || hasToken) return null;
+  return 'refusing to bind a non-loopback host without SHADOWING_UI_TOKEN set — ' +
+    'exposure beyond localhost without authentication is unsupported';
+}
+
 // ── Request Body Schemas ──────────────────────────────────────────────────────
 
 const UpdateSOPSchema = z.object({
@@ -324,7 +341,7 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: 
         json(res, db.getActionSummary(id));
       } else if (path === '/' || path === '/index.html') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(getDashboardHTML(config, authToken));
+        res.end(getDashboardHTML(config));
       } else {
         notFound(res);
       }

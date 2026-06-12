@@ -1,3 +1,10 @@
+## [2.0.4](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.3...v2.0.4) (2026-06-12)
+
+
+### Bug Fixes
+
+* **cli:** auto-create config/data dir when opening the DB ([#50](https://github.com/datasynx/agentic-ai-shadowing/issues/50)) ([526eb0e](https://github.com/datasynx/agentic-ai-shadowing/commit/526eb0ed5fb8e15d238afd5814bee76a8f4e137b))
+
 ## [2.0.3](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.2...v2.0.3) (2026-06-12)
 
 

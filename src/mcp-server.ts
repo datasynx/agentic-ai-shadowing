@@ -13,6 +13,16 @@ import { loadConfig, getDbPath } from './config.js';
 import { getPackageVersion } from './version.js';
 import type { ShadowingConfig, SOPStatus, TaskStatus } from './types.js';
 import { getLogger } from './logger.js';
+import {
+  isLoopbackHost,
+  timingSafeBearerEqual,
+  readLimitedBody,
+  BodyTooLargeError,
+  clientIpOf,
+  RateLimiter,
+  loopbackHostHeaders,
+  MAX_HTTP_BODY_BYTES,
+} from './http-security.js';
 
 const log = getLogger('mcp-server');
 
@@ -854,6 +864,10 @@ export function getRegisteredToolNames(): string[] {
 export interface McpHttpOptions {
   /** Bearer token required on every request (default: SHADOWING_MCP_TOKEN env, unset = no auth). */
   authToken?: string;
+  /** Per-IP request cap per minute (default 240). */
+  rateLimitPerMinute?: number;
+  /** Extra hostnames (besides loopback) allowed in the Host header for SDK rebinding protection. */
+  allowedHosts?: string[];
 }
 
 /**
@@ -865,6 +879,11 @@ export interface McpHttpOptions {
  */
 export function createMcpHttpServer(db: ShadowingDB, config: ShadowingConfig, opts?: McpHttpOptions): Server {
   const authToken = opts?.authToken ?? process.env['SHADOWING_MCP_TOKEN'];
+  const perMinute = opts?.rateLimitPerMinute ?? 240;
+  const rateLimiter = new RateLimiter(perMinute, perMinute);
+  // Host allowlist for the SDK's DNS-rebinding protection. Populated on the
+  // 'listening' event (below) so it works with an OS-assigned port (listen(0)).
+  const sdkAllowedHosts = new Set<string>();
 
   function originAllowed(req: IncomingMessage): boolean {
     const origin = req.headers['origin'];
@@ -872,7 +891,8 @@ export function createMcpHttpServer(db: ShadowingDB, config: ShadowingConfig, op
     try {
       const url = new URL(origin);
       if (req.headers['host'] && url.host === req.headers['host']) return true;
-      return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+      // url.hostname is unbracketed ('::1', not '[::1]') — isLoopbackHost covers both.
+      return isLoopbackHost(url.hostname);
     } catch {
       return false;
     }
@@ -883,23 +903,26 @@ export function createMcpHttpServer(db: ShadowingDB, config: ShadowingConfig, op
     res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message }, id: null }));
   }
 
-  return createHttpServer((req, res) => {
+  const httpServer = createHttpServer((req, res) => {
     void (async () => {
       const path = new URL(req.url ?? '/', 'http://localhost').pathname;
       if (path !== '/mcp') {
-        deny(res, 404, 'Not found — the MCP endpoint is /mcp');
+        deny(res, 404, 'Not found');
         return;
       }
       if (!originAllowed(req)) {
         deny(res, 403, 'Origin not allowed');
         return;
       }
-      if (authToken) {
-        const header = req.headers['authorization'];
-        if (header !== `Bearer ${authToken}`) {
-          deny(res, 401, 'Unauthorized');
-          return;
-        }
+      const rate = rateLimiter.check(clientIpOf(req), false);
+      if (!rate.allowed) {
+        res.setHeader('Retry-After', String(rate.retryAfter));
+        deny(res, 429, 'Rate limit exceeded');
+        return;
+      }
+      if (authToken && !timingSafeBearerEqual(req.headers['authorization'], authToken)) {
+        deny(res, 401, 'Unauthorized');
+        return;
       }
       if (req.method !== 'POST') {
         // Stateless mode: no server-initiated SSE streams, no sessions to delete
@@ -907,19 +930,34 @@ export function createMcpHttpServer(db: ShadowingDB, config: ShadowingConfig, op
         return;
       }
 
+      // Reject oversized bodies before buffering when the length is declared,
+      // and as a hard stream cap otherwise (chunked / mislabelled requests).
+      const declaredLength = Number(req.headers['content-length']);
+      if (Number.isFinite(declaredLength) && declaredLength > MAX_HTTP_BODY_BYTES) {
+        deny(res, 413, 'Request body too large');
+        return;
+      }
       let body: unknown;
       try {
-        const chunks: Buffer[] = [];
-        for await (const chunk of req) chunks.push(chunk as Buffer);
-        body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      } catch {
+        body = JSON.parse((await readLimitedBody(req)).toString('utf8'));
+      } catch (err) {
+        if (err instanceof BodyTooLargeError) {
+          deny(res, 413, 'Request body too large');
+          return;
+        }
         deny(res, 400, 'Invalid JSON body');
         return;
       }
 
-      // Stateless: a fresh server + transport per request avoids id collisions
+      // Stateless: a fresh server + transport per request avoids id collisions.
+      // The SDK's DNS-rebinding protection pins the Host header (second layer
+      // behind the manual Origin check above).
       const server = buildMcpServer(db, config);
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableDnsRebindingProtection: true,
+        allowedHosts: [...sdkAllowedHosts],
+      });
       res.on('close', () => {
         void transport.close();
         void server.close();
@@ -932,6 +970,18 @@ export function createMcpHttpServer(db: ShadowingDB, config: ShadowingConfig, op
       }
     })();
   });
+
+  httpServer.on('listening', () => {
+    const addr = httpServer.address();
+    if (addr && typeof addr === 'object') {
+      for (const h of loopbackHostHeaders(addr.port, opts?.allowedHosts ?? [])) {
+        sdkAllowedHosts.add(h);
+      }
+    }
+  });
+  httpServer.on('close', () => rateLimiter.destroy());
+
+  return httpServer;
 }
 
 // ── Transport startup ────────────────────────────────────────────────────────
@@ -963,7 +1013,11 @@ export async function startMCPServer(opts?: StartMCPServerOptions): Promise<void
       db.close();
       return;
     }
-    const server = createMcpHttpServer(db, config);
+    const server = createMcpHttpServer(
+      db,
+      config,
+      isLoopbackHost(host) ? undefined : { allowedHosts: [host] },
+    );
     server.listen(port, host, () => {
       log.info(`Streamable HTTP server on http://${host}:${port}/mcp (stateless)`);
     });

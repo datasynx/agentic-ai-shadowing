@@ -1,6 +1,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import {
+  isLoopbackHost,
+  RateLimiter,
+  clientIpOf,
+  timingSafeBearerEqual,
+  readLimitedBody,
+} from './http-security.js';
 import type { ShadowingDB } from './db.js';
 import type { ShadowingConfig, SOPStatus, TaskStatus } from './types.js';
 import { ShadowingError } from './errors.js';
@@ -15,10 +22,9 @@ const log = getLogger('ui-server');
 
 // ── Bind Host Guard ────────────────────────────────────────────────────────────
 
-/** Loopback hostnames the UI server may bind without an auth token. */
-export function isLoopbackHost(host: string): boolean {
-  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]';
-}
+// Loopback check shared with the MCP server (src/http-security.ts); re-exported
+// for callers that import it from here (bindRefusalReason, src/cli.ts).
+export { isLoopbackHost } from './http-security.js';
 
 /**
  * Refusal reason if binding `host` without a token is disallowed, else null.
@@ -59,53 +65,6 @@ const ExportSOPsSchema = z.object({
 const VALID_TASK_STATUSES = new Set<string>(['active', 'paused', 'completed', 'cancelled']);
 const VALID_SOP_STATUSES = new Set<string>(['draft', 'reviewed', 'approved', 'exported', 'archived']);
 const MAX_SEARCH_LENGTH = 200;
-
-// ── Rate Limiter ──────────────────────────────────────────────────────────────
-
-interface RateLimitEntry { count: number; resetAt: number }
-
-class RateLimiter {
-  private entries = new Map<string, RateLimitEntry>();
-  private cleanupTimer: ReturnType<typeof setInterval>;
-
-  constructor(
-    private readLimit: number = 100,
-    private writeLimit: number = 20,
-    private windowMs: number = 60_000,
-  ) {
-    this.cleanupTimer = setInterval(() => this.cleanup(), this.windowMs);
-    this.cleanupTimer.unref();
-  }
-
-  check(ip: string, isWrite: boolean): { allowed: boolean; retryAfter?: number } {
-    const key = `${ip}:${isWrite ? 'w' : 'r'}`;
-    const now = Date.now();
-    const limit = isWrite ? this.writeLimit : this.readLimit;
-
-    let entry = this.entries.get(key);
-    if (!entry || now >= entry.resetAt) {
-      entry = { count: 0, resetAt: now + this.windowMs };
-      this.entries.set(key, entry);
-    }
-
-    entry.count++;
-    if (entry.count > limit) {
-      return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
-    }
-    return { allowed: true };
-  }
-
-  private cleanup(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.entries) {
-      if (now >= entry.resetAt) this.entries.delete(key);
-    }
-  }
-
-  destroy(): void {
-    clearInterval(this.cleanupTimer);
-  }
-}
 
 // ── REST API Router ──────────────────────────────────────────────────────────
 
@@ -190,8 +149,7 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: 
 
     // Rate limiting for API routes
     if (isApiRoute) {
-      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-        ?? req.socket.remoteAddress ?? 'unknown';
+      const clientIp = clientIpOf(req);
       const rateResult = rateLimiter.check(clientIp, isWriteMethod);
       if (!rateResult.allowed) {
         log.warn('Rate limit exceeded', { ip: clientIp, request_id: requestId });
@@ -204,8 +162,7 @@ export function createUIServer(db: ShadowingDB, config: ShadowingConfig, opts?: 
 
     // Authentication for API routes
     if (isApiRoute) {
-      const authHeader = req.headers['authorization'];
-      if (!authHeader || authHeader !== `Bearer ${authToken}`) {
+      if (!timingSafeBearerEqual(req.headers['authorization'], authToken)) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized', status: 401 }));
         return;
@@ -416,22 +373,7 @@ function zodError(res: ServerResponse, err: z.ZodError) {
   }));
 }
 
-const MAX_BODY_SIZE = 1024 * 1024; // 1 MB
-
+/** Read the request body as a UTF-8 string, capped at the shared HTTP body limit. */
 function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let size = 0;
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_BODY_SIZE) {
-        req.destroy();
-        reject(new Error('Request body too large'));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
-    req.on('error', reject);
-  });
+  return readLimitedBody(req).then(buf => buf.toString('utf8'));
 }

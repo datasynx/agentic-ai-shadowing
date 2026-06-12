@@ -1,6 +1,6 @@
 {
   "name": "@datasynx/agentic-ai-shadowing",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "mcpName": "io.github.datasynx/agentic-ai-shadowing",
   "description": "Agentic AI Shadowing — observes tasks, generates SOPs, fully local and anonymized",
   "type": "module",

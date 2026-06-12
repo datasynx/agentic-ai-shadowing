@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.1...v2.0.2) (2026-06-12)
+
+
+### Bug Fixes
+
+* **ui:** bind dashboard to loopback and stop leaking auth token via GET / ([#48](https://github.com/datasynx/agentic-ai-shadowing/issues/48)) ([889f231](https://github.com/datasynx/agentic-ai-shadowing/commit/889f2318cb7597aeb01914bcd39e4b4b2f344c1d))
+
 ## [2.0.1](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.0...v2.0.1) (2026-06-12)
 
 

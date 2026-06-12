@@ -6,14 +6,14 @@
     "url": "https://github.com/datasynx/agentic-ai-shadowing",
     "source": "github"
   },
-  "version": "2.0.2",
+  "version": "2.0.3",
   "websiteUrl": "https://datasynx.github.io/agentic-ai-shadowing/",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@datasynx/agentic-ai-shadowing",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

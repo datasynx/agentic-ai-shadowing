@@ -1,3 +1,10 @@
+## [2.0.3](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.2...v2.0.3) (2026-06-12)
+
+
+### Bug Fixes
+
+* **mcp:** harden Streamable HTTP transport ([#49](https://github.com/datasynx/agentic-ai-shadowing/issues/49)) ([#71](https://github.com/datasynx/agentic-ai-shadowing/issues/71)) ([61bbce2](https://github.com/datasynx/agentic-ai-shadowing/commit/61bbce23a4492371b4c66739b040ee442e4a3a06))
+
 ## [2.0.2](https://github.com/datasynx/agentic-ai-shadowing/compare/v2.0.1...v2.0.2) (2026-06-12)
 
 
